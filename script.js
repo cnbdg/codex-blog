@@ -3,6 +3,15 @@ let posts=[...seedPosts];
 let filter="全部",page=1;const perPage=4,$=s=>document.querySelector(s);
 const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
 
+function setBlogWallpaper(url=""){
+ const clean=String(url||"").trim();
+ document.body.classList.toggle("has-wallpaper",Boolean(clean));
+ if(clean)document.documentElement.style.setProperty("--wallpaper",`url("${clean.replace(/["\\\n\r]/g,"")}")`);
+ else document.documentElement.style.removeProperty("--wallpaper");
+}
+window.setBlogWallpaper=setBlogWallpaper;
+setBlogWallpaper(window.BLOG_CONFIG?.backgroundImageUrl);
+
 function closeDialogAnimated(dialog){
  if(!dialog?.open)return;
  if(dialog.classList.contains("dialog-closing"))return;

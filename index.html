@@ -5,7 +5,7 @@
   <meta name="description" content="cnbdg的博客，记录生活的点点滴滴。"><meta name="author" content="cnbdg"><meta property="og:title" content="cnbdg的博客"><meta property="og:description" content="记录生活的点点滴滴"><meta property="og:type" content="website"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>cnbdg的博客</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260731-6">
+  <link rel="stylesheet" href="style.css?v=20260731-7">
 </head>
 <body>
   <header class="topbar">
@@ -13,6 +13,7 @@
       <a class="logo" href="#" data-page="home"><span class="logo-mark">C</span><strong>cnbdg的博客</strong></a>
       <nav id="mainNav">
         <a class="active" href="#home" data-page="home">动态</a>
+        <a href="#forum" data-page="forum">社区</a>
         <a href="#projects" data-page="projects">站点</a>
         <a href="#about" data-page="about">关于</a>
         <a href="#friends" data-page="friends">链接</a>
@@ -35,6 +36,24 @@
           <section class="side-card author-card"><div class="avatar">CN</div><h3>cnbdg</h3><p>欢迎来到我的奇妙世界。随和亲切，偶尔咕咕，认真记录生活里的每一次发现。</p><div class="stats"><span><b id="postStat">0</b>文章</span><span><b id="tagStat">0</b>标签</span><span><b>3</b>站点</span></div></section>
           <section class="side-card"><h3>文章标签</h3><div class="tag-cloud"><span class="tag-empty">发布文章后会显示在这里</span></div></section>
           <section class="side-card status"><span class="status-dot"></span><div><b>博客正常运行</b><small>保持好奇，持续记录</small></div></section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="forum" class="page forum-page">
+      <div class="forum-hero">
+        <div><small>CNBDG COMMUNITY</small><h1>自由讨论区</h1><p>分享近况、提出问题，也可以认真写下一段想法。</p></div>
+        <button id="newThreadBtn" type="button" class="primary-btn">＋ 发布话题</button>
+      </div>
+      <div class="forum-layout">
+        <div>
+          <div class="forum-toolbar"><strong>最新话题</strong><button id="refreshThreadsBtn" type="button">↻ 刷新</button></div>
+          <div id="forumNotice" class="forum-notice" hidden></div>
+          <div id="threadList" class="thread-list"><p class="forum-empty">正在加载社区内容…</p></div>
+        </div>
+        <aside class="forum-aside">
+          <section class="side-card"><h3>社区公约</h3><ol><li>尊重他人，友善交流</li><li>不要发布隐私和敏感信息</li><li>标题清楚，内容有意义</li><li>遇到问题可联系管理员</li></ol></section>
+          <section class="side-card status"><span class="status-dot"></span><div><b>所有注册用户均可发帖</b><small>正文支持 Markdown</small></div></section>
         </aside>
       </div>
     </section>
@@ -86,7 +105,14 @@
       <div class="auth-help"><button id="resetPasswordBtn" type="button" class="text-button">忘记密码？</button><button id="resendEmailBtn" type="button" class="text-button" hidden>重新发送验证邮件</button></div><p class="auth-note">登录即表示你同意友善交流，并接受本站隐私规则。</p>
     </div>
     <div id="authRecovery" hidden><p class="recovery-intro">请设置一个不少于 8 位的新密码。</p><form id="newPasswordForm"><label>新密码<div class="password-input"><input name="password" type="password" required minlength="8" autocomplete="new-password"><button type="button" data-toggle-password>显示</button></div></label><label>确认新密码<input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"></label><p id="recoveryError" class="form-message error" role="alert" hidden></p><button class="primary-btn">更新密码</button></form></div>
-    <div id="authUser" hidden><div class="user-profile"><div id="userAvatar" class="avatar">U</div><div><strong id="userName">用户</strong><small id="userEmail"></small><span id="userRole" class="user-role">已验证账户</span></div></div><div class="account-actions"><button id="logoutBtn" type="button" class="secondary-btn">退出当前设备</button><button id="logoutAllBtn" type="button" class="danger-button">退出所有设备</button></div></div>
+    <div id="authUser" hidden>
+      <div class="user-profile"><div id="userAvatar" class="avatar">U</div><div><strong id="userName">用户</strong><small id="userEmail"></small><span id="userRole" class="user-role">已验证账户</span></div></div>
+      <details class="account-panel" open><summary>个人资料</summary><form id="profileForm"><label>昵称<input name="username" required minlength="2" maxlength="20" autocomplete="nickname"></label><label>头像 URL（可选）<input name="avatar_url" type="url" maxlength="500" placeholder="https://…"></label><p id="profileError" class="form-message error" role="alert" hidden></p><button class="primary-btn">保存个人资料</button></form></details>
+      <details class="account-panel"><summary>修改密码</summary><form id="accountPasswordForm"><label>新密码<div class="password-input"><input name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"><button type="button" data-toggle-password>显示</button></div></label><label>确认新密码<input name="confirmPassword" type="password" required minlength="8" maxlength="72" autocomplete="new-password"></label><p id="accountPasswordError" class="form-message error" role="alert" hidden></p><button class="primary-btn">更新密码</button></form></details>
+      <div class="account-actions"><button id="logoutBtn" type="button" class="secondary-btn">退出当前设备</button><button id="logoutAllBtn" type="button" class="danger-button">退出所有设备</button></div>
+    </div>
   </dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-6"></script><script src="legacy-posts.js?v=20260731-6"></script><script src="config.js?v=20260731-6"></script><script src="auth.js?v=20260731-6"></script><script src="script.js?v=20260731-6"></script><script src="admin.js?v=20260731-6"></script>
+  <dialog id="threadEditorDialog" class="thread-editor-dialog"><div class="dialog-title"><div><small>NEW DISCUSSION</small><h2 id="threadEditorTitle">发布话题</h2></div><button type="button" data-close="threadEditorDialog" aria-label="关闭">×</button></div><form id="threadForm"><input name="id" type="hidden"><label>标题<input name="title" required minlength="2" maxlength="100" placeholder="用一句话说明你想讨论的内容"></label><label>正文<textarea name="content" required minlength="2" maxlength="10000" placeholder="支持 Markdown，可以写下问题、经历或观点…"></textarea></label><div class="thread-preview-box"><small>内容预览</small><article id="threadPreview" class="article-text"></article></div><p id="threadFormError" class="form-message error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="threadEditorDialog">取消</button><button id="saveThreadBtn" class="primary-btn">发布话题</button></div></form></dialog>
+  <dialog id="threadDialog" class="article-dialog thread-dialog"><button class="article-close" data-close="threadDialog">×</button><article id="threadContent"></article><section class="comments"><div class="comment-heading"><div><small>REPLIES</small><h2>回复 <span id="replyCount">0</span></h2></div><p>围绕话题，友善讨论。</p></div><div id="replyLoginTip" class="comment-login-tip">登录后即可回复。<button type="button" data-open-auth>立即登录</button></div><form id="replyForm"><label>回复<textarea name="content" required maxlength="2000" placeholder="写下你的回复…"></textarea></label><div class="form-foot"><small><span id="replyCharCount">0</span> / 2000</small><button>发表回复</button></div></form><div id="replyList"></div></section></dialog>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-7"></script><script src="legacy-posts.js?v=20260731-7"></script><script src="config.js?v=20260731-7"></script><script src="auth.js?v=20260731-7"></script><script src="script.js?v=20260731-7"></script><script src="forum.js?v=20260731-7"></script><script src="admin.js?v=20260731-7"></script>
 </body></html>

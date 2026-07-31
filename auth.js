@@ -124,7 +124,14 @@
       $("#userName").textContent = displayName();
       $("#userEmail").textContent = user.email || "";
       $("#userAvatar").textContent = displayName()[0].toUpperCase();
+      $("#userAvatar").style.backgroundImage = profile?.avatar_url ? `url("${profile.avatar_url.replace(/["\\]/g, "")}")` : "";
+      $("#userAvatar").classList.toggle("has-image", Boolean(profile?.avatar_url));
       $("#userRole").textContent = profile?.is_admin ? "管理员 · 邮箱已验证" : "邮箱已验证";
+      const profileForm = $("#profileForm");
+      if (profileForm && !profileForm.contains(document.activeElement)) {
+        profileForm.elements.username.value = displayName();
+        profileForm.elements.avatar_url.value = profile?.avatar_url || "";
+      }
     }
   }
 
@@ -141,13 +148,13 @@
       return;
     }
     let result = await client.from("profiles")
-      .select("username,is_admin")
+      .select("username,avatar_url,is_admin")
       .eq("id", user.id)
       .maybeSingle();
     if (result.error) {
       await new Promise(resolve => setTimeout(resolve, 350));
       result = await client.from("profiles")
-        .select("username,is_admin")
+        .select("username,avatar_url,is_admin")
         .eq("id", user.id)
         .maybeSingle();
     }
@@ -226,6 +233,8 @@
     });
     $("#authForm").addEventListener("submit", handleAuth);
     $("#newPasswordForm").addEventListener("submit", updatePassword);
+    $("#profileForm").addEventListener("submit", updateProfile);
+    $("#accountPasswordForm").addEventListener("submit", updateAccountPassword);
     $("#resetPasswordBtn").addEventListener("click", resetPassword);
     $("#resendEmailBtn").addEventListener("click", resendVerification);
     $("#logoutBtn").addEventListener("click", () => logout("local"));
@@ -444,6 +453,68 @@
     return !error;
   }
 
+  async function updateProfile(event) {
+    event.preventDefault();
+    if (!client || !user) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const username = String(data.get("username") || "").trim();
+    const avatarUrl = String(data.get("avatar_url") || "").trim();
+    setMessage($("#profileError"));
+    if (!form.checkValidity()) return form.reportValidity();
+    if (username.length < 2 || username.length > 20) {
+      return setMessage($("#profileError"), "昵称需要包含 2–20 个字符");
+    }
+    if (avatarUrl) {
+      try {
+        if (!/^https?:$/.test(new URL(avatarUrl).protocol)) throw new Error();
+      } catch {
+        return setMessage($("#profileError"), "头像地址必须是有效的 HTTP 或 HTTPS 图片链接");
+      }
+    }
+    const button = form.querySelector(".primary-btn");
+    setBusy(button, true, "正在保存…", "保存个人资料");
+    try {
+      const { error } = await client.from("profiles")
+        .update({ username, avatar_url: avatarUrl || null })
+        .eq("id", user.id);
+      if (error) return setMessage($("#profileError"), friendlyError(error));
+      await client.auth.updateUser({ data: { username } });
+      await refreshProfile();
+      setMessage($("#profileError"), "个人资料已保存", "success");
+    } catch (error) {
+      setMessage($("#profileError"), friendlyError(error));
+    } finally {
+      setBusy(button, false, "", "保存个人资料");
+    }
+  }
+
+  async function updateAccountPassword(event) {
+    event.preventDefault();
+    if (!client || !user) return;
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const password = String(data.get("password") || "");
+    const confirmation = String(data.get("confirmPassword") || "");
+    setMessage($("#accountPasswordError"));
+    if (!form.checkValidity()) return form.reportValidity();
+    if (password !== confirmation) {
+      return setMessage($("#accountPasswordError"), "两次输入的密码不一致");
+    }
+    const button = form.querySelector(".primary-btn");
+    setBusy(button, true, "正在更新…", "更新密码");
+    try {
+      const { error } = await withTimeout(client.auth.updateUser({ password }));
+      if (error) return setMessage($("#accountPasswordError"), friendlyError(error));
+      form.reset();
+      setMessage($("#accountPasswordError"), "密码已更新，请使用新密码登录", "success");
+    } catch (error) {
+      setMessage($("#accountPasswordError"), friendlyError(error));
+    } finally {
+      setBusy(button, false, "", "更新密码");
+    }
+  }
+
   function updatePasswordStrength() {
     const meter = $("#passwordStrength");
     if (!meter || mode !== "signup") return;
@@ -538,9 +609,83 @@
     return !error;
   }
 
+  async function listForumThreads() {
+    if (!client) return null;
+    const { data, error } = await client.from("forum_posts")
+      .select("id,title,content,created_at,updated_at,author_id,profiles(username,avatar_url),forum_replies(count)")
+      .order("updated_at", { ascending: false })
+      .limit(100);
+    if (error) return { error: friendlyError(error), rows: [] };
+    return { rows: data || [] };
+  }
+
+  async function saveForumThread(thread, id = null) {
+    if (!client || !user) {
+      openAuth();
+      return null;
+    }
+    const payload = {
+      title: String(thread.title || "").trim(),
+      content: String(thread.content || "").trim(),
+      updated_at: new Date().toISOString()
+    };
+    if (!id) payload.author_id = user.id;
+    const query = id
+      ? client.from("forum_posts").update(payload).eq("id", id)
+      : client.from("forum_posts").insert(payload);
+    const { data, error } = await query.select().single();
+    if (error) {
+      notify("话题保存失败：" + friendlyError(error));
+      return null;
+    }
+    return data;
+  }
+
+  async function deleteForumThread(id) {
+    if (!client || !user) return false;
+    const { error } = await client.from("forum_posts").delete().eq("id", id);
+    if (error) notify("话题删除失败：" + friendlyError(error));
+    return !error;
+  }
+
+  async function listForumReplies(threadId) {
+    if (!client) return [];
+    const { data, error } = await client.from("forum_replies")
+      .select("id,content,created_at,author_id,profiles(username,avatar_url)")
+      .eq("post_id", threadId)
+      .order("created_at", { ascending: true });
+    if (error) {
+      notify("回复加载失败：" + friendlyError(error));
+      return [];
+    }
+    return data || [];
+  }
+
+  async function addForumReply(threadId, content) {
+    if (!client || !user) {
+      openAuth();
+      return false;
+    }
+    const cleanContent = String(content || "").trim();
+    if (cleanContent.length < 1 || cleanContent.length > 2000) return false;
+    const { error } = await client.from("forum_replies")
+      .insert({ post_id: threadId, author_id: user.id, content: cleanContent });
+    if (error) notify("回复发表失败：" + friendlyError(error));
+    return !error;
+  }
+
+  async function deleteForumReply(id) {
+    if (!client || !user) return false;
+    const { error } = await client.from("forum_replies").delete().eq("id", id);
+    if (error) notify("回复删除失败：" + friendlyError(error));
+    return !error;
+  }
+
   window.blogAuth = {
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
+    listForumThreads, saveForumThread, deleteForumThread,
+    listForumReplies, addForumReply, deleteForumReply,
     get user() { return user; },
     get profile() { return profile; },
     get isAdmin() { return Boolean(profile?.is_admin); },
