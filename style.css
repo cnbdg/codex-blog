@@ -182,3 +182,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 @media(max-width:1023px){
   :root{--control:44px}.topbar{height:60px}.page,.forum-page{padding:20px 14px 82px}.post-list,.thread-list{border-radius:var(--radius)}.post-item,.thread-card{padding:17px 15px}.friendship-card{padding:18px}.side-card{border-radius:16px}#toTop{right:16px;bottom:18px}.actions #menuBtn{display:grid;place-items:center}.topbar nav{padding-top:74px}.topbar nav a{font-size:16px}.dialog-actions button{min-height:44px}
 }
+/* Mobile interaction shell */
+#mobileDock{display:none}
+@media(max-width:1023px){
+  body{padding-bottom:76px}.topbar{position:sticky;top:0;z-index:60}.topbar .actions #menuBtn{display:grid}.topbar nav{z-index:80;width:min(82vw,336px);padding:78px 18px max(26px,env(safe-area-inset-bottom));border-right:1px solid var(--line);box-shadow:16px 0 44px #0f141930}.topbar nav a{display:flex;align-items:center;min-height:50px;padding-inline:15px;border-radius:14px}.topbar nav a.active{background:var(--soft);color:var(--blue)}body.nav-open{overflow:hidden}#navBackdrop{position:fixed;z-index:70;inset:0;background:#0f14194d;opacity:0;pointer-events:none;transition:opacity .22s ease}#navBackdrop[data-visible]{opacity:1;pointer-events:auto}
+  #mobileDock{position:fixed;z-index:65;right:10px;bottom:max(9px,env(safe-area-inset-bottom));left:10px;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;height:62px;padding:5px 4px;border:1px solid color-mix(in srgb,var(--line) 92%,transparent);border-radius:20px;background:color-mix(in srgb,var(--surface) 92%,transparent);box-shadow:0 10px 35px #0f141920;backdrop-filter:blur(18px)}
+  #mobileDock button{display:grid;place-items:center;gap:2px;height:50px;border:0;border-radius:15px;background:transparent;color:var(--muted);cursor:pointer}#mobileDock button span{font-size:19px;line-height:1}#mobileDock button small{font-size:9px}#mobileDock button.active{background:var(--soft);color:var(--blue);font-weight:700}#mobileDock button:active{transform:scale(.94)}
+  .page,.forum-page{padding-bottom:96px}.dm-dialog{margin-bottom:0}.article-dialog,.thread-dialog{height:calc(100dvh - 14px);max-height:calc(100dvh - 14px)}.article-body{padding-bottom:38px}.comments{padding-bottom:max(42px,env(safe-area-inset-bottom))}
+}
+@media(max-width:380px){#mobileDock{right:7px;left:7px}#mobileDock button span{font-size:17px}#mobileDock button small{font-size:8px}}
