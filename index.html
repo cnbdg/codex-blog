@@ -2,20 +2,20 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="屿下日志，记录技术、折腾与生活。"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>屿下日志</title>
+  <meta name="description" content="cnbdg的博客，记录生活的点点滴滴。"><meta name="author" content="cnbdg"><meta property="og:title" content="cnbdg的博客"><meta property="og:description" content="记录生活的点点滴滴"><meta property="og:type" content="website"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>cnbdg的博客</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260731-4">
+  <link rel="stylesheet" href="style.css?v=20260731-5">
 </head>
 <body>
   <header class="topbar">
     <div class="nav-wrap">
-      <a class="logo" href="#" data-page="home"><span class="logo-mark">Y</span><strong>屿下日志</strong></a>
+      <a class="logo" href="#" data-page="home"><span class="logo-mark">C</span><strong>cnbdg的博客</strong></a>
       <nav id="mainNav">
         <a class="active" href="#home" data-page="home">动态</a>
-        <a href="#projects" data-page="projects">项目</a>
+        <a href="#projects" data-page="projects">站点</a>
         <a href="#about" data-page="about">关于</a>
-        <a href="#friends" data-page="friends">友链</a>
+        <a href="#friends" data-page="friends">链接</a>
         <a id="adminNav" href="#admin" data-page="admin">管理</a>
       </nav>
       <div class="actions"><button id="searchBtn" aria-label="搜索"><span>⌕</span><em>搜索</em></button><button id="adminQuickBtn" data-page="admin" aria-label="文章管理"><span>✎</span><em>写作</em></button><button id="authBtn" class="auth-btn" aria-label="登录"><span>♙</span><em>登录</em></button><button id="themeBtn" aria-label="切换深色模式">◐</button><button id="menuBtn" aria-label="菜单">☰</button></div>
@@ -24,32 +24,32 @@
 
   <main id="app">
     <section id="home" class="page active">
-      <div class="page-title"><div><p class="hello">Hi, welcome 👋</p><h1>屿下日志</h1><p>记录技术、折腾与生活中的小发现。</p></div><span class="planet">◌</span></div>
+      <div class="page-title"><div><p class="hello">Hi, I'm cnbdg 👋</p><h1>cnbdg的博客</h1><p>记录生活的点点滴滴，也收藏一路上的想法与发现。</p></div><span class="planet">◌</span></div>
       <div class="layout">
         <div>
-          <div class="feed-head"><span>最新动态</span><div id="filters"><button class="active" data-filter="全部">全部</button><button data-filter="技术">技术</button><button data-filter="教程">教程</button><button data-filter="日常">日常</button></div></div>
+          <div class="feed-head"><span>最新文章</span><div id="filters"><button class="active" data-filter="全部">全部</button></div></div>
           <div id="postList" class="post-list"></div>
           <div id="pagination" class="pagination"></div>
         </div>
         <aside>
-          <section class="side-card author-card"><div class="avatar">YU</div><h3>林屿</h3><p>一个喜欢折腾软硬件的独立开发者。保持好奇，持续记录。</p><div class="stats"><span><b>12</b>文章</span><span><b>8</b>标签</span><span><b>4</b>项目</span></div></section>
-          <section class="side-card"><h3>常用标签</h3><div class="tag-cloud"><button data-tag="Linux"># Linux</button><button data-tag="前端"># 前端</button><button data-tag="教程"># 教程</button><button data-tag="开源"># 开源</button><button data-tag="日常"># 日常</button></div></section>
-          <section class="side-card status"><span class="status-dot"></span><div><b>博客运行中</b><small>已稳定运行 426 天</small></div></section>
+          <section class="side-card author-card"><div class="avatar">CN</div><h3>cnbdg</h3><p>欢迎来到我的奇妙世界。随和亲切，偶尔咕咕，认真记录生活里的每一次发现。</p><div class="stats"><span><b id="postStat">0</b>文章</span><span><b id="tagStat">0</b>标签</span><span><b>3</b>站点</span></div></section>
+          <section class="side-card"><h3>文章标签</h3><div class="tag-cloud"><span class="tag-empty">发布文章后会显示在这里</span></div></section>
+          <section class="side-card status"><span class="status-dot"></span><div><b>博客正常运行</b><small>保持好奇，持续记录</small></div></section>
         </aside>
       </div>
     </section>
 
-    <section id="projects" class="page narrow"><div class="inner-title"><small>PROJECTS</small><h1>做过的一些东西</h1><p>有些已经完成，有些还在慢慢生长。</p></div><div class="project-grid">
-      <article><span>01</span><div class="project-icon blue">◫</div><h2>Tabby Start</h2><p>一个轻量、干净且可定制的浏览器起始页。</p><div><i>TypeScript</i><i>Vue</i></div><a href="#">查看项目 ↗</a></article>
-      <article><span>02</span><div class="project-icon orange">⌁</div><h2>Quiet RSS</h2><p>专注阅读体验的本地优先 RSS 客户端。</p><div><i>React</i><i>Electron</i></div><a href="#">查看项目 ↗</a></article>
-      <article><span>03</span><div class="project-icon green">⌘</div><h2>Server Lens</h2><p>为个人服务器准备的极简监控面板。</p><div><i>Go</i><i>Docker</i></div><a href="#">查看项目 ↗</a></article>
+    <section id="projects" class="page narrow"><div class="inner-title"><small>MY SITES</small><h1>我的网络空间</h1><p>博客、导航页和代码仓库，都在这里。</p></div><div class="project-grid">
+      <article><span>01</span><div class="project-icon blue">✎</div><h2>旧博客</h2><p>过去发布的文章与生活记录，保留着一路走来的内容。</p><div><i>Blog</i><i>Archive</i></div><a href="https://xsf.indevs.in/" target="_blank" rel="noopener">访问旧博客 ↗</a></article>
+      <article><span>02</span><div class="project-icon orange">⌂</div><h2>个人导航页</h2><p>常用服务、个人入口与收藏站点的聚合主页。</p><div><i>Home</i><i>Navigation</i></div><a href="https://home.cnbdg0826.dpdns.org/" target="_blank" rel="noopener">打开导航页 ↗</a></article>
+      <article><span>03</span><div class="project-icon green">⌘</div><h2>GitHub</h2><p>查看我的代码仓库，以及这个博客的持续更新。</p><div><i>Code</i><i>Open Source</i></div><a href="https://github.com/cnbdg" target="_blank" rel="noopener">前往 GitHub ↗</a></article>
     </div></section>
 
-    <section id="about" class="page narrow"><div class="inner-title"><small>ABOUT</small><h1>你好，我是林屿</h1></div><div class="about-box"><div class="big-avatar">YU</div><div><h2>关于我</h2><p>目前生活在杭州，从事前端与产品设计工作。这个博客主要记录 Linux、开源软件、个人服务器和偶尔的生活碎片。</p><p>我相信互联网应该是开放、自由且充满个性的。比起短暂的流量，更喜欢慢慢整理真正有用的内容。</p><h3>现在正在做</h3><ul><li>维护几个有趣的开源项目</li><li>学习 Rust 与系统编程</li><li>尝试每个月写两篇文章</li></ul></div></div></section>
+    <section id="about" class="page narrow"><div class="inner-title"><small>ABOUT</small><h1>你好，我是 cnbdg</h1><p>欢迎来到 cnbdg 的奇妙世界！</p></div><div class="about-box"><div class="big-avatar">CN</div><div><h2>关于我</h2><p>这里是我的个人博客，用来记录生活的点点滴滴，也整理学习、游戏和日常中的有趣内容。</p><p>随和亲切、冷静沉着、风趣幽默——希望这片小小的网络空间，可以真实地留下每一段经历。</p><h3>你可以在这里找到</h3><ul><li>日常生活与学习记录</li><li>游戏内容和实用备忘</li><li>偶尔出现的新想法与新尝试</li></ul><p class="about-contact"><a href="mailto:3606604482@qq.com">联系邮箱：3606604482@qq.com</a></p></div></div></section>
 
-    <section id="friends" class="page narrow"><div class="inner-title"><small>FRIENDS</small><h1>邻居们</h1><p>在独立网络世界里遇到的有趣灵魂。</p></div><div class="friend-grid">
-      <a href="#"><b>A</b><span><strong>阿青的博客</strong><small>写代码，也写生活</small></span></a><a href="#"><b>N</b><span><strong>北屿</strong><small>摄影与城市漫游</small></span></a><a href="#"><b>K</b><span><strong>空想家</strong><small>Linux / Homelab</small></span></a><a href="#"><b>M</b><span><strong>木棉</strong><small>设计、书与咖啡</small></span></a>
-    </div><div class="apply-card"><h2>交换友链</h2><p>如果你也在认真维护一个独立博客，欢迎来信。请先添加本站后，将名称、描述和地址发送给我。</p><a href="mailto:hello@example.com">发送邮件 ↗</a></div></section>
+    <section id="friends" class="page narrow"><div class="inner-title"><small>LINKS</small><h1>找到我</h1><p>从这里前往我的其他站点与主页。</p></div><div class="friend-grid">
+      <a href="https://xsf.indevs.in/" target="_blank" rel="noopener"><b>B</b><span><strong>cnbdg的旧博客</strong><small>以前的文章与生活记录</small></span></a><a href="https://home.cnbdg0826.dpdns.org/" target="_blank" rel="noopener"><b>H</b><span><strong>个人导航页</strong><small>我的常用入口与收藏</small></span></a><a href="https://github.com/cnbdg" target="_blank" rel="noopener"><b>G</b><span><strong>GitHub · cnbdg</strong><small>代码仓库与项目更新</small></span></a><a href="mailto:3606604482@qq.com"><b>@</b><span><strong>给我发邮件</strong><small>3606604482@qq.com</small></span></a>
+    </div><div class="apply-card"><h2>欢迎交换友链</h2><p>如果你也在维护自己的博客，欢迎通过邮件告诉我你的站点名称、简介和地址。</p><a href="mailto:3606604482@qq.com">发送邮件 ↗</a></div></section>
     <section id="admin" class="page admin-page"><div class="admin-header"><div><small>WRITING DESK</small><h1>文章管理</h1><p>写作、保存草稿，然后在准备好时发布。</p></div><button id="newPostBtn" class="primary-btn">＋ 新建文章</button></div>
       <div id="adminGate" class="admin-gate"><div class="project-icon blue">⌁</div><h2 id="adminGateTitle">仅管理员可访问</h2><p id="adminGateText">请先使用管理员账号登录。</p><button id="adminGateAction" type="button" class="primary-btn">登录</button></div>
       <div id="adminWorkspace" hidden><div class="admin-layout"><aside class="admin-posts"><div class="admin-list-head"><strong>全部文章</strong><button id="refreshPostsBtn" type="button" aria-label="刷新">↻</button></div><div id="adminPostList"></div></aside>
@@ -71,7 +71,7 @@
     </section>
   </main>
 
-  <footer><div><strong>屿下日志</strong><p>想法在这里自由生长。</p></div><div class="footer-links"><a href="#">Follow</a><a href="#">RSS</a><a href="#">隐私</a><a href="#">状态</a></div><small>© 2026 YU. All rights reserved.</small></footer>
+  <footer><div><strong>cnbdg的博客</strong><p>记录生活的点点滴滴。</p></div><div class="footer-links"><a href="https://home.cnbdg0826.dpdns.org/" target="_blank" rel="noopener">导航页</a><a href="https://xsf.indevs.in/" target="_blank" rel="noopener">旧博客</a><a href="https://github.com/cnbdg" target="_blank" rel="noopener">GitHub</a><a href="mailto:3606604482@qq.com">联系</a></div><small>© 2026 cnbdg. All rights reserved.</small></footer>
   <button id="toTop" aria-label="返回顶部">↑</button>
 
   <dialog id="searchDialog"><div class="dialog-title"><b>搜索</b><button data-close="searchDialog">×</button></div><div class="search-box">⌕<input id="searchInput" placeholder="输入关键词…" autocomplete="off"></div><div id="searchResults"></div><small class="search-hint">输入标题、摘要或标签进行搜索</small></dialog>
@@ -88,5 +88,5 @@
     <div id="authRecovery" hidden><p class="recovery-intro">请设置一个不少于 8 位的新密码。</p><form id="newPasswordForm"><label>新密码<div class="password-input"><input name="password" type="password" required minlength="8" autocomplete="new-password"><button type="button" data-toggle-password>显示</button></div></label><label>确认新密码<input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"></label><p id="recoveryError" class="form-message error" role="alert" hidden></p><button class="primary-btn">更新密码</button></form></div>
     <div id="authUser" hidden><div class="user-profile"><div id="userAvatar" class="avatar">U</div><div><strong id="userName">用户</strong><small id="userEmail"></small><span id="userRole" class="user-role">已验证账户</span></div></div><div class="account-actions"><button id="logoutBtn" type="button" class="secondary-btn">退出当前设备</button><button id="logoutAllBtn" type="button" class="danger-button">退出所有设备</button></div></div>
   </dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-4"></script><script src="config.js?v=20260731-4"></script><script src="auth.js?v=20260731-4"></script><script src="script.js?v=20260731-4"></script><script src="admin.js?v=20260731-4"></script>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-5"></script><script src="config.js?v=20260731-5"></script><script src="auth.js?v=20260731-5"></script><script src="script.js?v=20260731-5"></script><script src="admin.js?v=20260731-5"></script>
 </body></html>
