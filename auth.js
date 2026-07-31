@@ -91,7 +91,6 @@
       signedIn ? displayName()[0].toUpperCase() : "♙";
     $(".comments")?.classList.toggle("login-required", configured && !signedIn);
     if ($("#commentLoginTip")) $("#commentLoginTip").hidden = !configured || signedIn;
-    if ($("#adminNav")) $("#adminNav").hidden = !profile?.is_admin;
     if (signedIn) {
       $("#userName").textContent = displayName();
       $("#userEmail").textContent = user.email || "";
@@ -110,11 +109,19 @@
       window.dispatchEvent(new CustomEvent("blog-auth-change", { detail: { user, profile } }));
       return;
     }
-    const { data } = await client.from("profiles")
+    let result = await client.from("profiles")
       .select("username,is_admin")
       .eq("id", user.id)
       .maybeSingle();
-    profile = data || { username: user.user_metadata?.username, is_admin: false };
+    if (result.error) {
+      await new Promise(resolve => setTimeout(resolve, 350));
+      result = await client.from("profiles")
+        .select("username,is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+    }
+    if (result.error) notify("用户权限读取失败，请稍后点击“重新检查权限”");
+    profile = result.data || { username: user.user_metadata?.username, is_admin: false };
     updateAuthUI();
     window.dispatchEvent(new CustomEvent("blog-auth-change", { detail: { user, profile } }));
   }

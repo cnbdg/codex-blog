@@ -16,7 +16,7 @@
         <a href="#projects" data-page="projects">项目</a>
         <a href="#about" data-page="about">关于</a>
         <a href="#friends" data-page="friends">友链</a>
-        <a id="adminNav" href="#admin" data-page="admin" hidden>管理</a>
+        <a id="adminNav" href="#admin" data-page="admin">管理</a>
       </nav>
       <div class="actions"><button id="searchBtn" aria-label="搜索"><span>⌕</span><em>搜索</em></button><button id="authBtn" class="auth-btn" aria-label="登录"><span>♙</span><em>登录</em></button><button id="themeBtn" aria-label="切换深色模式">◐</button><button id="menuBtn" aria-label="菜单">☰</button></div>
     </div>
@@ -51,7 +51,7 @@
       <a href="#"><b>A</b><span><strong>阿青的博客</strong><small>写代码，也写生活</small></span></a><a href="#"><b>N</b><span><strong>北屿</strong><small>摄影与城市漫游</small></span></a><a href="#"><b>K</b><span><strong>空想家</strong><small>Linux / Homelab</small></span></a><a href="#"><b>M</b><span><strong>木棉</strong><small>设计、书与咖啡</small></span></a>
     </div><div class="apply-card"><h2>交换友链</h2><p>如果你也在认真维护一个独立博客，欢迎来信。请先添加本站后，将名称、描述和地址发送给我。</p><a href="mailto:hello@example.com">发送邮件 ↗</a></div></section>
     <section id="admin" class="page admin-page"><div class="admin-header"><div><small>WRITING DESK</small><h1>文章管理</h1><p>写作、保存草稿，然后在准备好时发布。</p></div><button id="newPostBtn" class="primary-btn">＋ 新建文章</button></div>
-      <div id="adminGate" class="admin-gate"><div class="project-icon blue">⌁</div><h2>仅管理员可访问</h2><p>请先使用管理员账号登录。</p><button type="button" data-open-auth class="primary-btn">登录</button></div>
+      <div id="adminGate" class="admin-gate"><div class="project-icon blue">⌁</div><h2 id="adminGateTitle">仅管理员可访问</h2><p id="adminGateText">请先使用管理员账号登录。</p><button id="adminGateAction" type="button" class="primary-btn">登录</button></div>
       <div id="adminWorkspace" hidden><div class="admin-layout"><aside class="admin-posts"><div class="admin-list-head"><strong>全部文章</strong><button id="refreshPostsBtn" type="button" aria-label="刷新">↻</button></div><div id="adminPostList"></div></aside>
         <form id="postEditor" class="post-editor"><input name="id" type="hidden"><div class="editor-top"><div><small id="editorMode">NEW POST</small><h2 id="editorTitle">新建文章</h2></div><span id="saveState"></span></div>
           <div class="form-row"><label>文章标题<input name="title" required maxlength="120" placeholder="输入清晰、有吸引力的标题"></label><label>发布日期<input name="published_at" type="date" required></label></div>

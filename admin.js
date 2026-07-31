@@ -10,6 +10,15 @@
       resetEditor();
       $("#postEditor input[name=title]").focus();
     });
+    $("#adminGateAction").addEventListener("click", async () => {
+      if (!window.blogAuth?.user) return window.blogAuth?.openAuth();
+      $("#adminGateAction").disabled = true;
+      $("#adminGateAction").textContent = "正在检查…";
+      await window.blogAuth.refreshProfile();
+      $("#adminGateAction").disabled = false;
+      $("#adminGateAction").textContent = window.blogAuth.isAdmin ? "权限已确认" : "重新检查权限";
+      if (!window.blogAuth.isAdmin) window.toast("当前账号没有管理员权限，请确认登录的是“博客主”账号");
+    });
     $("#refreshPostsBtn").addEventListener("click", loadPosts);
     $("#cancelEditBtn").addEventListener("click", resetEditor);
     $("#deletePostBtn").addEventListener("click", removePost);
@@ -28,8 +37,13 @@
     $("#adminGate").hidden = admin;
     $("#adminWorkspace").hidden = !admin;
     $("#newPostBtn").hidden = !admin;
+    if (!admin) {
+      const signedIn = Boolean(window.blogAuth?.user);
+      $("#adminGateTitle").textContent = signedIn ? "尚未识别管理员权限" : "仅管理员可访问";
+      $("#adminGateText").textContent = signedIn ? "当前账号已登录，可以重新读取一次权限。" : "请先使用“博客主”管理员账号登录。";
+      $("#adminGateAction").textContent = signedIn ? "重新检查权限" : "登录";
+    }
     if (admin) await loadPosts();
-    else if (location.hash === "#admin") showPage("home");
   }
 
   async function loadPosts() {
