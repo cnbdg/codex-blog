@@ -168,3 +168,17 @@ dialog{z-index:100;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);ma
 @media(min-width:1600px){.page,.forum-page{max-width:none}.layout,.forum-layout,.page-title,.forum-hero{max-width:1320px}.layout,.forum-layout{grid-template-columns:minmax(0,1fr) 390px;gap:46px}.forum-aside{width:390px}}
 .forum-space-card p{margin:0 0 17px;color:var(--muted);font-size:11px;line-height:1.75}.forum-space-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.forum-space-actions button{width:100%;font-size:10px}
 @media(max-width:900px){.post-list,.thread-list{border:1px solid var(--line);border-radius:16px!important;overflow:hidden}.post-item:first-child,.thread-card:first-child{border-top-left-radius:15px;border-top-right-radius:15px}.post-item:last-child,.thread-card:last-child{border-bottom-left-radius:15px;border-bottom-right-radius:15px}.post-item{padding-inline:16px}}
+/* Interaction-shell layout: one system for feed, community and panels */
+:root{--rail:264px;--content:700px;--aside:340px;--radius:18px;--control:42px;--focus:0 0 0 3px color-mix(in srgb,var(--blue) 30%,transparent)}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:0;box-shadow:var(--focus)}
+.page.active{animation:none}.post-list,.thread-list,.side-card,.forum-hero,.friendship-card{border-color:var(--line)}
+.post-item,.thread-card{cursor:pointer}.post-item:active,.thread-card:active{background:var(--soft)}
+.post-item:focus-visible,.thread-card:focus-visible{outline:0;box-shadow:inset 3px 0 0 var(--blue)}
+.side-card{border-radius:var(--radius)}.forum-hero,.friendship-card{border-radius:var(--radius)}
+.actions button,.social-actions button{min-height:var(--control)}
+@media(min-width:1024px){
+  .topbar{width:var(--rail);height:100dvh;position:fixed;inset:0 auto 0 0}.nav-wrap{padding:20px 16px}.logo{margin:0 0 20px}.topbar nav a{height:48px;font-size:16px}.actions{margin-top:auto;padding-top:20px}.page,.forum-page{width:min(1280px,calc(100vw - var(--rail)));max-width:none;margin:0 0 0 var(--rail);padding:34px clamp(30px,4vw,64px) 88px}.page-title,.forum-hero{max-width:calc(var(--content) + var(--aside) + 38px)}.layout,.forum-layout{grid-template-columns:minmax(0,var(--content)) minmax(280px,var(--aside));gap:38px;align-items:start;max-width:calc(var(--content) + var(--aside) + 38px)}.layout aside,.forum-aside{position:sticky;top:28px;max-height:calc(100dvh - 56px);overflow:auto;padding-right:3px}.post-list,.thread-list{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}.post-item,.thread-card{padding:22px 24px}.thread-card{grid-template-columns:46px minmax(0,1fr)}footer{width:min(1280px,calc(100vw - var(--rail)));max-width:none;margin:0 0 28px var(--rail);padding-inline:clamp(30px,4vw,64px)}
+}
+@media(max-width:1023px){
+  :root{--control:44px}.topbar{height:60px}.page,.forum-page{padding:20px 14px 82px}.post-list,.thread-list{border-radius:var(--radius)}.post-item,.thread-card{padding:17px 15px}.friendship-card{padding:18px}.side-card{border-radius:16px}#toTop{right:16px;bottom:18px}.actions #menuBtn{display:grid;place-items:center}.topbar nav{padding-top:74px}.topbar nav a{font-size:16px}.dialog-actions button{min-height:44px}
+}
