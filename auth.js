@@ -39,6 +39,9 @@
     ,[/CANNOT_BAN_ADMIN/i, "不能限制其他管理员账号"]
     ,[/AUTH_REQUIRED/i, "请先登录后再点赞"]
     ,[/INVALID_REPLY_PARENT/i, "回复目标已不存在，请刷新后重试"]
+    ,[/MUTUAL_FOLLOW_REQUIRED/i, "只有互相关注后才能私聊"]
+    ,[/CANNOT_FOLLOW_SELF/i, "不能关注自己"]
+    ,[/CANNOT_MESSAGE_SELF/i, "不能给自己发私信"]
   ];
 
   function friendlyError(error, fallback = "操作失败，请稍后重试") {
@@ -709,6 +712,39 @@
     return data?.[0] || null;
   }
 
+  async function getFollowState(targetUser) {
+    if (!client || !user || targetUser === user.id) return { following: false, followed_back: false, mutual: false };
+    const { data, error } = await client.rpc("get_follow_state", { target_user: targetUser });
+    if (error) return null;
+    return data?.[0] || { following: false, followed_back: false, mutual: false };
+  }
+
+  async function toggleFollow(targetUser) {
+    if (!client || !user) { openAuth(); return null; }
+    const { data, error } = await client.rpc("toggle_follow", { target_user: targetUser });
+    if (error) { notify("关注操作失败：" + friendlyError(error)); return null; }
+    return data?.[0] || null;
+  }
+
+  async function listDirectMessages(otherUser) {
+    if (!client || !user) return null;
+    const { data, error } = await client.rpc("list_direct_messages", { other_user: otherUser });
+    if (error) { notify("私信加载失败：" + friendlyError(error)); return null; }
+    return data || [];
+  }
+
+  async function sendDirectMessage(recipient, content) {
+    if (!client || !user) { openAuth(); return false; }
+    const cleanContent = String(content || "").trim();
+    if (!cleanContent || cleanContent.length > 2000) return false;
+    const { error } = await client.rpc("send_direct_message", {
+      recipient_user: recipient,
+      message_content: cleanContent
+    });
+    if (error) { notify("私信发送失败：" + friendlyError(error)); return false; }
+    return true;
+  }
+
   async function reportContent(targetType, targetId, reason) {
     if (!client || !user) {
       openAuth();
@@ -783,6 +819,7 @@
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
     listForumThreads, saveForumThread, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
+    getFollowState, toggleFollow, listDirectMessages, sendDirectMessage,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,
     get user() { return user; },

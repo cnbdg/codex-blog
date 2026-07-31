@@ -37,6 +37,13 @@
     return `<span class="user-title ${admin ? "admin" : ""}">${escapeText(title)}</span>${owner ? `<span class="user-title owner">楼主</span>` : ""}`;
   }
 
+  function socialMarkup(record) {
+    if (window.blogAuth?.user?.id === record.author_id) return "";
+    const id = escapeText(record.author_id);
+    const name = escapeText(authorName(record));
+    return `<span class="social-actions"><button type="button" class="follow-button" data-follow-user="${id}">关注</button><button type="button" class="chat-button" data-chat-user="${id}" data-chat-name="${name}">私聊</button></span>`;
+  }
+
   function avatarMarkup(record) {
     const name = authorName(record);
     let url = "";
@@ -141,7 +148,7 @@
     const actions = `<div class="thread-actions">${canManage(thread) ? `<button type="button" data-edit-thread="${thread.id}">编辑</button><button type="button" class="danger-link" data-delete-thread="${thread.id}">删除</button>` : ""}<button type="button" data-report-type="forum_post" data-report-id="${thread.id}">举报</button></div>`;
     $("#threadContent").innerHTML = `<div class="article-body forum-thread-body">
       <div class="thread-floor-mark">1楼</div>
-      <div class="thread-detail-author">${avatarMarkup(thread)}<div><span><strong>${escapeText(authorName(thread))}</strong>${titleMarkup(thread, true)}</span><time>${formatTime(thread.created_at)}</time></div></div>
+      <div class="thread-detail-author">${avatarMarkup(thread)}<div><span><strong>${escapeText(authorName(thread))}</strong>${titleMarkup(thread, true)}</span><time>${formatTime(thread.created_at)}</time></div>${socialMarkup(thread)}</div>
       <h1>${escapeText(thread.title)}</h1>
       <div class="article-text">${window.blogMarkdown.render(thread.content)}</div><div class="thread-engagement"><button class="like-button" data-like-type="post" data-like-id="${thread.id}">♡ <span>${thread.likes || 0}</span></button></div>${actions}
     </div>`;
@@ -169,13 +176,14 @@
           ${avatarMarkup(reply)}
           <div><div class="comment-head"><span class="reply-author"><strong>${escapeText(authorName(reply))}</strong>${titleMarkup(reply, true)}</span><span class="reply-floor"><b>${reply.floor_number || ""}楼</b><time>${formatTime(reply.created_at)}</time></span></div>
           <div class="reply-content">${window.blogMarkdown.render(reply.content)}</div>
-          <div class="reply-tools"><button class="reply-to-button" type="button" data-reply-to="${reply.id}" data-reply-name="${escapeText(authorName(reply))}">回复</button><button class="like-button small" type="button" data-like-type="reply" data-like-id="${reply.id}">♡ <span>${reply.likes || 0}</span></button>${canManage(reply) ? `<button class="comment-delete" type="button" data-delete-reply="${reply.id}">删除</button>` : ""}<button class="comment-report" type="button" data-report-type="forum_reply" data-report-id="${reply.id}">举报</button></div>${nestedMarkup}</div>
+          <div class="reply-tools"><button class="reply-to-button" type="button" data-reply-to="${reply.id}" data-reply-name="${escapeText(authorName(reply))}">回复</button><button class="like-button small" type="button" data-like-type="reply" data-like-id="${reply.id}">♡ <span>${reply.likes || 0}</span></button>${socialMarkup(reply)}${canManage(reply) ? `<button class="comment-delete" type="button" data-delete-reply="${reply.id}">删除</button>` : ""}<button class="comment-report" type="button" data-report-type="forum_reply" data-report-id="${reply.id}">举报</button></div>${nestedMarkup}</div>
         </article>`;
     };
     const topLevel = children.get(0) || [];
     $("#replyList").innerHTML = replies.length
       ? topLevel.map(renderNode).join("")
       : `<p class="forum-empty">还没有回复，来参与讨论吧。</p>`;
+    document.querySelectorAll("[data-follow-user]").forEach(button => window.hydrateFollowButton?.(button));
   }
 
   function updateReplyAccess() {
