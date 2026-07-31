@@ -10,6 +10,7 @@
     : null;
   const $ = selector => document.querySelector(selector);
   let user = null;
+  let profile = null;
   let mode = "login";
   let recovering = false;
   let initialized = false;
@@ -85,11 +86,12 @@
     $("#authUser").hidden = !signedIn || recovering;
     $("#authBtn").classList.toggle("logged-in", signedIn);
     $("#authBtn").querySelector("em").textContent =
-      signedIn ? (user.user_metadata?.username || "账户") : "登录";
+      signedIn ? (profile?.username || user.user_metadata?.username || "账户") : "登录";
     $("#authBtn").querySelector("span").textContent =
       signedIn ? displayName()[0].toUpperCase() : "♙";
     $(".comments")?.classList.toggle("login-required", configured && !signedIn);
     if ($("#commentLoginTip")) $("#commentLoginTip").hidden = !configured || signedIn;
+    if ($("#adminNav")) $("#adminNav").hidden = !profile?.is_admin;
     if (signedIn) {
       $("#userName").textContent = displayName();
       $("#userEmail").textContent = user.email || "";
@@ -98,7 +100,23 @@
   }
 
   function displayName() {
-    return user?.user_metadata?.username || user?.email?.split("@")[0] || "用户";
+    return profile?.username || user?.user_metadata?.username || user?.email?.split("@")[0] || "用户";
+  }
+
+  async function refreshProfile() {
+    if (!client || !user) {
+      profile = null;
+      updateAuthUI();
+      window.dispatchEvent(new CustomEvent("blog-auth-change", { detail: { user, profile } }));
+      return;
+    }
+    const { data } = await client.from("profiles")
+      .select("username,is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+    profile = data || { username: user.user_metadata?.username, is_admin: false };
+    updateAuthUI();
+    window.dispatchEvent(new CustomEvent("blog-auth-change", { detail: { user, profile } }));
   }
 
   function openAuth(nextMode = "login") {
@@ -130,6 +148,7 @@
         recovering = false;
       }
       updateAuthUI();
+      refreshProfile();
       if (window.renderComments && window.currentPost) window.renderComments();
     });
 
@@ -137,7 +156,7 @@
     if (error) notify(friendlyError(error, "登录状态读取失败"));
     user = data?.session?.user || null;
     initialized = true;
-    updateAuthUI();
+    await refreshProfile();
   }
 
   function bindEvents() {
@@ -329,9 +348,58 @@
     return !error;
   }
 
+  async function listPublishedPosts() {
+    if (!client) return null;
+    const { data, error } = await client.from("posts")
+      .select("id,title,description,type,tags,read_time,lead,body,published_at")
+      .eq("status", "published")
+      .order("published_at", { ascending: false });
+    if (error) return null;
+    return data || [];
+  }
+
+  async function listAllPosts() {
+    if (!client || !profile?.is_admin) return [];
+    const { data, error } = await client.from("posts")
+      .select("id,title,description,type,tags,read_time,lead,body,status,published_at,updated_at")
+      .order("updated_at", { ascending: false });
+    if (error) {
+      notify("文章加载失败：" + friendlyError(error));
+      return [];
+    }
+    return data || [];
+  }
+
+  async function savePost(post, id = null) {
+    if (!client || !user || !profile?.is_admin) {
+      notify("只有管理员可以保存文章");
+      return null;
+    }
+    const payload = { ...post, author_id: user.id, updated_at: new Date().toISOString() };
+    const query = id
+      ? client.from("posts").update(payload).eq("id", id)
+      : client.from("posts").insert(payload);
+    const { data, error } = await query.select().single();
+    if (error) {
+      notify("保存失败：" + friendlyError(error));
+      return null;
+    }
+    return data;
+  }
+
+  async function deletePost(id) {
+    if (!client || !profile?.is_admin) return false;
+    const { error } = await client.from("posts").delete().eq("id", id);
+    if (error) notify("删除失败：" + friendlyError(error));
+    return !error;
+  }
+
   window.blogAuth = {
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
+    listPublishedPosts, listAllPosts, savePost, deletePost, refreshProfile,
     get user() { return user; },
+    get profile() { return profile; },
+    get isAdmin() { return Boolean(profile?.is_admin); },
     get initialized() { return initialized; }
   };
   document.addEventListener("DOMContentLoaded", init, { once: true });
