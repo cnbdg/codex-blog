@@ -4,6 +4,44 @@
   const $ = selector => document.querySelector(selector);
   let threads = [];
   let currentThread = null;
+  const DRAFT_KEY = "cnbdg-forum-thread-draft-v1";
+  let previewUrl = "";
+
+  function clearImagePreview() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = "";
+    const holder = $("#threadImagePreview");
+    if (holder) { holder.hidden = true; holder.innerHTML = ""; }
+  }
+
+  function showImagePreview(file) {
+    clearImagePreview();
+    if (!file?.size || !file.type.startsWith("image/")) return;
+    previewUrl = URL.createObjectURL(file);
+    const holder = $("#threadImagePreview");
+    if (!holder) return;
+    holder.hidden = false;
+    holder.innerHTML = `<img src="${previewUrl}" alt="待上传图片预览"><span>${escapeText(file.name)}</span><button type="button" data-clear-thread-image aria-label="移除图片">×</button>`;
+  }
+
+  function saveDraft() {
+    const form = $("#threadForm");
+    if (!form || form.elements.id.value) return;
+    const title = form.elements.title.value.trim();
+    const content = form.elements.content.value.trim();
+    if (!title && !content) return localStorage.removeItem(DRAFT_KEY);
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, content, savedAt: Date.now() }));
+  }
+
+  function restoreDraft(form) {
+    try {
+      const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null");
+      if (!draft || (!draft.title && !draft.content)) return;
+      form.elements.title.value = draft.title || "";
+      form.elements.content.value = draft.content || "";
+      window.toast?.("已恢复未发布的话题草稿");
+    } catch { localStorage.removeItem(DRAFT_KEY); }
+  }
 
   function escapeText(value) {
     return String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -117,6 +155,8 @@
     form.elements.id.value = thread?.id || "";
     form.elements.title.value = thread?.title || "";
     form.elements.content.value = thread?.content || "";
+    clearImagePreview();
+    if (!thread) restoreDraft(form);
     $("#threadEditorTitle").textContent = thread ? "编辑话题" : "发布话题";
     $("#saveThreadBtn").textContent = thread ? "保存修改" : "发布话题";
     $("#threadFormError").hidden = true;
@@ -155,6 +195,8 @@
     button.disabled = false;
     button.textContent = id ? "保存修改" : "发布话题";
     if (!saved) return;
+    localStorage.removeItem(DRAFT_KEY);
+    clearImagePreview();
     if (window.closeDialog) window.closeDialog($("#threadEditorDialog")); else $("#threadEditorDialog").close();
     window.toast(id ? "话题已更新" : "话题发布成功");
     await loadThreads();
@@ -286,7 +328,14 @@
     $("#newThreadBtn").addEventListener("click", () => openEditor());
     $("#refreshThreadsBtn").addEventListener("click", loadThreads);
     $("#threadForm").addEventListener("submit", saveThread);
-    $("#threadForm").elements.content.addEventListener("input", renderPreview);
+    $("#threadForm").elements.content.addEventListener("input", () => { renderPreview(); saveDraft(); });
+    $("#threadForm").elements.title.addEventListener("input", saveDraft);
+    $("#threadForm").elements.image.addEventListener("change", event => showImagePreview(event.target.files?.[0]));
+    $("#threadForm").addEventListener("click", event => {
+      if (!event.target.closest("[data-clear-thread-image]")) return;
+      $("#threadForm").elements.image.value = "";
+      clearImagePreview();
+    });
     $("#replyForm").addEventListener("submit", addReply);
     $("#cancelReplyBtn").addEventListener("click", resetReplyTarget);
     $("#replyForm").elements.content.addEventListener("input", event => {

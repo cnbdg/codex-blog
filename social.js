@@ -7,6 +7,28 @@
   const avatar = (row) => row.actor_avatar_url || row.avatar_url;
   const avatarMarkup = (row) => { const url = avatar(row); const id = row.actor_id || row.id || ""; return `<button type="button" class="social-avatar ${url ? "has-image" : ""}" data-user-profile="${esc(id)}" aria-label="查看用户资料"${url ? ` style="background-image:url('${esc(url)}')"` : ""}>${esc((row.actor_username || row.username || "U")[0].toUpperCase())}</button>`; };
   function time(v) { return new Date(v).toLocaleString("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }); }
+  function ensureBadge() {
+    const button = $("#notificationBtn");
+    if (!button) return null;
+    let badge = button.querySelector(".notification-badge");
+    if (!badge) { badge = document.createElement("span"); badge.className = "notification-badge"; badge.hidden = true; button.append(badge); }
+    return badge;
+  }
+  async function refreshBadge() {
+    const badge = ensureBadge();
+    if (!badge) return;
+    if (!window.blogAuth?.user) { badge.hidden = true; return; }
+    const rows = await window.blogAuth.listNotifications();
+    const unread = rows.filter(row => !row.read_at).length;
+    badge.hidden = unread === 0;
+    badge.textContent = unread > 99 ? "99+" : String(unread);
+    badge.setAttribute("aria-label", `${unread} 条未读通知`);
+    const mobile = document.querySelector('#mobileDock [data-mobile-action="notifications"]');
+    if (mobile) {
+      mobile.toggleAttribute("data-unread", unread > 0);
+      mobile.dataset.unread = unread > 99 ? "99+" : String(unread);
+    }
+  }
   async function renderNotifications() {
     const list = $("#notificationList"); if (!list) return;
     if (!window.blogAuth?.user) { list.innerHTML = `<p class="social-empty">登录后即可查看通知。</p>`; return; }
@@ -24,7 +46,7 @@
     dialog.showModal();
     document.querySelectorAll("[data-social-tab]").forEach(b => b.classList.toggle("active", b.dataset.socialTab === tab));
     $("#notificationPanel").hidden = tab !== "notifications"; $("#friendsPanel").hidden = tab !== "friends";
-    if (tab === "notifications") { await renderNotifications(); await window.blogAuth?.markNotificationsRead?.(); }
+    if (tab === "notifications") { await renderNotifications(); await window.blogAuth?.markNotificationsRead?.(); await refreshBadge(); }
     else await renderFriends();
   }
   function init() {
@@ -38,12 +60,13 @@
       if (window.blogAuth?.user) {
         stopNotificationSync = window.blogAuth.subscribeNotifications?.(row => {
           window.toast?.(`收到新通知：${row.payload?.message || "有人与你互动"}`);
-          renderNotifications();
+          renderNotifications(); refreshBadge();
         });
       }
-      renderFriends(); renderNotifications();
+      renderFriends(); renderNotifications(); refreshBadge();
     });
-    timer = setInterval(() => { if (!document.hidden && $("#socialDialog")?.open) { renderFriends(); renderNotifications(); } }, 30000);
+    timer = setInterval(() => { if (!document.hidden) { refreshBadge(); if ($("#socialDialog")?.open) { renderFriends(); renderNotifications(); } } }, 30000);
+    setTimeout(refreshBadge, 800);
   }
   window.openSocial = openSocial;
   document.addEventListener("DOMContentLoaded", init, { once: true });
