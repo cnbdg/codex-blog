@@ -773,6 +773,27 @@
     return data;
   }
 
+  async function listNotifications() {
+    if (!client || !user) return [];
+    const { data, error } = await client.rpc("list_notifications", { p_limit: 50 });
+    if (error) { notify("通知加载失败：" + friendlyError(error)); return []; }
+    return data || [];
+  }
+
+  async function markNotificationsRead() {
+    if (!client || !user) return false;
+    const { error } = await client.rpc("mark_notifications_read");
+    if (error) return false;
+    return true;
+  }
+
+  async function listFriends() {
+    if (!client || !user) return [];
+    const { data, error } = await client.rpc("list_friends");
+    if (error) { notify("好友列表加载失败：" + friendlyError(error)); return []; }
+    return data || [];
+  }
+
   async function reportContent(targetType, targetId, reason) {
     if (!client || !user) {
       openAuth();
@@ -848,7 +869,7 @@
     listForumThreads, saveForumThread, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage,
-    searchUsers, getPublicProfile,
+    searchUsers, getPublicProfile, listNotifications, markNotificationsRead, listFriends,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,
     get user() { return user; },
