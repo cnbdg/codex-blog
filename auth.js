@@ -474,14 +474,13 @@
     const username = String(data.get("username") || "").trim();
     const avatarUrl = String(data.get("avatar_url") || "").trim();
     const displayTitle = String(data.get("display_title") || "社区成员");
-    const allowedTitles = ["社区成员", "新人报到", "活跃成员", "技术爱好者", "游戏玩家", "内容创作者"];
     setMessage($("#profileError"));
     if (!form.checkValidity()) return form.reportValidity();
     if (username.length < 2 || username.length > 20) {
       return setMessage($("#profileError"), "昵称需要包含 2–20 个字符");
     }
-    if (!allowedTitles.includes(displayTitle)) {
-      return setMessage($("#profileError"), "请选择有效的社区称号");
+    if (displayTitle.length < 1 || displayTitle.length > 30) {
+      return setMessage($("#profileError"), "社区称号长度需为 1–30 个字符");
     }
     if (avatarUrl) {
       try {

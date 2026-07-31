@@ -11,3 +11,8 @@ end; $$;
 revoke all on function public.admin_update_member(uuid,text,boolean) from public;
 grant execute on function public.admin_update_member(uuid,text,boolean) to authenticated;
 notify pgrst, 'reload schema';
+
+-- 为 UID 2 设置指定称号；不存在该 UID 时不会产生任何变更。
+update public.profiles
+set display_title = '罗布乐思小鸡鸡'
+where user_uid = 2;

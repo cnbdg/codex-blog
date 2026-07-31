@@ -15,7 +15,7 @@ begin
       and conrelid = 'public.profiles'::regclass
   ) then
     alter table public.profiles add constraint profiles_display_title_check
-      check (display_title in ('社区成员', '新人报到', '活跃成员', '技术爱好者', '游戏玩家', '内容创作者'));
+      check (char_length(display_title) between 1 and 30);
   end if;
 end
 $$;
@@ -181,3 +181,5 @@ drop trigger if exists on_forum_reply_changed on public.forum_replies;
 create trigger on_forum_reply_changed
   after insert or delete on public.forum_replies
   for each row execute procedure public.touch_forum_post();
+alter table public.profiles drop constraint if exists profiles_display_title_check;
+alter table public.profiles add constraint profiles_display_title_check check (char_length(display_title) between 1 and 30);
