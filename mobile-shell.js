@@ -31,6 +31,23 @@
     document.body.append(dock);
   }
 
+  function openComposer() {
+    if (!window.blogAuth?.user) return window.blogAuth?.openAuth?.("login");
+    window.blogUI?.navigate("forum");
+    window.setTimeout(() => $("#newThreadBtn")?.click(), 80);
+  }
+
+  function makeComposeButton() {
+    if ($("#mobileComposeFab")) return;
+    const button = document.createElement("button");
+    button.id = "mobileComposeFab";
+    button.type = "button";
+    button.setAttribute("aria-label", "发布社区话题");
+    button.innerHTML = "＋";
+    button.addEventListener("click", openComposer);
+    document.body.append(button);
+  }
+
   function syncDock() {
     const dock = $("#mobileDock");
     if (!dock) return;
@@ -57,6 +74,7 @@
 
   function init() {
     makeDock();
+    makeComposeButton();
     syncDock();
     query.addEventListener?.("change", () => { setDrawer(false); syncDock(); });
     window.addEventListener("blog-page-change", syncDock);

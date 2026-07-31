@@ -417,3 +417,145 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
 @media (min-width:1024px) and (max-width:1279px) {
   .desktop-context { display:none!important; }
 }
+
+/* Mobile reset: compact X-style header, edge-to-edge feed and tab bar. */
+#mobileComposeFab { display:none; }
+@media (max-width:1023px) {
+  :root { --mobile-bar:58px; --mobile-dock:70px; --blue:#1d9bf0; --soft:#eff3f4; }
+  body { min-width:0; padding-bottom:0; background:var(--surface); }
+  body.dark { --soft:#202a30; }
+  .topbar {
+    position:sticky; top:0; z-index:60; width:100%; height:var(--mobile-bar); border:0; border-bottom:1px solid var(--line);
+    background:color-mix(in srgb,var(--surface) 93%,transparent); backdrop-filter:blur(15px);
+  }
+  .nav-wrap { height:var(--mobile-bar); padding:0 10px; }
+  .logo { margin:0; padding:0 5px; gap:0; }
+  .logo strong { display:none; }
+  .logo-mark { width:32px; height:32px; border-radius:50%; background:var(--text); box-shadow:none; font-size:14px; }
+  .actions { display:flex; margin-left:auto; gap:1px; }
+  .actions button { display:none; width:38px; height:42px; padding:0; border-radius:50%; color:var(--text); }
+  .actions button span { font-size:18px; }
+  .actions button em { display:none; }
+  .actions #notificationBtn, .actions #authBtn, .actions #menuBtn { display:grid; place-items:center; }
+  .actions #authBtn { background:transparent; color:var(--text); font-weight:400; }
+  .actions #authBtn.logged-in { color:var(--blue); }
+  .actions #menuBtn { font-size:19px; }
+  .actions #notificationBtn:hover, .actions #authBtn:hover, .actions #menuBtn:hover { background:var(--soft); }
+
+  .topbar nav {
+    display:flex; position:fixed; z-index:80; top:0; bottom:0; left:0; width:min(82vw,326px); height:100dvh;
+    padding:76px 15px max(24px,env(safe-area-inset-bottom)); gap:3px; border:0; border-right:1px solid var(--line);
+    background:var(--surface); box-shadow:16px 0 38px #0f141928; transform:translateX(-105%);
+    transition:transform .25s cubic-bezier(.2,.8,.2,1);
+  }
+  .topbar nav.open { display:flex; transform:translateX(0); }
+  .topbar nav a { display:flex; align-items:center; gap:13px; height:49px; min-height:49px; padding:0 14px; border-radius:999px; color:var(--text); font-size:16px; }
+  .topbar nav a::before { display:grid; width:22px; place-items:center; color:currentColor; font-size:19px; }
+  .topbar nav a[data-page="home"]::before { content:"⌂"; }
+  .topbar nav a[data-page="forum"]::before { content:"◌"; }
+  .topbar nav a[data-page="projects"]::before { content:"▧"; }
+  .topbar nav a[data-page="about"]::before { content:"◎"; }
+  .topbar nav a[data-page="friends"]::before { content:"↗"; }
+  .topbar nav a[data-open-wallpaper]::before { content:"◐"; }
+  .topbar nav a.active { background:var(--soft); color:var(--blue); font-weight:750; }
+  .topbar nav a.active::after { display:none; }
+  #navBackdrop { z-index:70; background:#0f141950; }
+
+  .page, .forum-page {
+    width:100%; min-height:calc(100dvh - var(--mobile-bar)); margin:0; padding:0 0 calc(var(--mobile-dock) + 18px);
+    border:0; background:var(--surface);
+  }
+  .layout, .forum-layout { display:block; }
+  .page-title, .forum-hero, .inner-title {
+    margin:0; padding:17px 16px; border:0; border-bottom:1px solid var(--line); border-radius:0;
+    background:var(--surface)!important; box-shadow:none; text-align:left;
+  }
+  .page-title::before, .page-title::after, .forum-hero::before, .forum-hero::after { display:none; }
+  .page-title .planet { display:none; }
+  .page-title .hello, .forum-hero-copy small, .inner-title small { color:var(--muted); font-size:9px; letter-spacing:.09em; }
+  .page-title h1, .forum-hero h1, .inner-title h1 { margin:4px 0 5px; font-size:21px; line-height:1.25; letter-spacing:-.025em; }
+  .page-title p, .forum-hero p, .inner-title p { margin:0; font-size:12px; line-height:1.58; }
+  .social-hero-actions { display:flex; margin-top:14px; gap:8px; }
+  .social-hero-actions button { min-height:38px; padding-inline:14px; font-size:12px; }
+  .forum-hero { display:block; padding-bottom:15px; }
+  .forum-hero-copy { gap:10px; }
+  .forum-hero-icon { width:39px; height:39px; border-radius:50%; background:var(--soft); color:var(--blue); }
+  .forum-hero .primary-btn { width:100%; height:42px; margin-top:14px; }
+  .inner-title { padding-block:20px 16px; }
+
+  .friendship-card { margin:0; padding:17px 16px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:var(--surface); box-shadow:none; }
+  .friendship-card h2 { margin:4px 0 6px; font-size:17px; line-height:1.35; }
+  .friendship-card p { margin:0; font-size:12px; line-height:1.62; }
+  .friendship-points { display:flex; width:auto; margin-top:13px; gap:6px; }
+  .friendship-points span { flex:1; padding:7px 3px; border-radius:999px; background:var(--soft); font-size:9px; }
+
+  .feed-head, .forum-toolbar { min-height:51px; margin:0; padding:0 16px; border-bottom:1px solid var(--line); background:var(--surface); }
+  .feed-head > span, .forum-toolbar strong { font-size:15px; font-weight:760; }
+  .feed-head button, .forum-toolbar button { color:var(--blue); font-size:11px; }
+  .post-list, .thread-list { overflow:visible; border:0!important; border-radius:0!important; background:var(--surface); box-shadow:none; }
+  .post-item, .thread-card { padding:16px; border:0; border-bottom:1px solid var(--line); border-radius:0!important; background:var(--surface); box-shadow:none!important; }
+  .post-item::before, .thread-card::before { display:none; }
+  .post-item:hover, .thread-card:hover, .post-item:active, .thread-card:active { background:color-mix(in srgb,var(--soft) 58%,var(--surface)); transform:none!important; }
+  .post-item h2, .thread-card h2 { margin:6px 0 7px; font-size:16px; line-height:1.42; }
+  .post-item > p, .thread-card p { margin-bottom:12px; font-size:12px; line-height:1.65; }
+  .post-bottom .tags span, .thread-meta span { padding:0; background:transparent; }
+  .thread-card { grid-template-columns:38px minmax(0,1fr); gap:10px; }
+  .forum-avatar { width:37px; height:37px; border-radius:50%; }
+  .pagination { margin:0; padding:17px; border-bottom:1px solid var(--line); }
+  .pagination button { width:33px; height:33px; border-radius:50%; }
+  .pagination button.active { background:var(--text); border-color:var(--text); }
+
+  .layout aside, .forum-aside { display:block; margin:0; }
+  .side-card { margin:0; padding:16px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:var(--surface); box-shadow:none; }
+  .side-card.author-card { padding:20px 16px; text-align:left; }
+  .author-card .avatar { margin:0; }
+  .side-card:hover { box-shadow:none; }
+  .status { border-radius:0; }
+
+  .primary-btn, .form-foot button { border-radius:999px; background:var(--blue); font-weight:750; }
+  .primary-btn::before { display:none; }
+  .primary-btn:hover, .primary-btn:active { background:#167fc1; box-shadow:none; transform:none; }
+  .secondary-btn { border-radius:999px; background:var(--surface); }
+  .secondary-btn:hover, .secondary-btn:active { background:var(--soft); transform:none; }
+
+  .project-grid, .friend-grid { display:grid; grid-template-columns:1fr; gap:0; }
+  .project-grid article, .friend-grid > a { min-height:0; padding:18px 16px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:var(--surface); }
+  .project-grid h2 { margin:11px 0 6px; font-size:16px; }
+  .project-grid p { min-height:0; margin:0 0 11px; font-size:12px; }
+  .project-grid a { margin-top:12px; }
+  .about-box { display:grid; grid-template-columns:56px minmax(0,1fr); gap:15px; padding:19px 16px; border:0; border-radius:0; background:var(--surface); }
+  .big-avatar { width:56px; height:56px; font-size:14px; }
+  .about-box h2 { margin:0 0 7px; font-size:19px; }
+  .about-box h3 { margin-top:20px; }
+  .about-box p, .about-box li { font-size:12px; }
+  .apply-card { margin:0; padding:22px 16px; border:0; border-bottom:1px solid var(--line); border-radius:0; text-align:left; }
+  .apply-card p { margin:9px 0 14px; }
+
+  .admin-page { padding-bottom:calc(var(--mobile-dock) + 18px); }
+  .admin-header, .moderation-header { border:0; border-bottom:1px solid var(--line); border-radius:0; background:var(--surface); box-shadow:none; }
+  .admin-layout { border:0; border-radius:0; box-shadow:none; }
+
+  #mobileDock {
+    position:fixed; z-index:65; right:0; bottom:0; left:0; display:grid; grid-template-columns:repeat(5,1fr);
+    height:calc(var(--mobile-dock) + env(safe-area-inset-bottom)); padding:4px 3px env(safe-area-inset-bottom); border:0; border-top:1px solid var(--line);
+    border-radius:0; background:color-mix(in srgb,var(--surface) 95%,transparent); box-shadow:0 -7px 20px #0f14190a; backdrop-filter:blur(16px);
+  }
+  #mobileDock button { height:calc(var(--mobile-dock) - 8px); border-radius:12px; color:var(--muted); }
+  #mobileDock button span { font-size:20px; }
+  #mobileDock button small { font-size:9px; }
+  #mobileDock button.active { background:transparent; color:var(--text); }
+  #mobileDock button.active span { font-weight:800; transform:translateY(-1px); }
+  #mobileDock button:active { background:var(--soft); transform:none; }
+  #mobileComposeFab {
+    position:fixed; z-index:66; right:18px; bottom:calc(var(--mobile-dock) + 13px + env(safe-area-inset-bottom)); display:grid; width:49px; height:49px; place-items:center;
+    border:0; border-radius:50%; background:var(--blue); color:#fff; box-shadow:0 7px 20px #1d9bf050; font-size:30px; font-weight:300; line-height:1; cursor:pointer;
+  }
+  #mobileComposeFab:active { transform:scale(.92); background:#167fc1; }
+  #toTop { right:auto; bottom:calc(var(--mobile-dock) + 16px + env(safe-area-inset-bottom)); left:17px; border-radius:50%; }
+  .incoming-message-bubble { bottom:calc(var(--mobile-dock) + 78px + env(safe-area-inset-bottom)); }
+
+  dialog { max-width:100vw; max-height:94dvh; margin:auto 0 0; border-right:0; border-bottom:0; border-left:0; border-radius:20px 20px 0 0; }
+  .article-dialog, .thread-dialog { height:calc(100dvh - 9px); max-height:calc(100dvh - 9px); }
+  .social-dialog, .dm-dialog, .public-profile-dialog, .wallpaper-dialog, .auth-dialog, .thread-editor-dialog { border-radius:20px 20px 0 0; }
+  footer { display:block; margin:0; padding:21px 16px calc(var(--mobile-dock) + 18px); border:0; border-top:1px solid var(--line); border-radius:0; background:var(--surface); box-shadow:none; }
+}
