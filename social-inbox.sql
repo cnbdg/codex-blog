@@ -40,6 +40,20 @@ end; $$;
 drop trigger if exists after_forum_like_created on public.forum_reactions;
 create trigger after_forum_like_created after insert on public.forum_reactions for each row execute procedure public.notify_forum_like_created();
 
+-- 兼容博客评论点赞：保留原有计数逻辑，同时给评论作者生成通知。
+create or replace function public.increment_comment_likes(comment_id bigint)
+returns void language plpgsql security definer set search_path = public as $$
+declare owner_id uuid;
+begin
+  if auth.uid() is null then raise exception 'AUTH_REQUIRED'; end if;
+  select author_id into owner_id from public.comments where id = comment_id;
+  update public.comments set likes = likes + 1 where id = comment_id;
+  if owner_id is not null and owner_id <> auth.uid() then
+    insert into public.notifications(recipient_id, actor_id, kind, target_type, target_id, payload)
+    values (owner_id, auth.uid(), 'comment_like', 'comment', comment_id, jsonb_build_object('message','赞了你的博客评论'));
+  end if;
+end; $$;
+
 create or replace function public.list_notifications(p_limit integer default 50)
 returns table(id bigint, kind text, target_type text, target_id bigint, payload jsonb, read_at timestamptz, created_at timestamptz, actor_id uuid, actor_username text, actor_avatar_url text, actor_uid bigint)
 language sql security definer set search_path = public as $$
@@ -60,4 +74,6 @@ language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.list_notifications(integer), public.mark_notifications_read(), public.list_friends() from public;
 grant execute on function public.list_notifications(integer), public.mark_notifications_read(), public.list_friends() to authenticated;
+revoke all on function public.increment_comment_likes(bigint) from public;
+grant execute on function public.increment_comment_likes(bigint) to authenticated;
 notify pgrst, 'reload schema';
