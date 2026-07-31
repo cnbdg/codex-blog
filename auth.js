@@ -792,6 +792,14 @@
     return Boolean(data);
   }
 
+  async function confirmAdminPassword(password) {
+    if (!client || !user?.email || !password) return false;
+    const { error } = await client.auth.signInWithPassword({ email: user.email, password });
+    if (error) { notify("管理员密码验证失败"); return false; }
+    await refreshProfile();
+    return Boolean(profile?.is_admin);
+  }
+
   async function listNotifications() {
     if (!client || !user) return [];
     const { data, error } = await client.rpc("list_notifications", { p_limit: 50 });
@@ -888,7 +896,7 @@
     listForumThreads, saveForumThread, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages,
-    searchUsers, getPublicProfile, adminUpdateMember, listNotifications, markNotificationsRead, listFriends,
+    searchUsers, getPublicProfile, adminUpdateMember, confirmAdminPassword, listNotifications, markNotificationsRead, listFriends,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,
     get user() { return user; },

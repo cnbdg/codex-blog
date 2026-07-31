@@ -11,7 +11,8 @@
     });
     $("#memberAdminForm")?.addEventListener("submit", async event => {
       event.preventDefault();
-      const form = event.currentTarget, uid = Number(form.elements.uid.value), title = form.elements.title.value.trim(), promote = form.elements.promote.checked;
+      const form = event.currentTarget, password = form.elements.password.value, uid = Number(form.elements.uid.value), title = form.elements.title.value.trim(), promote = form.elements.promote.checked;
+      if (!await window.blogAuth.confirmAdminPassword(password)) { $("#memberAdminError").textContent = "密码验证失败，未执行任何操作"; $("#memberAdminError").hidden = false; return; }
       const results = await window.blogAuth.searchUsers(String(uid));
       const member = results.find(row => Number(row.user_uid) === uid);
       if (!member) { $("#memberAdminError").textContent = "找不到这个 UID 对应的用户"; $("#memberAdminError").hidden = false; return; }
