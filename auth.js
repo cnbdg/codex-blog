@@ -36,6 +36,20 @@
     else console.info(message);
   }
 
+  function authRedirectUrl() {
+    const fallback = new URL(location.pathname, location.origin).href;
+    try {
+      return new URL(config.siteUrl || fallback).href;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function clearAuthTokensFromUrl() {
+    if (!/access_token=|refresh_token=|error_description=/.test(location.hash)) return;
+    history.replaceState(null, document.title, location.pathname + location.search);
+  }
+
   function setMessage(target, message = "", kind = "error") {
     target.textContent = message;
     target.hidden = !message;
@@ -105,6 +119,9 @@
 
     client.auth.onAuthStateChange((event, session) => {
       user = session?.user || null;
+      if (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY") {
+        clearAuthTokensFromUrl();
+      }
       if (event === "PASSWORD_RECOVERY") {
         recovering = true;
         $("#authTitle").textContent = "设置新密码";
@@ -177,7 +194,7 @@
             email, password,
             options: {
               data: { username },
-              emailRedirectTo: new URL(location.pathname, location.origin).href
+              emailRedirectTo: authRedirectUrl()
             }
           })
         : await client.auth.signInWithPassword({ email, password });
@@ -209,7 +226,7 @@
     $("#resetPasswordBtn").textContent = "正在发送…";
     try {
       const { error } = await client.auth.resetPasswordForEmail(email, {
-        redirectTo: new URL(location.pathname, location.origin).href
+        redirectTo: authRedirectUrl()
       });
       if (error) return setMessage($("#authError"), friendlyError(error));
       setMessage($("#authError"), "重置邮件已发送，请检查收件箱和垃圾邮件", "success");
