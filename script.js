@@ -62,7 +62,8 @@ async function refreshRemotePosts(){
  const rows=await window.blogAuth.listPublishedPosts();
  if(rows===null)return;
  const remote=rows.map(p=>({id:1000000+Number(p.id),dbId:p.id,title:p.title,desc:p.description,date:p.published_at,type:p.type,tags:p.tags||[],read:p.read_time||"5 分钟",lead:p.lead,body:p.body}));
- posts=remote;page=1;render();
+ const localLogs=(window.LOCAL_UPDATE_POSTS||[]).map((p,i)=>({...p,id:9000000+i,desc:p.description,date:p.published_at,read:p.read_time}));
+ posts=[...localLogs,...remote];page=1;render();
 }
 window.refreshRemotePosts=refreshRemotePosts;
 window.addEventListener("blog-auth-change",refreshRemotePosts);
