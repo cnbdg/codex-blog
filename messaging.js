@@ -16,18 +16,22 @@
 
   async function hydrateFollowButton(button) {
     if (!window.blogAuth?.user) return setFollowButton(button, null);
-    const state = await window.blogAuth.getFollowState(button.dataset.userId);
+    const userId = button.dataset.followUser;
+    if (!userId) return;
+    const state = await window.blogAuth.getFollowState(userId);
     if (state) setFollowButton(button, state);
   }
 
   async function toggleFollow(button) {
     if (!window.blogAuth?.user) return window.blogAuth?.openAuth("login");
     button.disabled = true;
-    const state = await window.blogAuth.toggleFollow(button.dataset.userId);
+    const userId = button.dataset.followUser;
+    if (!userId) { button.disabled = false; return; }
+    const state = await window.blogAuth.toggleFollow(userId);
     button.disabled = false;
     if (!state) return;
     setFollowButton(button, state);
-    document.querySelectorAll(`[data-follow-user="${button.dataset.userId}"]`).forEach(item => setFollowButton(item, state));
+    document.querySelectorAll(`[data-follow-user="${userId}"]`).forEach(item => setFollowButton(item, state));
     window.toast?.(state.mutual ? "已互相关注，现在可以私聊了" : state.following ? "已关注，等待对方回关" : "已取消关注");
   }
 
