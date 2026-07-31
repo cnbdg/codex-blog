@@ -4,7 +4,7 @@
   let timer = null;
   const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;", "'":"&#039;"}[c]));
   const avatar = (row) => row.actor_avatar_url || row.avatar_url;
-  const avatarMarkup = (row) => { const url = avatar(row); return `<span class="social-avatar ${url ? "has-image" : ""}"${url ? ` style="background-image:url('${esc(url)}')"` : ""}>${esc((row.actor_username || row.username || "U")[0].toUpperCase())}</span>`; };
+  const avatarMarkup = (row) => { const url = avatar(row); const id = row.actor_id || row.id || ""; return `<button type="button" class="social-avatar ${url ? "has-image" : ""}" data-user-profile="${esc(id)}" aria-label="查看用户资料"${url ? ` style="background-image:url('${esc(url)}')"` : ""}>${esc((row.actor_username || row.username || "U")[0].toUpperCase())}</button>`; };
   function time(v) { return new Date(v).toLocaleString("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }); }
   async function renderNotifications() {
     const list = $("#notificationList"); if (!list) return;

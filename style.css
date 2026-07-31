@@ -136,3 +136,4 @@ dialog[open].dialog-closing::backdrop{animation:backdropOut .14s ease both}
 }
 body.has-wallpaper{position:relative;isolation:isolate;min-height:100vh}
 .member-admin-dialog{width:min(460px,94vw);padding:26px}.member-admin-dialog .dialog-title{align-items:flex-start}.member-admin-dialog .dialog-title h2{margin:5px 0 0}.admin-panel-note{color:var(--muted);font-size:11px;line-height:1.7}.admin-check{display:flex;align-items:center;gap:8px;color:var(--text);font-size:11px}.admin-check input{width:auto;margin:0}.admin-header-actions{display:flex;flex-wrap:wrap;gap:8px}
+.social-avatar{border:0;padding:0;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease}.social-avatar:hover,.social-avatar:focus-visible{transform:translateY(-2px);box-shadow:0 0 0 3px #8b9df055;outline:0}
