@@ -34,6 +34,58 @@
     window.blogUI?.navigate(page);
   }
 
+  function contextRail() {
+    return $("#desktopContext");
+  }
+
+  function clearProfileContext() {
+    const panel = $("#desktopProfileContext");
+    if (!panel) return;
+    panel.hidden = true;
+    panel.innerHTML = "";
+  }
+
+  function setProfileContext(content) {
+    if (!enabled()) return;
+    const panel = $("#desktopProfileContext");
+    if (!panel || !content) return;
+    panel.hidden = false;
+    panel.innerHTML = `<header class="desktop-context-card-head"><span>用户资料</span><button type="button" data-desktop-context-close aria-label="收起用户资料">×</button></header>${content}`;
+  }
+
+  function buildContextRail() {
+    if (contextRail()) return;
+    const rail = document.createElement("aside");
+    rail.id = "desktopContext";
+    rail.className = "desktop-context";
+    rail.setAttribute("aria-label", "桌面端快捷信息栏");
+    rail.innerHTML = `
+      <button type="button" class="desktop-context-search" data-desktop-search><span>⌕</span><span>搜索博客、用户和 UID</span></button>
+      <section id="desktopProfileContext" class="desktop-context-card desktop-context-profile" hidden></section>
+      <section class="desktop-context-card desktop-context-trends">
+        <h2>快捷入口</h2>
+        <button type="button" data-page="forum"><small>社区</small><strong>看看大家正在讨论什么</strong><span>›</span></button>
+        <button type="button" data-desktop-compose><small>发布</small><strong>写下你的新想法</strong><span>›</span></button>
+        <button type="button" data-open-auth><small>个人</small><strong>管理资料与账号</strong><span>›</span></button>
+      </section>
+      <section class="desktop-context-card desktop-context-tips">
+        <h2>使用技巧</h2>
+        <p><kbd>/</kbd> 搜索　<kbd>N</kbd> 发布话题</p>
+        <p><kbd>G</kbd> + <kbd>H / C / A</kbd> 快速导航</p>
+      </section>`;
+    document.body.append(rail);
+    rail.addEventListener("click", event => {
+      if (event.target.closest("[data-desktop-search]")) openSearch();
+      if (event.target.closest("[data-desktop-compose]")) openComposer();
+      if (event.target.closest("[data-desktop-context-close]")) clearProfileContext();
+    });
+  }
+
+  function syncContext(detail = {}) {
+    const page = detail.page || window.blogUI?.state?.page || "home";
+    document.body.dataset.desktopPage = page;
+  }
+
   function onKeydown(event) {
     if (!enabled() || editable(event.target) || event.altKey || document.querySelector("dialog[open]")) return;
     if (event.key === "/") { event.preventDefault(); openSearch(); return; }
@@ -51,11 +103,16 @@
   }
 
   function init() {
-    window.addEventListener("blog-page-change", animatePageChange);
+    buildContextRail();
+    syncContext();
+    window.addEventListener("blog-page-change", event => {
+      animatePageChange();
+      syncContext(event.detail);
+    });
     document.addEventListener("keydown", onKeydown);
-    desktop.addEventListener?.("change", () => { pendingGo = false; });
+    desktop.addEventListener?.("change", () => { pendingGo = false; syncContext(); });
   }
 
-  window.blogDesktop = { openSearch, openComposer, navigate };
+  window.blogDesktop = { openSearch, openComposer, navigate, setProfileContext, clearProfileContext };
   document.addEventListener("DOMContentLoaded", init, { once: true });
 })();

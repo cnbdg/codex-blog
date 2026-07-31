@@ -40,7 +40,12 @@
   function syncProfileSidebar() {
     const aside = document.querySelector(".forum-aside");
     const dialogContent = $("#publicProfileContent");
-    if (!aside || !dialogContent || window.innerWidth < 901) return;
+    if (!dialogContent || window.innerWidth < 1024) return;
+    if (window.blogDesktop?.setProfileContext) {
+      window.blogDesktop.setProfileContext(dialogContent.innerHTML);
+      return;
+    }
+    if (!aside) return;
     let panel = aside.querySelector(".profile-sidebar-card");
     if (!panel) { panel = document.createElement("section"); panel.className = "side-card profile-sidebar-card"; aside.prepend(panel); }
     panel.hidden = false;
