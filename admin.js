@@ -20,6 +20,7 @@
       if (!window.blogAuth.isAdmin) window.toast("当前账号没有管理员权限，请确认登录的是“博客主”账号");
     });
     $("#refreshPostsBtn").addEventListener("click", loadPosts);
+    $("#importPostsBtn").addEventListener("click", importLegacyPosts);
     $("#cancelEditBtn").addEventListener("click", resetEditor);
     $("#deletePostBtn").addEventListener("click", removePost);
     $("#postEditor").addEventListener("submit", savePost);
@@ -32,6 +33,29 @@
     window.addEventListener("blog-auth-change", updateAccess);
     updateAccess();
     resetEditor();
+  }
+
+  async function importLegacyPosts() {
+    if (!window.blogAuth?.isAdmin) return window.blogAuth?.openAuth();
+    const source = Array.isArray(window.LEGACY_POSTS) ? window.LEGACY_POSTS : [];
+    if (!source.length) return window.toast("旧博客迁移包没有加载成功，请刷新后重试");
+    const latestRecords = await window.blogAuth.listAllPosts();
+    const existing = new Set(latestRecords.map(post => `${post.published_at}::${post.title.trim().toLowerCase()}`));
+    const pending = source.filter(post => !existing.has(`${post.published_at}::${post.title.trim().toLowerCase()}`));
+    if (!pending.length) return window.toast("18 篇旧文章都已经导入，无需重复操作");
+    if (!confirm(`将导入 ${pending.length} 篇旧博客文章并立即发布。已存在的同名同日期文章会自动跳过，是否继续？`)) return;
+
+    const button = $("#importPostsBtn");
+    button.disabled = true;
+    button.textContent = `正在导入 ${pending.length} 篇…`;
+    const imported = await window.blogAuth.importPosts(pending);
+    button.disabled = false;
+    button.textContent = "⇣ 导入旧博客（18）";
+    if (!imported) return;
+
+    window.toast(`成功导入 ${imported.length} 篇旧文章`);
+    await loadPosts();
+    await window.refreshRemotePosts?.();
   }
 
   function renderPreview() {
@@ -70,6 +94,7 @@
     $("#adminGate").hidden = admin;
     $("#adminWorkspace").hidden = !admin;
     $("#newPostBtn").hidden = !admin;
+    $("#importPostsBtn").hidden = !admin;
     if (!admin) {
       const signedIn = Boolean(window.blogAuth?.user);
       $("#adminGateTitle").textContent = signedIn ? "尚未识别管理员权限" : "仅管理员可访问";

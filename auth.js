@@ -504,6 +504,33 @@
     return data;
   }
 
+  async function importPosts(posts) {
+    if (!client || !user || !profile?.is_admin || !Array.isArray(posts) || !posts.length) {
+      notify("没有可导入的文章，或当前账号没有管理员权限");
+      return null;
+    }
+    const updatedAt = new Date().toISOString();
+    const payload = posts.map(post => ({
+      title: post.title,
+      description: post.description,
+      type: post.type,
+      tags: post.tags,
+      read_time: post.read_time,
+      lead: post.lead,
+      body: post.body,
+      status: post.status,
+      published_at: post.published_at,
+      author_id: user.id,
+      updated_at: updatedAt
+    }));
+    const { data, error } = await client.from("posts").insert(payload).select();
+    if (error) {
+      notify("批量导入失败：" + friendlyError(error));
+      return null;
+    }
+    return data || [];
+  }
+
   async function deletePost(id) {
     if (!client || !profile?.is_admin) return false;
     const { error } = await client.from("posts").delete().eq("id", id);
@@ -513,7 +540,7 @@
 
   window.blogAuth = {
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
-    listPublishedPosts, listAllPosts, savePost, deletePost, refreshProfile,
+    listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
     get user() { return user; },
     get profile() { return profile; },
     get isAdmin() { return Boolean(profile?.is_admin); },
