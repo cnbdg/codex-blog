@@ -132,6 +132,7 @@
     if (signedIn) {
       $("#userName").textContent = displayName();
       $("#userEmail").textContent = user.email || "";
+      $("#userUid").textContent = profile?.user_uid || "待分配";
       $("#userAvatar").textContent = displayName()[0].toUpperCase();
       $("#userAvatar").style.backgroundImage = profile?.avatar_url ? `url("${profile.avatar_url.replace(/["\\]/g, "")}")` : "";
       $("#userAvatar").classList.toggle("has-image", Boolean(profile?.avatar_url));
@@ -158,13 +159,13 @@
       return;
     }
     let result = await client.from("profiles")
-      .select("username,avatar_url,display_title,is_admin")
+      .select("user_uid,username,avatar_url,display_title,is_admin")
       .eq("id", user.id)
       .maybeSingle();
     if (result.error) {
       await new Promise(resolve => setTimeout(resolve, 350));
       result = await client.from("profiles")
-        .select("username,avatar_url,display_title,is_admin")
+        .select("user_uid,username,avatar_url,display_title,is_admin")
         .eq("id", user.id)
         .maybeSingle();
     }
@@ -745,6 +746,20 @@
     return true;
   }
 
+  async function searchUsers(query) {
+    if (!client) return [];
+    const clean = String(query || "").trim();
+    if (!clean) return [];
+    let request = client.from("profiles")
+      .select("id,user_uid,username,display_title,avatar_url")
+      .limit(8);
+    if (/^\d+$/.test(clean)) request = request.eq("user_uid", Number(clean));
+    else request = request.ilike("username", `%${clean}%`);
+    const { data, error } = await request;
+    if (error) return [];
+    return data || [];
+  }
+
   async function reportContent(targetType, targetId, reason) {
     if (!client || !user) {
       openAuth();
@@ -820,6 +835,7 @@
     listForumThreads, saveForumThread, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage,
+    searchUsers,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,
     get user() { return user; },

@@ -5,14 +5,14 @@
   <meta name="description" content="cnbdg的博客，记录生活的点点滴滴。"><meta name="author" content="cnbdg"><meta property="og:title" content="cnbdg的博客"><meta property="og:description" content="记录生活的点点滴滴"><meta property="og:type" content="website"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>cnbdg的博客</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260731-15">
+  <link rel="stylesheet" href="style.css?v=20260731-16">
 </head>
 <body>
   <header class="topbar">
     <div class="nav-wrap">
       <a class="logo" href="#" data-page="home"><span class="logo-mark">C</span><strong>cnbdg的博客</strong></a>
       <nav id="mainNav">
-        <a class="active" href="#home" data-page="home">动态</a>
+        <a class="active" href="#home" data-page="home">交友</a>
         <a href="#forum" data-page="forum">社区</a>
         <a href="#projects" data-page="projects">站点</a>
         <a href="#about" data-page="about">关于</a>
@@ -24,10 +24,11 @@
 
   <main id="app">
     <section id="home" class="page active">
-      <div class="page-title"><div><p class="hello">Hi, I'm cnbdg 👋</p><h1>cnbdg的博客</h1><p>记录生活的点点滴滴，也收藏一路上的想法与发现。</p><p id="typewriterLine" class="typewriter-line" aria-live="polite"></p></div><span class="planet">◌</span></div>
+      <div class="page-title social-hero"><div><p class="hello">CNBDG FRIENDS 👋</p><h1>来认识更多朋友</h1><p>在这里分享生活、认识同好，找到愿意认真交流的人。</p><p id="typewriterLine" class="typewriter-line" aria-live="polite"></p><div class="social-hero-actions"><button type="button" class="primary-btn" data-page="forum">进入社区</button><button type="button" class="secondary-btn" data-open-auth>个人资料</button></div></div><span class="planet">◌</span></div>
+      <section class="friendship-card"><div><small>MAKE CONNECTIONS</small><h2>友善、真诚、慢慢认识</h2><p>发布你的想法，回复别人的故事。互相关注后，还可以开启只有你们看得见的私聊。</p></div><div class="friendship-points"><span>① 发现同好</span><span>② 互相关注</span><span>③ 开始私聊</span></div></section>
       <div class="layout">
         <div>
-          <div class="feed-head"><span>最新文章</span><div id="filters"><button class="active" data-filter="全部">全部</button></div></div>
+          <div class="feed-head"><span>最新博客动态</span><div id="filters"><button class="active" data-filter="全部">全部</button></div></div>
           <div id="postList" class="post-list"></div>
           <div id="pagination" class="pagination"></div>
         </div>
@@ -93,7 +94,7 @@
   <footer><div><strong>cnbdg的博客</strong><p>记录生活的点点滴滴。</p></div><div class="footer-links"><a href="https://home.cnbdg0826.dpdns.org/" target="_blank" rel="noopener">导航页</a><a href="https://xsf.indevs.in/" target="_blank" rel="noopener">旧博客</a><a href="https://github.com/cnbdg" target="_blank" rel="noopener">GitHub</a><a href="mailto:3606604482@qq.com">联系</a></div><small>© 2026 cnbdg. All rights reserved.</small></footer>
   <button id="toTop" aria-label="返回顶部">↑</button>
 
-  <dialog id="searchDialog"><div class="dialog-title"><b>搜索</b><button data-close="searchDialog">×</button></div><div class="search-box">⌕<input id="searchInput" placeholder="输入关键词…" autocomplete="off"></div><div id="searchResults"></div><small class="search-hint">输入标题、摘要或标签进行搜索</small></dialog>
+  <dialog id="searchDialog"><div class="dialog-title"><b>搜索</b><button data-close="searchDialog">×</button></div><div class="search-box">⌕<input id="searchInput" placeholder="搜索文章、用户名或 UID…" autocomplete="off"></div><div id="userSearchResults" class="user-search-results"></div><div id="searchResults"></div><small class="search-hint">支持搜索文章、社区用户和 UID</small></dialog>
   <dialog id="articleDialog" class="article-dialog"><button class="article-close" data-close="articleDialog">×</button><article id="articleContent"></article>
     <section class="comments"><div class="comment-heading"><div><small>DISCUSSION</small><h2>评论 <span id="commentCount">0</span></h2></div><p>友善交流，真诚表达。</p></div>
       <div id="commentLoginTip" class="comment-login-tip">登录后即可参与评论。<button type="button" data-open-auth>立即登录</button></div><form id="commentForm"><label>评论<textarea name="content" required maxlength="500" placeholder="写下你的想法…"></textarea></label><div class="form-foot"><small><span id="charCount">0</span> / 500</small><button>发表评论</button></div></form><div id="commentList"></div>
@@ -107,7 +108,7 @@
     <div id="authRecovery" hidden><p class="recovery-intro">请设置一个不少于 8 位的新密码。</p><form id="newPasswordForm"><label>新密码<div class="password-input"><input name="password" type="password" required minlength="8" autocomplete="new-password"><button type="button" data-toggle-password>显示</button></div></label><label>确认新密码<input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"></label><p id="recoveryError" class="form-message error" role="alert" hidden></p><button class="primary-btn">更新密码</button></form></div>
     <div id="authUser" hidden>
       <div class="user-profile"><div id="userAvatar" class="avatar">U</div><div><strong id="userName">用户</strong><small id="userEmail"></small><span id="userRole" class="user-role">已验证账户</span></div></div>
-      <details class="account-panel" open><summary>个人资料</summary><form id="profileForm"><label>昵称<input name="username" required minlength="2" maxlength="20" autocomplete="nickname"></label><label>社区称号<select name="display_title"><option value="社区成员">社区成员</option><option value="新人报到">新人报到</option><option value="活跃成员">活跃成员</option><option value="技术爱好者">技术爱好者</option><option value="游戏玩家">游戏玩家</option><option value="内容创作者">内容创作者</option></select></label><label>头像 URL（可选）<input name="avatar_url" type="url" maxlength="500" placeholder="https://…"></label><p id="profileError" class="form-message error" role="alert" hidden></p><button class="primary-btn">保存个人资料</button></form></details>
+      <details class="account-panel" open><summary>个人资料</summary><div class="account-uid">UID <strong id="userUid">加载中</strong><small>注册顺序编号，不可修改</small></div><form id="profileForm"><label>昵称<input name="username" required minlength="2" maxlength="20" autocomplete="nickname"></label><label>社区称号<select name="display_title"><option value="社区成员">社区成员</option><option value="新人报到">新人报到</option><option value="活跃成员">活跃成员</option><option value="技术爱好者">技术爱好者</option><option value="游戏玩家">游戏玩家</option><option value="内容创作者">内容创作者</option></select></label><label>头像 URL（可选）<input name="avatar_url" type="url" maxlength="500" placeholder="https://…"></label><p id="profileError" class="form-message error" role="alert" hidden></p><button class="primary-btn">保存个人资料</button></form></details>
       <details class="account-panel"><summary>修改密码</summary><form id="accountPasswordForm"><label>新密码<div class="password-input"><input name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"><button type="button" data-toggle-password>显示</button></div></label><label>确认新密码<input name="confirmPassword" type="password" required minlength="8" maxlength="72" autocomplete="new-password"></label><p id="accountPasswordError" class="form-message error" role="alert" hidden></p><button class="primary-btn">更新密码</button></form></details>
       <div class="account-actions"><button id="logoutBtn" type="button" class="secondary-btn">退出当前设备</button><button id="logoutAllBtn" type="button" class="danger-button">退出所有设备</button></div>
     </div>
@@ -118,5 +119,5 @@
   <dialog id="reportDialog" class="report-dialog"><div class="dialog-title"><div><small>COMMUNITY SAFETY</small><h2>举报内容</h2></div><button type="button" data-close="reportDialog" aria-label="关闭">×</button></div><p>请说明这条内容违反了哪项社区规则。管理员会查看并记录处理结果。</p><form id="reportForm"><input name="target_type" type="hidden"><input name="target_id" type="hidden"><label>举报原因<textarea name="reason" required minlength="2" maxlength="300" placeholder="例如：广告、骚扰、泄露隐私、恶意内容……"></textarea></label><p id="reportError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="reportDialog">取消</button><button class="primary-btn">提交举报</button></div></form></dialog>
   <dialog id="banDialog" class="report-dialog"><div class="dialog-title"><div><small>MODERATION</small><h2>限制用户发言</h2></div><button type="button" data-close="banDialog" aria-label="关闭">×</button></div><form id="banForm"><input name="user_id" type="hidden"><label>限制时长<select name="duration"><option value="1h">1 小时</option><option value="1d" selected>1 天</option><option value="7d">7 天</option><option value="30d">30 天</option><option value="permanent">永久限制</option></select></label><label>处理原因<textarea name="reason" required minlength="2" maxlength="300" placeholder="请填写审核原因，便于后续审计……"></textarea></label><p id="banError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="banDialog">取消</button><button class="danger-button">确认限制</button></div></form></dialog>
   <dialog id="dmDialog" class="dm-dialog"><div class="dialog-title"><div><small>PRIVATE CHAT</small><h2 id="dmTitle">私聊</h2></div><button type="button" data-close="dmDialog" aria-label="关闭">×</button></div><div id="dmList" class="dm-list"><p class="forum-empty">正在加载消息…</p></div><form id="dmForm"><textarea name="content" required maxlength="2000" placeholder="输入私信内容…"></textarea><div class="form-foot"><small>仅你们双方可见</small><button>发送</button></div></form></dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-15"></script><script src="legacy-posts.js?v=20260731-15"></script><script src="config.js?v=20260731-15"></script><script src="auth.js?v=20260731-15"></script><script src="script.js?v=20260731-15"></script><script src="wallpaper.js?v=20260731-15"></script><script src="forum.js?v=20260731-15"></script><script src="messaging.js?v=20260731-15"></script><script src="moderation.js?v=20260731-15"></script><script src="admin.js?v=20260731-15"></script>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-16"></script><script src="legacy-posts.js?v=20260731-16"></script><script src="config.js?v=20260731-16"></script><script src="auth.js?v=20260731-16"></script><script src="script.js?v=20260731-16"></script><script src="wallpaper.js?v=20260731-16"></script><script src="forum.js?v=20260731-16"></script><script src="messaging.js?v=20260731-16"></script><script src="moderation.js?v=20260731-16"></script><script src="admin.js?v=20260731-16"></script>
 </body></html>
