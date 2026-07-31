@@ -107,7 +107,8 @@
     if (!state?.mutual) return window.toast?.("只有互相关注后才能私聊");
     targetUser = userId;
     targetName = name || "社区用户";
-    $("#dmTitle").textContent = `与 ${targetName} 私聊`;
+    $("#dmTitle").textContent = targetName;
+    $("#dmPeerAvatar").textContent = targetName.slice(0, 1).toUpperCase();
     $("#dmList").innerHTML = `<p class="forum-empty">正在加载消息…</p>`;
     $("#dmDialog").showModal();
     await renderMessages();
@@ -142,6 +143,12 @@
 
   function init() {
     $("#dmForm").addEventListener("submit", sendMessage);
+    $("#dmForm textarea")?.addEventListener("keydown", event => {
+      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        $("#dmForm").requestSubmit();
+      }
+    });
     document.addEventListener("click", event => {
       const follow = event.target.closest("[data-follow-user]");
       const chat = event.target.closest("[data-chat-user]");
