@@ -138,9 +138,7 @@
 
   async function openThread(thread) {
     currentThread = thread;
-    const actions = canManage(thread)
-      ? `<div class="thread-actions"><button type="button" data-edit-thread="${thread.id}">编辑</button><button type="button" class="danger-link" data-delete-thread="${thread.id}">删除</button></div>`
-      : "";
+    const actions = `<div class="thread-actions">${canManage(thread) ? `<button type="button" data-edit-thread="${thread.id}">编辑</button><button type="button" class="danger-link" data-delete-thread="${thread.id}">删除</button>` : ""}<button type="button" data-report-type="forum_post" data-report-id="${thread.id}">举报</button></div>`;
     $("#threadContent").innerHTML = `<div class="article-body forum-thread-body">
       <div class="thread-floor-mark">1楼</div>
       <div class="thread-detail-author">${avatarMarkup(thread)}<div><span><strong>${escapeText(authorName(thread))}</strong>${titleMarkup(thread, true)}</span><time>${formatTime(thread.created_at)}</time></div></div>
@@ -163,7 +161,7 @@
           ${avatarMarkup(reply)}
           <div><div class="comment-head"><span class="reply-author"><strong>${escapeText(authorName(reply))}</strong>${titleMarkup(reply, true)}</span><span class="reply-floor"><b>${reply.floor_number || index + 2}楼</b><time>${formatTime(reply.created_at)}</time></span></div>
           <div class="reply-content">${window.blogMarkdown.render(reply.content)}</div>
-          ${canManage(reply) ? `<button class="comment-delete" type="button" data-delete-reply="${reply.id}">删除</button>` : ""}</div>
+          <div class="reply-tools">${canManage(reply) ? `<button class="comment-delete" type="button" data-delete-reply="${reply.id}">删除</button>` : ""}<button class="comment-report" type="button" data-report-type="forum_reply" data-report-id="${reply.id}">举报</button></div></div>
         </article>`).join("")
       : `<p class="forum-empty">还没有回复，来参与讨论吧。</p>`;
   }

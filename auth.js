@@ -33,6 +33,10 @@
     [/signup is disabled/i, "网站暂时关闭了新用户注册"],
     [/same password/i, "新密码不能与当前密码相同"],
     [/session.*missing|refresh token/i, "登录状态已过期，请重新登录"]
+    ,[/ACCOUNT_RESTRICTED/i, "当前账号暂时不能发言"]
+    ,[/ALREADY_REPORTED/i, "你已经举报过这条内容"]
+    ,[/ADMIN_REQUIRED/i, "当前账号没有审核权限"]
+    ,[/CANNOT_BAN_ADMIN/i, "不能限制其他管理员账号"]
   ];
 
   function friendlyError(error, fallback = "操作失败，请稍后重试") {
@@ -687,11 +691,82 @@
     return !error;
   }
 
+  async function reportContent(targetType, targetId, reason) {
+    if (!client || !user) {
+      openAuth();
+      return false;
+    }
+    const { error } = await client.rpc("report_content", {
+      report_target_type: targetType,
+      report_target_id: Number(targetId),
+      report_reason: String(reason || "").trim()
+    });
+    if (error) notify("举报提交失败：" + friendlyError(error));
+    return !error;
+  }
+
+  async function getMyModeration() {
+    if (!client || !user) return null;
+    const { data, error } = await client.rpc("get_my_moderation");
+    if (error) return null;
+    return data?.[0] || { banned: false };
+  }
+
+  async function listModerationUsers() {
+    if (!client || !profile?.is_admin) return null;
+    const { data, error } = await client.rpc("list_moderation_users");
+    if (error) { notify("用户列表加载失败：" + friendlyError(error)); return null; }
+    return data || [];
+  }
+
+  async function listModerationReports() {
+    if (!client || !profile?.is_admin) return null;
+    const { data, error } = await client.rpc("list_moderation_reports");
+    if (error) { notify("举报列表加载失败：" + friendlyError(error)); return null; }
+    return data || [];
+  }
+
+  async function listModerationActions() {
+    if (!client || !profile?.is_admin) return null;
+    const { data, error } = await client.from("moderation_actions")
+      .select("id,action,target_user_id,report_id,details,created_at,profiles(username)")
+      .order("created_at", { ascending: false }).limit(100);
+    if (error) { notify("操作日志加载失败：" + friendlyError(error)); return null; }
+    return data || [];
+  }
+
+  async function setUserBan(userId, until, reason) {
+    if (!client || !profile?.is_admin) return false;
+    const { error } = await client.rpc("set_user_ban", {
+      target_user: userId, ban_until: until, ban_reason: String(reason || "").trim()
+    });
+    if (error) notify("限制用户失败：" + friendlyError(error));
+    return !error;
+  }
+
+  async function clearUserBan(userId) {
+    if (!client || !profile?.is_admin) return false;
+    const { error } = await client.rpc("clear_user_ban", { target_user: userId });
+    if (error) notify("解除限制失败：" + friendlyError(error));
+    return !error;
+  }
+
+  async function moderateReport(reportId, decision) {
+    if (!client || !profile?.is_admin) return false;
+    const { error } = await client.rpc("moderate_report", {
+      target_report_id: Number(reportId), decision
+    });
+    if (error) notify("审核处理失败：" + friendlyError(error));
+    return !error;
+  }
+
   window.blogAuth = {
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
     listForumThreads, saveForumThread, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply,
+    reportContent, getMyModeration, listModerationUsers, listModerationReports,
+    listModerationActions, setUserBan, clearUserBan, moderateReport,
     get user() { return user; },
     get profile() { return profile; },
     get isAdmin() { return Boolean(profile?.is_admin); },
