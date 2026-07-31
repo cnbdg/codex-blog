@@ -175,6 +175,12 @@
     $("#wallpaperBtn").addEventListener("click", () => {
       if (!$("#wallpaperDialog").open) $("#wallpaperDialog").showModal();
     });
+    document.querySelector("[data-open-wallpaper]")?.addEventListener("click", event => {
+      event.preventDefault();
+      document.querySelector("nav")?.classList.remove("open");
+      document.body.classList.remove("nav-open");
+      if (!$("#wallpaperDialog").open) $("#wallpaperDialog").showModal();
+    });
     $("#wallpaperGrid").addEventListener("click", event => {
       const card = event.target.closest("[data-wallpaper-url]");
       if (card) selectWallpaper(card.dataset.wallpaperUrl);

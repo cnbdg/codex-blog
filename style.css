@@ -151,3 +151,9 @@ button{touch-action:manipulation}.primary-btn,.secondary-btn,.danger-button,.fol
 dialog{z-index:100;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);margin:auto;overflow:auto}dialog::backdrop{z-index:99;background:#0f141966;backdrop-filter:blur(5px)}.dialog-title{gap:18px}.dialog-title>div{min-width:0}.dialog-title h2{line-height:1.3}.form-message{margin:10px 0;font-size:11px;line-height:1.6}.form-message.error{color:#d64545}.social-dialog,.dm-dialog,.public-profile-dialog,.wallpaper-dialog,.auth-dialog,.thread-editor-dialog,.member-admin-dialog{box-shadow:0 20px 70px #0f141933}
 .forum-aside,.layout aside{align-self:start;position:sticky;top:92px}.thread-card,.post-item{transition:background .18s ease}.thread-card:focus-within,.post-item:focus-within{background:var(--soft)}
 @media(max-width:900px){dialog{max-width:100vw;max-height:94dvh;margin:auto 0 0}.forum-aside,.layout aside{position:static}.dialog-title{gap:10px}.primary-btn,.secondary-btn,.danger-button,.follow-button,.chat-button{min-height:42px}}
+@media(max-width:900px){
+  .topbar nav{display:flex;position:fixed;z-index:42;top:0;right:auto;bottom:0;left:0;width:min(84vw,330px);height:100dvh;padding:82px 22px max(24px,env(safe-area-inset-bottom));background:var(--surface);flex-direction:column;gap:4px;border:0;box-shadow:18px 0 45px #12172225;transform:translateX(-105%);transition:transform .28s cubic-bezier(.22,.8,.25,1)}
+  .topbar nav.open{display:flex;transform:translateX(0)}
+  .topbar nav a{height:50px;min-height:50px;padding:0 15px;border-radius:999px;font-size:15px}
+  .actions #wallpaperBtn{display:block}
+}

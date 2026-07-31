@@ -21,6 +21,7 @@
   let initialized = false;
   let profileRequest = 0;
   let directMessageChannel = null;
+  let notificationChannel = null;
   let pendingEmail = localStorage.getItem("yu-pending-email") || "";
 
   const messages = [
@@ -758,6 +759,15 @@
     return () => { if (directMessageChannel) { client.removeChannel(directMessageChannel); directMessageChannel = null; } };
   }
 
+  function subscribeNotifications(onNotification) {
+    if (!client || !user) return () => {};
+    if (notificationChannel) client.removeChannel(notificationChannel);
+    notificationChannel = client.channel(`notifications-${user.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` }, payload => onNotification?.(payload.new))
+      .subscribe();
+    return () => { if (notificationChannel) { client.removeChannel(notificationChannel); notificationChannel = null; } };
+  }
+
   async function searchUsers(query) {
     if (!client) return [];
     const clean = String(query || "").trim();
@@ -895,7 +905,7 @@
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
     listForumThreads, saveForumThread, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
-    getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages,
+    getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,
     searchUsers, getPublicProfile, adminUpdateMember, confirmAdminPassword, listNotifications, markNotificationsRead, listFriends,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,

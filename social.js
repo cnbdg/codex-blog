@@ -2,6 +2,7 @@
   "use strict";
   const $ = s => document.querySelector(s);
   let timer = null;
+  let stopNotificationSync = null;
   const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;", "'":"&#039;"}[c]));
   const avatar = (row) => row.actor_avatar_url || row.avatar_url;
   const avatarMarkup = (row) => { const url = avatar(row); const id = row.actor_id || row.id || ""; return `<button type="button" class="social-avatar ${url ? "has-image" : ""}" data-user-profile="${esc(id)}" aria-label="查看用户资料"${url ? ` style="background-image:url('${esc(url)}')"` : ""}>${esc((row.actor_username || row.username || "U")[0].toUpperCase())}</button>`; };
@@ -31,7 +32,16 @@
     $("#friendsBtn")?.addEventListener("click", () => openSocial("friends"));
     $("#refreshFriendsBtn")?.addEventListener("click", renderFriends);
     document.addEventListener("click", e => { const tab = e.target.closest("[data-social-tab]"); if (tab) openSocial(tab.dataset.socialTab); });
-    window.addEventListener("blog-auth-change", () => { renderFriends(); renderNotifications(); });
+    window.addEventListener("blog-auth-change", () => {
+      stopNotificationSync?.(); stopNotificationSync = null;
+      if (window.blogAuth?.user) {
+        stopNotificationSync = window.blogAuth.subscribeNotifications?.(row => {
+          window.toast?.(`收到新通知：${row.payload?.message || "有人与你互动"}`);
+          renderNotifications();
+        });
+      }
+      renderFriends(); renderNotifications();
+    });
     timer = setInterval(() => { if (!document.hidden && $("#socialDialog")?.open) { renderFriends(); renderNotifications(); } }, 30000);
   }
   window.openSocial = openSocial;
