@@ -34,6 +34,16 @@
     });
   }
 
+  function syncProfileSidebar() {
+    const aside = document.querySelector(".forum-aside");
+    const dialogContent = $("#publicProfileContent");
+    if (!aside || !dialogContent || window.innerWidth < 901) return;
+    let panel = aside.querySelector(".profile-sidebar-card");
+    if (!panel) { panel = document.createElement("section"); panel.className = "side-card profile-sidebar-card"; aside.prepend(panel); }
+    panel.hidden = false;
+    panel.innerHTML = dialogContent.innerHTML;
+  }
+
   async function hydrateFollowButton(button) {
     if (!window.blogAuth?.user) return setFollowButton(button, null);
     const userId = button.dataset.followUser;
@@ -100,6 +110,7 @@
           : `<button type="button" class="follow-button profile-follow ${state?.following ? "following" : ""}" data-follow-user="${escapeText(publicProfile.id)}">${state?.following ? (state?.mutual ? "互相关注" : "已关注") : "＋ 关注"}</button>
              <button type="button" class="chat-button profile-chat ${state?.mutual ? "available" : ""}" data-chat-user="${escapeText(publicProfile.id)}" data-chat-name="${escapeText(name)}" data-profile-chat="${escapeText(publicProfile.id)}" title="${state?.mutual ? "发送私信" : "互相关注后即可私信"}">✉ 私信</button>`}
       </div>`;
+    syncProfileSidebar();
   }
 
   async function openChat(userId, name) {
