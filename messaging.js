@@ -4,6 +4,7 @@
   let targetUser = null;
   let targetName = "社区用户";
   let profileRequest = 0;
+  let stopMessageSync = null;
 
   const escapeText = value => String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -111,6 +112,8 @@
     $("#dmPeerAvatar").textContent = targetName.slice(0, 1).toUpperCase();
     $("#dmList").innerHTML = `<p class="forum-empty">正在加载消息…</p>`;
     $("#dmDialog").showModal();
+    stopMessageSync?.();
+    stopMessageSync = window.blogAuth.subscribeDirectMessages?.(targetUser, () => renderMessages());
     await renderMessages();
   }
 
@@ -149,6 +152,7 @@
         $("#dmForm").requestSubmit();
       }
     });
+    $("#dmDialog")?.addEventListener("close", () => { stopMessageSync?.(); stopMessageSync = null; targetUser = null; });
     document.addEventListener("click", event => {
       const follow = event.target.closest("[data-follow-user]");
       const chat = event.target.closest("[data-chat-user]");

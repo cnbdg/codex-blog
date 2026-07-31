@@ -77,3 +77,11 @@ grant execute on function public.list_notifications(integer), public.mark_notifi
 revoke all on function public.increment_comment_likes(bigint) from public;
 grant execute on function public.increment_comment_likes(bigint) to authenticated;
 notify pgrst, 'reload schema';
+
+-- 开启私信的 Supabase Realtime（重复执行安全）。
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'direct_messages') then
+    alter publication supabase_realtime add table public.direct_messages;
+  end if;
+end $$;

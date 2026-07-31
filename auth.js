@@ -20,6 +20,7 @@
   let recovering = false;
   let initialized = false;
   let profileRequest = 0;
+  let directMessageChannel = null;
   let pendingEmail = localStorage.getItem("yu-pending-email") || "";
 
   const messages = [
@@ -746,6 +747,17 @@
     return true;
   }
 
+  function subscribeDirectMessages(otherUser, onMessage) {
+    if (!client || !user || !otherUser) return () => {};
+    if (directMessageChannel) client.removeChannel(directMessageChannel);
+    directMessageChannel = client.channel(`direct-messages-${user.id}-${otherUser}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, payload => {
+        const row = payload.new;
+        if ((row.sender_id === user.id && row.recipient_id === otherUser) || (row.sender_id === otherUser && row.recipient_id === user.id)) onMessage?.(row);
+      }).subscribe();
+    return () => { if (directMessageChannel) { client.removeChannel(directMessageChannel); directMessageChannel = null; } };
+  }
+
   async function searchUsers(query) {
     if (!client) return [];
     const clean = String(query || "").trim();
@@ -868,7 +880,7 @@
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
     listForumThreads, saveForumThread, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
-    getFollowState, toggleFollow, listDirectMessages, sendDirectMessage,
+    getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages,
     searchUsers, getPublicProfile, listNotifications, markNotificationsRead, listFriends,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,

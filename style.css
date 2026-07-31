@@ -129,3 +129,7 @@ dialog[open].dialog-closing::backdrop{animation:backdropOut .14s ease both}
 @media (max-width:390px){
   .actions button{width:30px}.logo strong{font-size:13px}.page{padding-inline:10px}.page-title h1{font-size:23px}.social-hero-actions{display:grid;grid-template-columns:1fr}.social-hero-actions button{width:100%}.friendship-points{font-size:8px}.thread-meta span:nth-child(n+4){display:none}.profile-facts>div{grid-template-columns:78px 1fr}.dm-chat-label{padding-inline:15px}.dm-chat-label span{display:none}
 }
+/* Desktop workspace layout */
+@media (min-width:1000px){
+  .topbar{height:74px}.nav-wrap{max-width:1240px;padding-inline:30px}.logo{margin-right:70px}.topbar nav{gap:38px}.actions{gap:8px}.actions button{padding-inline:12px}.page{max-width:1240px;padding:62px 30px 105px}.page-title{padding:42px 48px;margin-bottom:34px}.layout{grid-template-columns:minmax(0,1fr) 300px;gap:36px}.post-list{border-radius:18px}.post-item{padding:30px 34px}.post-item h2{font-size:20px}.forum-page{max-width:1240px}.forum-layout{grid-template-columns:minmax(0,1fr) 310px;gap:36px}.forum-hero{padding:38px 44px;border-radius:20px}.thread-list{border-radius:17px}.thread-card{grid-template-columns:48px minmax(0,1fr);gap:17px;padding:25px 29px}.thread-card h2{font-size:18px}.forum-aside .side-card{padding:23px}.dm-dialog{width:min(620px,72vw);height:min(760px,82vh)}.social-dialog{width:min(560px,72vw)}.public-profile-dialog{width:min(560px,72vw)}
+}
