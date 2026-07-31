@@ -167,3 +167,4 @@ dialog{z-index:100;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);ma
 }
 @media(min-width:1600px){.page,.forum-page{max-width:none}.layout,.forum-layout,.page-title,.forum-hero{max-width:1320px}.layout,.forum-layout{grid-template-columns:minmax(0,1fr) 390px;gap:46px}.forum-aside{width:390px}}
 .forum-space-card p{margin:0 0 17px;color:var(--muted);font-size:11px;line-height:1.75}.forum-space-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.forum-space-actions button{width:100%;font-size:10px}
+@media(max-width:900px){.post-list,.thread-list{border:1px solid var(--line);border-radius:16px!important;overflow:hidden}.post-item:first-child,.thread-card:first-child{border-top-left-radius:15px;border-top-right-radius:15px}.post-item:last-child,.thread-card:last-child{border-bottom-left-radius:15px;border-bottom-right-radius:15px}.post-item{padding-inline:16px}}
