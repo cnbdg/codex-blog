@@ -32,6 +32,7 @@
     $("#friendsBtn")?.addEventListener("click", () => openSocial("friends"));
     $("#refreshFriendsBtn")?.addEventListener("click", renderFriends);
     document.addEventListener("click", e => { const tab = e.target.closest("[data-social-tab]"); if (tab) openSocial(tab.dataset.socialTab); });
+    document.addEventListener("click", e => { const quick = e.target.closest("[data-open-social]"); if (quick) openSocial(quick.dataset.openSocial); });
     window.addEventListener("blog-auth-change", () => {
       stopNotificationSync?.(); stopNotificationSync = null;
       if (window.blogAuth?.user) {

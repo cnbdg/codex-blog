@@ -63,6 +63,7 @@
   }
 
   async function loadThreads() {
+    ensureAsideWorkspace();
     const list = $("#threadList");
     list.innerHTML = `<p class="forum-empty">正在加载社区内容…</p>`;
     setNotice();
@@ -80,6 +81,15 @@
     }
     threads = result.rows;
     renderThreads();
+  }
+
+  function ensureAsideWorkspace() {
+    const aside = $(".forum-aside");
+    if (!aside || aside.querySelector(".forum-space-card")) return;
+    const card = document.createElement("section");
+    card.className = "side-card forum-space-card";
+    card.innerHTML = `<h3>社区空间</h3><p>这里是你的社区控制台，可以快速查看通知、好友和个人资料。</p><div class="forum-space-actions"><button type="button" class="secondary-btn" data-open-social="notifications">通知中心</button><button type="button" class="secondary-btn" data-open-social="friends">好友列表</button></div>`;
+    aside.append(card);
   }
 
   function renderThreads() {
