@@ -32,9 +32,9 @@
 
   function titleMarkup(record, showOwner = false) {
     const admin = Boolean(record.profiles?.is_admin);
-    const title = admin ? "站长" : (record.profiles?.display_title || "社区成员");
+    const title = record.profiles?.display_title || (admin ? "站长" : "社区成员");
     const owner = showOwner && currentThread && record.author_id === currentThread.author_id;
-    return `<span class="user-title ${admin ? "admin" : ""}">${escapeText(title)}</span>${owner ? `<span class="user-title owner">楼主</span>` : ""}`;
+    return `<span class="user-title">${escapeText(title)}</span>${admin ? `<span class="user-title admin">管理员</span>` : ""}${owner ? `<span class="user-title owner">楼主</span>` : ""}`;
   }
 
   function socialMarkup(record) {

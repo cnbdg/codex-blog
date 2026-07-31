@@ -86,7 +86,7 @@
 
     const ownProfile = window.blogAuth?.user?.id === publicProfile.id;
     const name = publicProfile.username || "社区用户";
-    const title = publicProfile.is_admin ? "站长" : (publicProfile.display_title || "社区成员");
+    const title = publicProfile.display_title || (publicProfile.is_admin ? "站长" : "社区成员");
     const avatarUrl = safeAvatarUrl(publicProfile.avatar_url);
     const avatarStyle = avatarUrl ? ` style="background-image:url(&quot;${escapeText(avatarUrl)}&quot;)"` : "";
     const state = ownProfile ? null : await window.blogAuth?.getFollowState?.(publicProfile.id);
@@ -96,7 +96,7 @@
       <div class="profile-cover"><span></span><span></span><span></span></div>
       <div class="profile-identity">
         <div class="profile-avatar-large ${avatarUrl ? "has-image" : ""}"${avatarStyle}>${escapeText(name[0]?.toUpperCase() || "U")}</div>
-        <div class="profile-name-row"><div><h2>${escapeText(name)}</h2><span class="user-title ${publicProfile.is_admin ? "admin" : ""}">${escapeText(title)}</span></div><span class="profile-uid">UID ${publicProfile.user_uid || "—"}</span></div>
+        <div class="profile-name-row"><div><h2>${escapeText(name)}</h2><span class="user-title">${escapeText(title)}</span>${publicProfile.is_admin ? `<span class="user-title admin">管理员</span>` : ""}</div><span class="profile-uid">UID ${publicProfile.user_uid || "—"}</span></div>
       </div>
       <div class="profile-facts">
         <div><small>社区身份</small><strong>${escapeText(title)}</strong></div>
