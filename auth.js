@@ -785,6 +785,13 @@
     return data;
   }
 
+  async function adminUpdateMember(targetUser, title, promote) {
+    if (!client || !profile?.is_admin) return false;
+    const { data, error } = await client.rpc("admin_update_member", { target_user: targetUser, new_title: title, promote: Boolean(promote) });
+    if (error) { notify("站长操作失败：" + friendlyError(error)); return false; }
+    return Boolean(data);
+  }
+
   async function listNotifications() {
     if (!client || !user) return [];
     const { data, error } = await client.rpc("list_notifications", { p_limit: 50 });
@@ -881,7 +888,7 @@
     listForumThreads, saveForumThread, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages,
-    searchUsers, getPublicProfile, listNotifications, markNotificationsRead, listFriends,
+    searchUsers, getPublicProfile, adminUpdateMember, listNotifications, markNotificationsRead, listFriends,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,
     get user() { return user; },

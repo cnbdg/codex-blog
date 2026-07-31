@@ -5,6 +5,20 @@
   let activeId = null;
 
   function init() {
+    $("#adminMemberBtn")?.addEventListener("click", () => {
+      if (!window.blogAuth?.isAdmin) return window.blogAuth?.openAuth();
+      $("#memberAdminForm")?.reset(); $("#memberAdminError").hidden = true; $("#memberAdminDialog").showModal();
+    });
+    $("#memberAdminForm")?.addEventListener("submit", async event => {
+      event.preventDefault();
+      const form = event.currentTarget, uid = Number(form.elements.uid.value), title = form.elements.title.value.trim(), promote = form.elements.promote.checked;
+      const results = await window.blogAuth.searchUsers(String(uid));
+      const member = results.find(row => Number(row.user_uid) === uid);
+      if (!member) { $("#memberAdminError").textContent = "找不到这个 UID 对应的用户"; $("#memberAdminError").hidden = false; return; }
+      const ok = await window.blogAuth.adminUpdateMember(member.id, title, promote);
+      if (!ok) return;
+      $("#memberAdminDialog").close(); window.toast?.("用户资料已更新");
+    });
     $("#newPostBtn").addEventListener("click", () => {
       if (!window.blogAuth?.isAdmin) return window.blogAuth?.openAuth();
       resetEditor();
