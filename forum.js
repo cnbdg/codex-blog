@@ -46,13 +46,14 @@
 
   function avatarMarkup(record) {
     const name = authorName(record);
+    const userId = escapeText(record.author_id);
     let url = "";
     try {
       const parsed = new URL(record.profiles?.avatar_url || "");
       if (/^https?:$/.test(parsed.protocol)) url = parsed.href;
     } catch {}
     const style = url ? ` style="background-image:url(&quot;${escapeText(url)}&quot;)"` : "";
-    return `<span class="forum-avatar ${url ? "has-image" : ""}"${style}>${escapeText(name[0]?.toUpperCase() || "U")}</span>`;
+    return `<button type="button" class="forum-avatar profile-avatar ${url ? "has-image" : ""}" data-user-profile="${userId}" aria-label="查看 ${escapeText(name)} 的资料"${style}>${escapeText(name[0]?.toUpperCase() || "U")}</button>`;
   }
 
   function setNotice(message = "") {
@@ -92,7 +93,7 @@
               <div class="thread-author"><strong>${escapeText(authorName(thread))}</strong>${titleMarkup(thread)}<time>${formatTime(thread.created_at)}</time></div>
               <h2>${escapeText(thread.title)}</h2>
               <p>${escapeText(excerpt)}</p>
-              <div class="thread-meta"><span>💬 ${replies} 条回复</span>${canManage(thread) ? `<span class="thread-owner">可管理</span>` : ""}</div>
+              <div class="thread-meta"><span>💬 ${replies} 条回复</span><span>♡ ${thread.likes || 0} 个赞</span>${thread.profiles?.user_uid ? `<span>UID ${thread.profiles.user_uid}</span>` : ""}${canManage(thread) ? `<span class="thread-owner">可管理</span>` : ""}</div>
             </div>
           </article>`;
         }).join("")

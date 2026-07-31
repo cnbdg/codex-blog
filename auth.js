@@ -628,7 +628,7 @@
   async function listForumThreads() {
     if (!client) return null;
     const { data, error } = await client.from("forum_posts")
-      .select("id,title,content,likes,created_at,updated_at,author_id,profiles(username,avatar_url,display_title,is_admin),forum_replies(count)")
+      .select("id,title,content,likes,created_at,updated_at,author_id,profiles(user_uid,username,avatar_url,display_title,created_at,is_admin),forum_replies(count)")
       .order("updated_at", { ascending: false })
       .limit(100);
     if (error) return { error: friendlyError(error), rows: [] };
@@ -667,7 +667,7 @@
   async function listForumReplies(threadId) {
     if (!client) return [];
     const { data, error } = await client.from("forum_replies")
-      .select("id,content,parent_id,likes,floor_number,created_at,author_id,profiles(username,avatar_url,display_title,is_admin)")
+      .select("id,content,parent_id,likes,floor_number,created_at,author_id,profiles(user_uid,username,avatar_url,display_title,created_at,is_admin)")
       .eq("post_id", threadId)
       .order("created_at", { ascending: true });
     if (error) {
@@ -760,6 +760,19 @@
     return data || [];
   }
 
+  async function getPublicProfile(targetUser) {
+    if (!client || !targetUser) return null;
+    const { data, error } = await client.from("profiles")
+      .select("id,user_uid,username,avatar_url,display_title,created_at,is_admin")
+      .eq("id", targetUser)
+      .maybeSingle();
+    if (error) {
+      notify("用户资料加载失败：" + friendlyError(error));
+      return null;
+    }
+    return data;
+  }
+
   async function reportContent(targetType, targetId, reason) {
     if (!client || !user) {
       openAuth();
@@ -835,7 +848,7 @@
     listForumThreads, saveForumThread, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage,
-    searchUsers,
+    searchUsers, getPublicProfile,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,
     get user() { return user; },
