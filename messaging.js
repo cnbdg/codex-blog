@@ -5,6 +5,9 @@
   let targetName = "社区用户";
   let profileRequest = 0;
   let stopMessageSync = null;
+  let messagePoll = null;
+  let renderedMessageKey = null;
+  let hasRenderedMessages = false;
 
   const escapeText = value => String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -42,6 +45,57 @@
     if (!panel) { panel = document.createElement("section"); panel.className = "side-card profile-sidebar-card"; aside.prepend(panel); }
     panel.hidden = false;
     panel.innerHTML = dialogContent.innerHTML;
+  }
+
+  function setChatStatus(message, state = "ready") {
+    const status = $("#dmStatus");
+    if (!status) return;
+    status.dataset.state = state;
+    status.innerHTML = `<i></i>${escapeText(message)}`;
+  }
+
+  function notifyInboxChanged() {
+    window.dispatchEvent(new Event("blog-notifications-change"));
+  }
+
+  async function markCurrentChatRead(peer = targetUser) {
+    if (!peer) return;
+    const marked = await window.blogAuth?.markDirectMessagesRead?.(peer);
+    if (marked) notifyInboxChanged();
+  }
+
+  function stopChatSync() {
+    stopMessageSync?.();
+    stopMessageSync = null;
+    if (messagePoll) window.clearInterval(messagePoll);
+    messagePoll = null;
+  }
+
+  function startChatSync() {
+    const peer = targetUser;
+    if (!peer) return;
+    let connected = false;
+    stopMessageSync = window.blogAuth.subscribeDirectMessages?.(peer, async row => {
+      if (targetUser !== peer || !$("#dmDialog")?.open) return;
+      await renderMessages({ forceScroll: true });
+      if (row.sender_id === peer) await markCurrentChatRead(peer);
+    }, status => {
+      if (targetUser !== peer || !$("#dmDialog")?.open) return;
+      if (status === "SUBSCRIBED") {
+        connected = true;
+        setChatStatus("实时聊天已连接", "connected");
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        setChatStatus("实时连接重试中 · 自动同步已开启", "fallback");
+      } else if (status === "CLOSED" && !connected) {
+        setChatStatus("正在自动同步消息", "fallback");
+      }
+    }) || (() => {});
+
+    // Realtime 不可用时仍以短轮询保证对方消息会出现，避免聊天停在旧内容。
+    messagePoll = window.setInterval(() => {
+      if (document.hidden || targetUser !== peer || !$("#dmDialog")?.open) return;
+      renderMessages();
+    }, 2000);
   }
 
   async function hydrateFollowButton(button) {
@@ -119,25 +173,37 @@
     if (!state?.mutual) return window.toast?.("只有互相关注后才能私聊");
     targetUser = userId;
     targetName = name || "社区用户";
+    renderedMessageKey = null;
+    hasRenderedMessages = false;
     $("#dmTitle").textContent = targetName;
     $("#dmPeerAvatar").textContent = targetName.slice(0, 1).toUpperCase();
     $("#dmList").innerHTML = `<p class="forum-empty">正在加载消息…</p>`;
+    if ($("#socialDialog")?.open) $("#socialDialog").close();
+    if ($("#publicProfileDialog")?.open) $("#publicProfileDialog").close();
     $("#dmDialog").showModal();
-    stopMessageSync?.();
-    stopMessageSync = window.blogAuth.subscribeDirectMessages?.(targetUser, () => renderMessages());
-    await renderMessages();
+    setChatStatus("正在连接实时聊天…", "connecting");
+    stopChatSync();
+    startChatSync();
+    await Promise.all([renderMessages({ forceScroll: true }), markCurrentChatRead()]);
   }
 
-  async function renderMessages() {
+  async function renderMessages({ forceScroll = false } = {}) {
     if (!targetUser) return;
-    const messages = await window.blogAuth.listDirectMessages(targetUser);
+    const peer = targetUser;
+    const messages = await window.blogAuth.listDirectMessages(peer);
     if (!messages) return;
-    $("#dmList").innerHTML = messages.length ? messages.map(message => {
+    if (peer !== targetUser || !$("#dmDialog")?.open) return;
+    const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}`).join("|") : "empty";
+    if (hasRenderedMessages && key === renderedMessageKey) return;
+    const list = $("#dmList");
+    const isNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
+    list.innerHTML = messages.length ? messages.map(message => {
       const own = message.sender_id === window.blogAuth.user?.id;
       return `<article class="dm-message ${own ? "own" : "other"}"><p>${escapeText(message.content)}</p><time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time></article>`;
     }).join("") : `<p class="forum-empty">还没有消息，打个招呼吧。</p>`;
-    const list = $("#dmList");
-    list.scrollTop = list.scrollHeight;
+    renderedMessageKey = key;
+    hasRenderedMessages = true;
+    if (forceScroll || isNearBottom) list.scrollTop = list.scrollHeight;
   }
 
   async function sendMessage(event) {
@@ -152,18 +218,23 @@
     button.disabled = false;
     if (!ok) return;
     form.reset();
-    await renderMessages();
+    await renderMessages({ forceScroll: true });
   }
 
   function init() {
     $("#dmForm").addEventListener("submit", sendMessage);
     $("#dmForm textarea")?.addEventListener("keydown", event => {
-      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
         event.preventDefault();
         $("#dmForm").requestSubmit();
       }
     });
-    $("#dmDialog")?.addEventListener("close", () => { stopMessageSync?.(); stopMessageSync = null; targetUser = null; });
+    $("#dmDialog")?.addEventListener("close", () => {
+      stopChatSync();
+      targetUser = null;
+      renderedMessageKey = null;
+      hasRenderedMessages = false;
+    });
     document.addEventListener("click", event => {
       const follow = event.target.closest("[data-follow-user]");
       const chat = event.target.closest("[data-chat-user]");

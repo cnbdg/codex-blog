@@ -204,6 +204,9 @@
 
     client.auth.onAuthStateChange((event, session) => {
       user = session?.user || null;
+      // Realtime channels need the current JWT as well. Without this, a channel
+      // created immediately after restoring a session can be authorised as anon.
+      if (session?.access_token) client.realtime?.setAuth?.(session.access_token);
       if (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY") {
         clearAuthTokensFromUrl();
       }
@@ -225,6 +228,7 @@
       const { data, error } = await withTimeout(client.auth.getSession());
       if (error) notify(friendlyError(error, "登录状态读取失败"));
       user = data?.session?.user || null;
+      if (data?.session?.access_token) client.realtime?.setAuth?.(data.session.access_token);
     } catch (error) {
       user = null;
       notify(friendlyError(error, "登录状态读取超时，请检查网络"));
@@ -759,24 +763,34 @@
     return true;
   }
 
-  function subscribeDirectMessages(otherUser, onMessage) {
+  function subscribeDirectMessages(otherUser, onMessage, onStatus) {
     if (!client || !user || !otherUser) return () => {};
     if (directMessageChannel) client.removeChannel(directMessageChannel);
-    directMessageChannel = client.channel(`direct-messages-${user.id}-${otherUser}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, payload => {
+    const currentUserId = user.id;
+    const channel = client.channel(`direct-messages-${currentUserId}-${otherUser}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages", filter: `recipient_id=eq.${currentUserId}` }, payload => {
         const row = payload.new;
-        if ((row.sender_id === user.id && row.recipient_id === otherUser) || (row.sender_id === otherUser && row.recipient_id === user.id)) onMessage?.(row);
-      }).subscribe();
-    return () => { if (directMessageChannel) { client.removeChannel(directMessageChannel); directMessageChannel = null; } };
+        if (row.sender_id === otherUser && row.recipient_id === currentUserId) onMessage?.(row);
+      }).subscribe((status, error) => onStatus?.(status, error));
+    directMessageChannel = channel;
+    return () => {
+      client.removeChannel(channel);
+      if (directMessageChannel === channel) directMessageChannel = null;
+    };
   }
 
-  function subscribeNotifications(onNotification) {
+  function subscribeNotifications(onNotification, onStatus) {
     if (!client || !user) return () => {};
     if (notificationChannel) client.removeChannel(notificationChannel);
-    notificationChannel = client.channel(`notifications-${user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${user.id}` }, payload => onNotification?.(payload.new))
-      .subscribe();
-    return () => { if (notificationChannel) { client.removeChannel(notificationChannel); notificationChannel = null; } };
+    const currentUserId = user.id;
+    const channel = client.channel(`notifications-${currentUserId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${currentUserId}` }, payload => onNotification?.(payload.new))
+      .subscribe((status, error) => onStatus?.(status, error));
+    notificationChannel = channel;
+    return () => {
+      client.removeChannel(channel);
+      if (notificationChannel === channel) notificationChannel = null;
+    };
   }
 
   async function searchUsers(query) {
@@ -831,6 +845,13 @@
   async function markNotificationsRead() {
     if (!client || !user) return false;
     const { error } = await client.rpc("mark_notifications_read");
+    if (error) return false;
+    return true;
+  }
+
+  async function markDirectMessagesRead(senderUser) {
+    if (!client || !user || !senderUser) return false;
+    const { error } = await client.rpc("mark_direct_messages_read", { sender_user: senderUser });
     if (error) return false;
     return true;
   }
@@ -917,7 +938,7 @@
     listForumThreads, saveForumThread, uploadCommunityImage, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,
-    searchUsers, getPublicProfile, adminUpdateMember, confirmAdminPassword, listNotifications, markNotificationsRead, listFriends,
+    searchUsers, getPublicProfile, adminUpdateMember, confirmAdminPassword, listNotifications, markNotificationsRead, markDirectMessagesRead, listFriends,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,
     get user() { return user; },
