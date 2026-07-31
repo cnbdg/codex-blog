@@ -30,6 +30,13 @@
     ));
   }
 
+  function titleMarkup(record, showOwner = false) {
+    const admin = Boolean(record.profiles?.is_admin);
+    const title = admin ? "站长" : (record.profiles?.display_title || "社区成员");
+    const owner = showOwner && currentThread && record.author_id === currentThread.author_id;
+    return `<span class="user-title ${admin ? "admin" : ""}">${escapeText(title)}</span>${owner ? `<span class="user-title owner">楼主</span>` : ""}`;
+  }
+
   function avatarMarkup(record) {
     const name = authorName(record);
     let url = "";
@@ -75,7 +82,7 @@
           return `<article class="thread-card" data-thread-id="${thread.id}" tabindex="0">
             ${avatarMarkup(thread)}
             <div class="thread-main">
-              <div class="thread-author"><strong>${escapeText(authorName(thread))}</strong><time>${formatTime(thread.created_at)}</time></div>
+              <div class="thread-author"><strong>${escapeText(authorName(thread))}</strong>${titleMarkup(thread)}<time>${formatTime(thread.created_at)}</time></div>
               <h2>${escapeText(thread.title)}</h2>
               <p>${escapeText(excerpt)}</p>
               <div class="thread-meta"><span>💬 ${replies} 条回复</span>${canManage(thread) ? `<span class="thread-owner">可管理</span>` : ""}</div>
@@ -135,7 +142,8 @@
       ? `<div class="thread-actions"><button type="button" data-edit-thread="${thread.id}">编辑</button><button type="button" class="danger-link" data-delete-thread="${thread.id}">删除</button></div>`
       : "";
     $("#threadContent").innerHTML = `<div class="article-body forum-thread-body">
-      <div class="thread-detail-author">${avatarMarkup(thread)}<div><strong>${escapeText(authorName(thread))}</strong><time>${formatTime(thread.created_at)}</time></div></div>
+      <div class="thread-floor-mark">1楼</div>
+      <div class="thread-detail-author">${avatarMarkup(thread)}<div><span><strong>${escapeText(authorName(thread))}</strong>${titleMarkup(thread, true)}</span><time>${formatTime(thread.created_at)}</time></div></div>
       <h1>${escapeText(thread.title)}</h1>
       <div class="article-text">${window.blogMarkdown.render(thread.content)}</div>${actions}
     </div>`;
@@ -151,9 +159,9 @@
     const replies = await window.blogAuth.listForumReplies(currentThread.id);
     $("#replyCount").textContent = replies.length;
     $("#replyList").innerHTML = replies.length
-      ? replies.map(reply => `<article class="comment forum-reply">
+      ? replies.map((reply, index) => `<article class="comment forum-reply">
           ${avatarMarkup(reply)}
-          <div><div class="comment-head"><strong>${escapeText(authorName(reply))}</strong><time>${formatTime(reply.created_at)}</time></div>
+          <div><div class="comment-head"><span class="reply-author"><strong>${escapeText(authorName(reply))}</strong>${titleMarkup(reply, true)}</span><span class="reply-floor"><b>${reply.floor_number || index + 2}楼</b><time>${formatTime(reply.created_at)}</time></span></div>
           <div class="reply-content">${window.blogMarkdown.render(reply.content)}</div>
           ${canManage(reply) ? `<button class="comment-delete" type="button" data-delete-reply="${reply.id}">删除</button>` : ""}</div>
         </article>`).join("")

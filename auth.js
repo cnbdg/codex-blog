@@ -131,6 +131,7 @@
       if (profileForm && !profileForm.contains(document.activeElement)) {
         profileForm.elements.username.value = displayName();
         profileForm.elements.avatar_url.value = profile?.avatar_url || "";
+        profileForm.elements.display_title.value = profile?.display_title || "社区成员";
       }
     }
   }
@@ -148,13 +149,13 @@
       return;
     }
     let result = await client.from("profiles")
-      .select("username,avatar_url,is_admin")
+      .select("username,avatar_url,display_title,is_admin")
       .eq("id", user.id)
       .maybeSingle();
     if (result.error) {
       await new Promise(resolve => setTimeout(resolve, 350));
       result = await client.from("profiles")
-        .select("username,avatar_url,is_admin")
+        .select("username,avatar_url,display_title,is_admin")
         .eq("id", user.id)
         .maybeSingle();
     }
@@ -460,10 +461,15 @@
     const data = new FormData(form);
     const username = String(data.get("username") || "").trim();
     const avatarUrl = String(data.get("avatar_url") || "").trim();
+    const displayTitle = String(data.get("display_title") || "社区成员");
+    const allowedTitles = ["社区成员", "新人报到", "活跃成员", "技术爱好者", "游戏玩家", "内容创作者"];
     setMessage($("#profileError"));
     if (!form.checkValidity()) return form.reportValidity();
     if (username.length < 2 || username.length > 20) {
       return setMessage($("#profileError"), "昵称需要包含 2–20 个字符");
+    }
+    if (!allowedTitles.includes(displayTitle)) {
+      return setMessage($("#profileError"), "请选择有效的社区称号");
     }
     if (avatarUrl) {
       try {
@@ -476,7 +482,7 @@
     setBusy(button, true, "正在保存…", "保存个人资料");
     try {
       const { error } = await client.from("profiles")
-        .update({ username, avatar_url: avatarUrl || null })
+        .update({ username, avatar_url: avatarUrl || null, display_title: displayTitle })
         .eq("id", user.id);
       if (error) return setMessage($("#profileError"), friendlyError(error));
       await client.auth.updateUser({ data: { username } });
@@ -612,7 +618,7 @@
   async function listForumThreads() {
     if (!client) return null;
     const { data, error } = await client.from("forum_posts")
-      .select("id,title,content,created_at,updated_at,author_id,profiles(username,avatar_url),forum_replies(count)")
+      .select("id,title,content,created_at,updated_at,author_id,profiles(username,avatar_url,display_title,is_admin),forum_replies(count)")
       .order("updated_at", { ascending: false })
       .limit(100);
     if (error) return { error: friendlyError(error), rows: [] };
@@ -651,7 +657,7 @@
   async function listForumReplies(threadId) {
     if (!client) return [];
     const { data, error } = await client.from("forum_replies")
-      .select("id,content,created_at,author_id,profiles(username,avatar_url)")
+      .select("id,content,floor_number,created_at,author_id,profiles(username,avatar_url,display_title,is_admin)")
       .eq("post_id", threadId)
       .order("created_at", { ascending: true });
     if (error) {

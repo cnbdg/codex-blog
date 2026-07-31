@@ -4,10 +4,24 @@
 
 alter table public.profiles
   add column if not exists is_admin boolean not null default false,
-  add column if not exists avatar_url text;
+  add column if not exists avatar_url text,
+  add column if not exists display_title text not null default '社区成员';
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'profiles_display_title_check'
+      and conrelid = 'public.profiles'::regclass
+  ) then
+    alter table public.profiles add constraint profiles_display_title_check
+      check (display_title in ('社区成员', '新人报到', '活跃成员', '技术爱好者', '游戏玩家', '内容创作者'));
+  end if;
+end
+$$;
 
 revoke update on table public.profiles from authenticated;
-grant update (username, avatar_url) on table public.profiles to authenticated;
+grant update (username, avatar_url, display_title) on table public.profiles to authenticated;
 
 create or replace function public.current_user_is_admin()
 returns boolean
@@ -39,8 +53,40 @@ create table if not exists public.forum_replies (
   post_id bigint not null references public.forum_posts(id) on delete cascade,
   author_id uuid not null references public.profiles(id) on delete cascade,
   content text not null check (char_length(content) between 1 and 2000),
+  floor_number integer,
   created_at timestamptz not null default now()
 );
+
+alter table public.forum_replies
+  add column if not exists floor_number integer;
+
+-- 为升级前已经存在的回复补上稳定楼层：主题正文是 1 楼，回复从 2 楼开始。
+with numbered as (
+  select id, row_number() over (
+    partition by post_id order by created_at, id
+  )::integer + 1 as floor_number
+  from public.forum_replies
+)
+update public.forum_replies as reply
+set floor_number = numbered.floor_number
+from numbered
+where reply.id = numbered.id and reply.floor_number is null;
+
+alter table public.forum_replies
+  alter column floor_number set not null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'forum_replies_post_floor_key'
+      and conrelid = 'public.forum_replies'::regclass
+  ) then
+    alter table public.forum_replies
+      add constraint forum_replies_post_floor_key unique (post_id, floor_number);
+  end if;
+end
+$$;
 
 create index if not exists forum_posts_updated_at_idx
   on public.forum_posts(updated_at desc);
@@ -56,6 +102,28 @@ grant select on table public.forum_replies to anon, authenticated;
 grant insert, update, delete on table public.forum_posts to authenticated;
 grant insert, delete on table public.forum_replies to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
+
+create or replace function public.assign_forum_reply_floor()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- 同一话题并发回复时串行分配，避免两个人拿到相同楼层。
+  perform pg_advisory_xact_lock(new.post_id);
+  select coalesce(max(floor_number), 1) + 1
+  into new.floor_number
+  from public.forum_replies
+  where post_id = new.post_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists before_forum_reply_insert on public.forum_replies;
+create trigger before_forum_reply_insert
+  before insert on public.forum_replies
+  for each row execute procedure public.assign_forum_reply_floor();
 
 drop policy if exists "Forum posts are publicly readable" on public.forum_posts;
 drop policy if exists "Users create own forum posts" on public.forum_posts;
