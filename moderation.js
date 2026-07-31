@@ -102,7 +102,7 @@
     const result = await window.blogAuth.listModerationActions();
     if (!result?.rows) { notice(`操作日志读取失败：${result?.error || "未知错误"}`); return false; }
     const rows = result.rows;
-    $("#moderationList").innerHTML = rows.length ? rows.map(row => `<article class="moderation-action"><strong>${escapeText(row.profiles?.username || "管理员")}</strong><span>${escapeText(row.action)}</span><time>${time(row.created_at)}</time><small>${escapeText(JSON.stringify(row.details || {}))}</small></article>`).join("") : `<div class="forum-empty">暂无审核操作记录。</div>`;
+    $("#moderationList").innerHTML = rows.length ? rows.map(row => `<article class="moderation-action"><strong>${escapeText(row.actor?.username || "管理员")}</strong><span>${escapeText(row.action)}</span><time>${time(row.created_at)}</time><small>${escapeText(JSON.stringify(row.details || {}))}</small></article>`).join("") : `<div class="forum-empty">暂无审核操作记录。</div>`;
     return true;
   }
 
