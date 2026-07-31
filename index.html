@@ -17,7 +17,7 @@
         <a href="#about" data-page="about">关于</a>
         <a href="#friends" data-page="friends">友链</a>
       </nav>
-      <div class="actions"><button id="searchBtn" aria-label="搜索"><span>⌕</span><em>搜索</em></button><button id="themeBtn" aria-label="切换深色模式">◐</button><button id="menuBtn" aria-label="菜单">☰</button></div>
+      <div class="actions"><button id="searchBtn" aria-label="搜索"><span>⌕</span><em>搜索</em></button><button id="authBtn" class="auth-btn" aria-label="登录"><span>♙</span><em>登录</em></button><button id="themeBtn" aria-label="切换深色模式">◐</button><button id="menuBtn" aria-label="菜单">☰</button></div>
     </div>
   </header>
 
@@ -57,8 +57,12 @@
   <dialog id="searchDialog"><div class="dialog-title"><b>搜索</b><button data-close="searchDialog">×</button></div><div class="search-box">⌕<input id="searchInput" placeholder="输入关键词…" autocomplete="off"></div><div id="searchResults"></div><small class="search-hint">输入标题、摘要或标签进行搜索</small></dialog>
   <dialog id="articleDialog" class="article-dialog"><button class="article-close" data-close="articleDialog">×</button><article id="articleContent"></article>
     <section class="comments"><div class="comment-heading"><div><small>DISCUSSION</small><h2>评论 <span id="commentCount">0</span></h2></div><p>友善交流，真诚表达。</p></div>
-      <form id="commentForm"><div class="form-row"><label>昵称<input name="name" required maxlength="20" placeholder="怎么称呼你"></label><label>邮箱<input name="email" type="email" required placeholder="不会公开"></label></div><label>评论<textarea name="content" required maxlength="500" placeholder="写下你的想法…"></textarea></label><div class="form-foot"><small><span id="charCount">0</span> / 500</small><button>发表评论</button></div></form><div id="commentList"></div>
+      <div id="commentLoginTip" class="comment-login-tip">登录后即可参与评论。<button type="button" data-open-auth>立即登录</button></div><form id="commentForm"><label>评论<textarea name="content" required maxlength="500" placeholder="写下你的想法…"></textarea></label><div class="form-foot"><small><span id="charCount">0</span> / 500</small><button>发表评论</button></div></form><div id="commentList"></div>
     </section>
   </dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="script.js"></script>
+  <dialog id="authDialog" class="auth-dialog"><div class="dialog-title"><div><small>WELCOME</small><h2 id="authTitle">登录</h2></div><button data-close="authDialog">×</button></div><div id="authGuest">
+    <div class="auth-tabs"><button class="active" data-auth-tab="login">登录</button><button data-auth-tab="signup">注册</button></div>
+    <form id="authForm"><label>邮箱<input name="email" type="email" required autocomplete="email" placeholder="name@example.com"></label><label>密码<input name="password" type="password" required minlength="8" autocomplete="current-password" placeholder="至少 8 位"></label><label id="usernameField" hidden>昵称<input name="username" maxlength="20" autocomplete="nickname" placeholder="你的公开昵称"></label><button id="authSubmit" class="primary-btn">登录</button></form><button id="resetPasswordBtn" class="text-button">忘记密码？</button><p class="auth-note">登录即表示你同意友善交流，并接受本站隐私规则。</p>
+  </div><div id="authUser" hidden><div class="user-profile"><div id="userAvatar" class="avatar">U</div><div><strong id="userName">用户</strong><small id="userEmail"></small></div></div><button id="logoutBtn" class="danger-button">退出登录</button></div></dialog>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="auth.js"></script><script src="script.js"></script>
 </body></html>
