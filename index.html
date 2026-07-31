@@ -5,7 +5,7 @@
   <meta name="description" content="屿下日志，记录技术、折腾与生活。"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>屿下日志</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260731-3">
 </head>
 <body>
   <header class="topbar">
@@ -18,7 +18,7 @@
         <a href="#friends" data-page="friends">友链</a>
         <a id="adminNav" href="#admin" data-page="admin">管理</a>
       </nav>
-      <div class="actions"><button id="searchBtn" aria-label="搜索"><span>⌕</span><em>搜索</em></button><button id="authBtn" class="auth-btn" aria-label="登录"><span>♙</span><em>登录</em></button><button id="themeBtn" aria-label="切换深色模式">◐</button><button id="menuBtn" aria-label="菜单">☰</button></div>
+      <div class="actions"><button id="searchBtn" aria-label="搜索"><span>⌕</span><em>搜索</em></button><button id="adminQuickBtn" data-page="admin" aria-label="文章管理"><span>✎</span><em>写作</em></button><button id="authBtn" class="auth-btn" aria-label="登录"><span>♙</span><em>登录</em></button><button id="themeBtn" aria-label="切换深色模式">◐</button><button id="menuBtn" aria-label="菜单">☰</button></div>
     </div>
   </header>
 
@@ -82,5 +82,5 @@
     <div id="authRecovery" hidden><p class="recovery-intro">请设置一个不少于 8 位的新密码。</p><form id="newPasswordForm"><label>新密码<div class="password-input"><input name="password" type="password" required minlength="8" autocomplete="new-password"><button type="button" data-toggle-password>显示</button></div></label><label>确认新密码<input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"></label><p id="recoveryError" class="form-message error" role="alert" hidden></p><button class="primary-btn">更新密码</button></form></div>
     <div id="authUser" hidden><div class="user-profile"><div id="userAvatar" class="avatar">U</div><div><strong id="userName">用户</strong><small id="userEmail"></small></div></div><button id="logoutBtn" type="button" class="danger-button">退出登录</button></div>
   </dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="auth.js"></script><script src="script.js"></script><script src="admin.js"></script>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js?v=20260731-3"></script><script src="auth.js?v=20260731-3"></script><script src="script.js?v=20260731-3"></script><script src="admin.js?v=20260731-3"></script>
 </body></html>
