@@ -713,26 +713,26 @@
   }
 
   async function listModerationUsers() {
-    if (!client || !profile?.is_admin) return null;
+    if (!client || !profile?.is_admin) return { rows: null, error: "当前账号不是管理员或登录服务未连接" };
     const { data, error } = await client.rpc("list_moderation_users");
-    if (error) { notify("用户列表加载失败：" + friendlyError(error)); return null; }
-    return data || [];
+    if (error) { notify("用户列表加载失败：" + friendlyError(error)); return { rows: null, error: friendlyError(error) }; }
+    return { rows: data || [], error: "" };
   }
 
   async function listModerationReports() {
-    if (!client || !profile?.is_admin) return null;
+    if (!client || !profile?.is_admin) return { rows: null, error: "当前账号不是管理员或登录服务未连接" };
     const { data, error } = await client.rpc("list_moderation_reports");
-    if (error) { notify("举报列表加载失败：" + friendlyError(error)); return null; }
-    return data || [];
+    if (error) { notify("举报列表加载失败：" + friendlyError(error)); return { rows: null, error: friendlyError(error) }; }
+    return { rows: data || [], error: "" };
   }
 
   async function listModerationActions() {
-    if (!client || !profile?.is_admin) return null;
+    if (!client || !profile?.is_admin) return { rows: null, error: "当前账号不是管理员或登录服务未连接" };
     const { data, error } = await client.from("moderation_actions")
       .select("id,action,target_user_id,report_id,details,created_at,profiles(username)")
       .order("created_at", { ascending: false }).limit(100);
-    if (error) { notify("操作日志加载失败：" + friendlyError(error)); return null; }
-    return data || [];
+    if (error) { notify("操作日志加载失败：" + friendlyError(error)); return { rows: null, error: friendlyError(error) }; }
+    return { rows: data || [], error: "" };
   }
 
   async function setUserBan(userId, until, reason) {

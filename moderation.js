@@ -75,8 +75,9 @@
   }
 
   async function loadReports() {
-    const rows = await window.blogAuth.listModerationReports();
-    if (!rows) return false;
+    const result = await window.blogAuth.listModerationReports();
+    if (!result?.rows) { notice(`举报列表读取失败：${result?.error || "未知错误"}`); return false; }
+    const rows = result.rows;
     $("#moderationList").innerHTML = rows.length ? rows.map(row => `<article class="moderation-item ${row.status}">
       <div class="moderation-item-top"><span class="moderation-status ${row.status}">${row.status === "pending" ? "待处理" : row.status === "resolved" ? "已处理" : "已驳回"}</span><time>${time(row.created_at)}</time></div>
       <h3>${escapeText(row.target_type === "forum_post" ? "社区话题" : row.target_type === "forum_reply" ? "社区回复" : "博客评论")} · ${escapeText(row.target_author_name || "内容已删除")}</h3>
@@ -87,8 +88,9 @@
   }
 
   async function loadUsers() {
-    const rows = await window.blogAuth.listModerationUsers();
-    if (!rows) return false;
+    const result = await window.blogAuth.listModerationUsers();
+    if (!result?.rows) { notice(`用户列表读取失败：${result?.error || "未知错误"}`); return false; }
+    const rows = result.rows;
     $("#moderationList").innerHTML = rows.map(row => `<article class="moderation-user">
       <div><strong>${escapeText(row.username)}</strong><small>注册于 ${time(row.created_at)}</small><span>${row.forum_post_count} 个话题 · ${row.forum_reply_count} 条回复</span></div>
       <div class="moderation-user-actions">${row.banned ? `<span class="moderation-status banned">${row.banned_until ? `限制至 ${time(row.banned_until)}` : "永久限制"}</span><button class="secondary-btn" data-unban-user="${row.user_id}">解除限制</button>` : `<span class="moderation-status normal">正常</span><button class="secondary-btn" data-ban-user="${row.user_id}" data-ban-name="${escapeText(row.username)}">限制发言</button>`}</div>
@@ -97,8 +99,9 @@
   }
 
   async function loadActions() {
-    const rows = await window.blogAuth.listModerationActions();
-    if (!rows) return false;
+    const result = await window.blogAuth.listModerationActions();
+    if (!result?.rows) { notice(`操作日志读取失败：${result?.error || "未知错误"}`); return false; }
+    const rows = result.rows;
     $("#moderationList").innerHTML = rows.length ? rows.map(row => `<article class="moderation-action"><strong>${escapeText(row.profiles?.username || "管理员")}</strong><span>${escapeText(row.action)}</span><time>${time(row.created_at)}</time><small>${escapeText(JSON.stringify(row.details || {}))}</small></article>`).join("") : `<div class="forum-empty">暂无审核操作记录。</div>`;
     return true;
   }
@@ -108,7 +111,7 @@
     notice();
     $("#moderationList").innerHTML = `<p class="forum-empty">正在加载审核数据…</p>`;
     const loaded = tab === "reports" ? await loadReports() : tab === "users" ? await loadUsers() : await loadActions();
-    if (!loaded) notice("审核数据库尚未启用，请先在 Supabase SQL Editor 中执行 moderation.sql（需要先执行 community.sql）。");
+    if (!loaded && !$("#moderationNotice").textContent) notice("审核数据库尚未启用，请先在 Supabase SQL Editor 中执行 moderation.sql（需要先执行 community.sql）。");
   }
 
   function setAccess() {
