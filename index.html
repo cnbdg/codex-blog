@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="屿下日志，记录技术、折腾与生活。"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>屿下日志</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="nav-wrap">
+      <a class="logo" href="#" data-page="home"><span class="logo-mark">Y</span><strong>屿下日志</strong></a>
+      <nav id="mainNav">
+        <a class="active" href="#home" data-page="home">动态</a>
+        <a href="#projects" data-page="projects">项目</a>
+        <a href="#about" data-page="about">关于</a>
+        <a href="#friends" data-page="friends">友链</a>
+      </nav>
+      <div class="actions"><button id="searchBtn" aria-label="搜索"><span>⌕</span><em>搜索</em></button><button id="themeBtn" aria-label="切换深色模式">◐</button><button id="menuBtn" aria-label="菜单">☰</button></div>
+    </div>
+  </header>
+
+  <main id="app">
+    <section id="home" class="page active">
+      <div class="page-title"><div><p class="hello">Hi, welcome 👋</p><h1>屿下日志</h1><p>记录技术、折腾与生活中的小发现。</p></div><span class="planet">◌</span></div>
+      <div class="layout">
+        <div>
+          <div class="feed-head"><span>最新动态</span><div id="filters"><button class="active" data-filter="全部">全部</button><button data-filter="技术">技术</button><button data-filter="教程">教程</button><button data-filter="日常">日常</button></div></div>
+          <div id="postList" class="post-list"></div>
+          <div id="pagination" class="pagination"></div>
+        </div>
+        <aside>
+          <section class="side-card author-card"><div class="avatar">YU</div><h3>林屿</h3><p>一个喜欢折腾软硬件的独立开发者。保持好奇，持续记录。</p><div class="stats"><span><b>12</b>文章</span><span><b>8</b>标签</span><span><b>4</b>项目</span></div></section>
+          <section class="side-card"><h3>常用标签</h3><div class="tag-cloud"><button data-tag="Linux"># Linux</button><button data-tag="前端"># 前端</button><button data-tag="教程"># 教程</button><button data-tag="开源"># 开源</button><button data-tag="日常"># 日常</button></div></section>
+          <section class="side-card status"><span class="status-dot"></span><div><b>博客运行中</b><small>已稳定运行 426 天</small></div></section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="projects" class="page narrow"><div class="inner-title"><small>PROJECTS</small><h1>做过的一些东西</h1><p>有些已经完成，有些还在慢慢生长。</p></div><div class="project-grid">
+      <article><span>01</span><div class="project-icon blue">◫</div><h2>Tabby Start</h2><p>一个轻量、干净且可定制的浏览器起始页。</p><div><i>TypeScript</i><i>Vue</i></div><a href="#">查看项目 ↗</a></article>
+      <article><span>02</span><div class="project-icon orange">⌁</div><h2>Quiet RSS</h2><p>专注阅读体验的本地优先 RSS 客户端。</p><div><i>React</i><i>Electron</i></div><a href="#">查看项目 ↗</a></article>
+      <article><span>03</span><div class="project-icon green">⌘</div><h2>Server Lens</h2><p>为个人服务器准备的极简监控面板。</p><div><i>Go</i><i>Docker</i></div><a href="#">查看项目 ↗</a></article>
+    </div></section>
+
+    <section id="about" class="page narrow"><div class="inner-title"><small>ABOUT</small><h1>你好，我是林屿</h1></div><div class="about-box"><div class="big-avatar">YU</div><div><h2>关于我</h2><p>目前生活在杭州，从事前端与产品设计工作。这个博客主要记录 Linux、开源软件、个人服务器和偶尔的生活碎片。</p><p>我相信互联网应该是开放、自由且充满个性的。比起短暂的流量，更喜欢慢慢整理真正有用的内容。</p><h3>现在正在做</h3><ul><li>维护几个有趣的开源项目</li><li>学习 Rust 与系统编程</li><li>尝试每个月写两篇文章</li></ul></div></div></section>
+
+    <section id="friends" class="page narrow"><div class="inner-title"><small>FRIENDS</small><h1>邻居们</h1><p>在独立网络世界里遇到的有趣灵魂。</p></div><div class="friend-grid">
+      <a href="#"><b>A</b><span><strong>阿青的博客</strong><small>写代码，也写生活</small></span></a><a href="#"><b>N</b><span><strong>北屿</strong><small>摄影与城市漫游</small></span></a><a href="#"><b>K</b><span><strong>空想家</strong><small>Linux / Homelab</small></span></a><a href="#"><b>M</b><span><strong>木棉</strong><small>设计、书与咖啡</small></span></a>
+    </div><div class="apply-card"><h2>交换友链</h2><p>如果你也在认真维护一个独立博客，欢迎来信。请先添加本站后，将名称、描述和地址发送给我。</p><a href="mailto:hello@example.com">发送邮件 ↗</a></div></section>
+  </main>
+
+  <footer><div><strong>屿下日志</strong><p>想法在这里自由生长。</p></div><div class="footer-links"><a href="#">Follow</a><a href="#">RSS</a><a href="#">隐私</a><a href="#">状态</a></div><small>© 2026 YU. All rights reserved.</small></footer>
+  <button id="toTop" aria-label="返回顶部">↑</button>
+
+  <dialog id="searchDialog"><div class="dialog-title"><b>搜索</b><button data-close="searchDialog">×</button></div><div class="search-box">⌕<input id="searchInput" placeholder="输入关键词…" autocomplete="off"></div><div id="searchResults"></div><small class="search-hint">输入标题、摘要或标签进行搜索</small></dialog>
+  <dialog id="articleDialog" class="article-dialog"><button class="article-close" data-close="articleDialog">×</button><article id="articleContent"></article>
+    <section class="comments"><div class="comment-heading"><div><small>DISCUSSION</small><h2>评论 <span id="commentCount">0</span></h2></div><p>友善交流，真诚表达。</p></div>
+      <form id="commentForm"><div class="form-row"><label>昵称<input name="name" required maxlength="20" placeholder="怎么称呼你"></label><label>邮箱<input name="email" type="email" required placeholder="不会公开"></label></div><label>评论<textarea name="content" required maxlength="500" placeholder="写下你的想法…"></textarea></label><div class="form-foot"><small><span id="charCount">0</span> / 500</small><button>发表评论</button></div></form><div id="commentList"></div>
+    </section>
+  </dialog>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="script.js"></script>
+</body></html>
