@@ -23,6 +23,8 @@
     $("#cancelEditBtn").addEventListener("click", resetEditor);
     $("#deletePostBtn").addEventListener("click", removePost);
     $("#postEditor").addEventListener("submit", savePost);
+    $("#postBody").addEventListener("input", renderPreview);
+    $(".markdown-toolbar").addEventListener("click", handleMarkdownTool);
     $("#adminPostList").addEventListener("click", event => {
       const item = event.target.closest("[data-admin-id]");
       if (item) editPost(Number(item.dataset.adminId));
@@ -30,6 +32,37 @@
     window.addEventListener("blog-auth-change", updateAccess);
     updateAccess();
     resetEditor();
+  }
+
+  function renderPreview() {
+    const source = $("#postBody").value;
+    $("#markdownPreview").innerHTML = source
+      ? window.blogMarkdown.render(source)
+      : `<p class="preview-empty">预览会随着输入实时更新。</p>`;
+  }
+
+  function handleMarkdownTool(event) {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const editor = $("#postBody");
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const selected = editor.value.slice(start, end);
+    let replacement = selected;
+    if (button.dataset.mdPrefix) {
+      replacement = selected
+        ? selected.split("\n").map(line => button.dataset.mdPrefix + line).join("\n")
+        : button.dataset.mdPrefix;
+    } else if (button.dataset.mdWrap) {
+      replacement = `${button.dataset.mdWrap}${selected || "文字"}${button.dataset.mdWrap}`;
+    } else if (button.hasAttribute("data-md-code")) {
+      replacement = `\`\`\`\n${selected || "代码"}\n\`\`\``;
+    } else if (button.hasAttribute("data-md-link")) {
+      replacement = `[${selected || "链接文字"}](https://)`;
+    }
+    editor.setRangeText(replacement, start, end, "select");
+    editor.focus();
+    renderPreview();
   }
 
   async function updateAccess() {
@@ -79,6 +112,7 @@
     $("#deletePostBtn").hidden = false;
     $("#saveState").textContent = post.updated_at ? `上次保存 ${formatTime(post.updated_at)}` : "";
     renderList();
+    renderPreview();
     if (innerWidth < 900) form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -94,6 +128,7 @@
     $("#deletePostBtn").hidden = true;
     $("#saveState").textContent = "";
     renderList();
+    renderPreview();
   }
 
   async function savePost(event) {

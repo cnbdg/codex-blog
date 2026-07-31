@@ -5,7 +5,7 @@
   <meta name="description" content="屿下日志，记录技术、折腾与生活。"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>屿下日志</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260731-3">
+  <link rel="stylesheet" href="style.css?v=20260731-4">
 </head>
 <body>
   <header class="topbar">
@@ -58,7 +58,13 @@
           <label>摘要<textarea name="description" required maxlength="300" placeholder="显示在首页文章列表中的简短介绍"></textarea></label>
           <div class="form-row three"><label>分类<input name="type" required maxlength="30" placeholder="简单教程"></label><label>标签<input name="tags" maxlength="120" placeholder="技术, 前端, 教程"></label><label>阅读时间<input name="read_time" maxlength="20" placeholder="5 分钟"></label></div>
           <label>引导语<textarea name="lead" required maxlength="500" placeholder="文章详情页标题下的导语"></textarea></label>
-          <label>正文 <small>支持 HTML：段落 &lt;p&gt;、标题 &lt;h2&gt;、代码 &lt;div class="code"&gt;</small><textarea name="body" class="body-editor" required placeholder="<p>开始写作…</p>"></textarea></label>
+          <div class="markdown-field">
+            <div class="markdown-field-head"><label for="postBody">正文</label><small>支持 Markdown · 自动安全过滤 · 实时预览</small></div>
+            <div class="markdown-toolbar" aria-label="Markdown 快捷工具">
+              <button type="button" data-md-prefix="## " title="标题">H2</button><button type="button" data-md-wrap="**" title="粗体"><b>B</b></button><button type="button" data-md-wrap="*" title="斜体"><i>I</i></button><button type="button" data-md-prefix="> " title="引用">❞</button><button type="button" data-md-prefix="- " title="列表">☷</button><button type="button" data-md-code title="代码块">&lt;/&gt;</button><button type="button" data-md-link title="链接">↗</button>
+            </div>
+            <div class="markdown-workspace"><textarea id="postBody" name="body" class="body-editor" required spellcheck="true" placeholder="## 开始写作&#10;&#10;在这里输入 **Markdown** 正文……"></textarea><div class="markdown-preview-wrap"><span>实时预览</span><article id="markdownPreview" class="article-text markdown-preview"></article></div></div>
+          </div>
           <div class="editor-actions"><label class="status-select">状态<select name="status"><option value="draft">草稿</option><option value="published">已发布</option></select></label><div><button id="deletePostBtn" type="button" class="danger-button" hidden>删除</button><button id="cancelEditBtn" type="button" class="secondary-btn">清空</button><button id="savePostBtn" class="primary-btn">保存文章</button></div></div>
         </form>
       </div>
@@ -76,11 +82,11 @@
   </dialog>
   <dialog id="authDialog" class="auth-dialog"><div class="dialog-title"><div><small>WELCOME</small><h2 id="authTitle">登录</h2></div><button type="button" data-close="authDialog" aria-label="关闭">×</button></div>
     <div id="authGuest"><div class="auth-tabs"><button type="button" class="active" data-auth-tab="login">登录</button><button type="button" data-auth-tab="signup">注册</button></div>
-      <form id="authForm" novalidate><label>邮箱<input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="name@example.com"></label><label>密码<div class="password-input"><input name="password" type="password" required minlength="8" autocomplete="current-password" placeholder="至少 8 位"><button type="button" data-toggle-password aria-label="显示密码">显示</button></div></label><label id="usernameField" hidden>昵称<input name="username" minlength="2" maxlength="20" autocomplete="nickname" placeholder="2–20 个字符"></label><p id="authError" class="form-message error" role="alert" hidden></p><button id="authSubmit" class="primary-btn">登录</button></form>
-      <button id="resetPasswordBtn" type="button" class="text-button">忘记密码？</button><p class="auth-note">登录即表示你同意友善交流，并接受本站隐私规则。</p>
+      <form id="authForm" novalidate><label>邮箱<input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="name@example.com"></label><label>密码<div class="password-input"><input name="password" type="password" required minlength="8" maxlength="72" autocomplete="current-password" placeholder="至少 8 位"><button type="button" data-toggle-password aria-label="显示密码">显示</button></div><span id="passwordStrength" class="password-strength" hidden><i></i><em></em></span></label><label id="confirmPasswordField" hidden>确认密码<div class="password-input"><input name="confirmPassword" type="password" minlength="8" maxlength="72" autocomplete="new-password" placeholder="再次输入密码"><button type="button" data-toggle-password aria-label="显示密码">显示</button></div></label><label id="usernameField" hidden>昵称<input name="username" minlength="2" maxlength="20" autocomplete="nickname" placeholder="2–20 个字符"></label><p id="authError" class="form-message error" role="alert" hidden></p><button id="authSubmit" class="primary-btn">登录</button></form>
+      <div class="auth-help"><button id="resetPasswordBtn" type="button" class="text-button">忘记密码？</button><button id="resendEmailBtn" type="button" class="text-button" hidden>重新发送验证邮件</button></div><p class="auth-note">登录即表示你同意友善交流，并接受本站隐私规则。</p>
     </div>
     <div id="authRecovery" hidden><p class="recovery-intro">请设置一个不少于 8 位的新密码。</p><form id="newPasswordForm"><label>新密码<div class="password-input"><input name="password" type="password" required minlength="8" autocomplete="new-password"><button type="button" data-toggle-password>显示</button></div></label><label>确认新密码<input name="confirmPassword" type="password" required minlength="8" autocomplete="new-password"></label><p id="recoveryError" class="form-message error" role="alert" hidden></p><button class="primary-btn">更新密码</button></form></div>
-    <div id="authUser" hidden><div class="user-profile"><div id="userAvatar" class="avatar">U</div><div><strong id="userName">用户</strong><small id="userEmail"></small></div></div><button id="logoutBtn" type="button" class="danger-button">退出登录</button></div>
+    <div id="authUser" hidden><div class="user-profile"><div id="userAvatar" class="avatar">U</div><div><strong id="userName">用户</strong><small id="userEmail"></small><span id="userRole" class="user-role">已验证账户</span></div></div><div class="account-actions"><button id="logoutBtn" type="button" class="secondary-btn">退出当前设备</button><button id="logoutAllBtn" type="button" class="danger-button">退出所有设备</button></div></div>
   </dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js?v=20260731-3"></script><script src="auth.js?v=20260731-3"></script><script src="script.js?v=20260731-3"></script><script src="admin.js?v=20260731-3"></script>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-4"></script><script src="config.js?v=20260731-4"></script><script src="auth.js?v=20260731-4"></script><script src="script.js?v=20260731-4"></script><script src="admin.js?v=20260731-4"></script>
 </body></html>
