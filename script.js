@@ -8,12 +8,47 @@ const seedPosts=[
 ];
 let posts=[...seedPosts];
 let filter="全部",page=1;const perPage=4,$=s=>document.querySelector(s);
+const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
+const canViewTransition=()=>Boolean(document.startViewTransition&&!reduceMotion.matches);
+
+function closeDialogAnimated(dialog){
+ if(!dialog?.open)return;
+ if(dialog.classList.contains("dialog-closing"))return;
+ if(reduceMotion.matches){dialog.close();return}
+ dialog.classList.add("dialog-closing");
+ let closed=false;
+ const finish=()=>{if(closed)return;closed=true;dialog.removeEventListener("animationend",onEnd);dialog.classList.remove("dialog-closing");dialog.close()};
+ const onEnd=event=>{if(event.target===dialog)finish()};
+ dialog.addEventListener("animationend",onEnd);
+ setTimeout(finish,260);
+}
+window.closeDialog=closeDialogAnimated;
+document.querySelectorAll("dialog").forEach(dialog=>{
+ dialog.addEventListener("cancel",event=>{event.preventDefault();closeDialogAnimated(dialog)});
+ if(dialog.id!=="authDialog")dialog.addEventListener("click",event=>{if(event.target===dialog)closeDialogAnimated(dialog)});
+});
+
+function animateThemeChange(dark,event){
+ const apply=()=>setTheme(dark);
+ if(!canViewTransition()){apply();return}
+ document.documentElement.dataset.transition="theme";
+ const x=event?.clientX??innerWidth-42,y=event?.clientY??36;
+ const radius=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
+ const transition=document.startViewTransition(apply);
+ transition.ready.then(()=>document.documentElement.animate(
+  {clipPath:[`circle(0px at ${x}px ${y}px)`,`circle(${radius}px at ${x}px ${y}px)`]},
+  {duration:560,easing:"cubic-bezier(.22,.75,.2,1)",pseudoElement:"::view-transition-new(root)"}
+ )).catch(()=>{});
+ transition.finished.finally(()=>delete document.documentElement.dataset.transition);
+}
 function filtered(){return posts.filter(p=>filter==="全部"||p.tags.includes(filter))}
 function render(){
  const list=filtered(),start=(page-1)*perPage;
  $("#postList").innerHTML=list.slice(start,start+perPage).map(p=>`<article class="post-item" data-id="${p.id}" tabindex="0"><div class="post-top"><span class="type">${esc(p.type)}</span><span>·</span><span>${esc(p.read)}</span></div><h2><a>${esc(p.title)}</a></h2><p>${esc(p.desc)}</p><div class="post-bottom"><div class="tags">${p.tags.map(t=>`<span>#${esc(t)}</span>`).join("")}</div><time>${esc(p.date)}</time></div></article>`).join("")||`<article class="post-item"><p>这个分类还没有文章。</p></article>`;
  const pages=Math.ceil(list.length/perPage);$("#pagination").innerHTML=pages>1?Array.from({length:pages},(_,i)=>`<button class="${page===i+1?"active":""}" data-page-num="${i+1}">${i+1}</button>`).join(""):"";
+ gridAnimate();
 }
+function gridAnimate(){if(reduceMotion.matches)return;$("#postList").classList.remove("is-refreshing");requestAnimationFrame(()=>$("#postList").classList.add("is-refreshing"))}
 render();
 async function refreshRemotePosts(){
  if(!window.blogAuth?.listPublishedPosts)return;
@@ -26,23 +61,41 @@ window.refreshRemotePosts=refreshRemotePosts;
 window.addEventListener("blog-auth-change",refreshRemotePosts);
 setTimeout(refreshRemotePosts,0);
 document.addEventListener("click",e=>{
- const nav=e.target.closest("[data-page]");if(nav){e.preventDefault();showPage(nav.dataset.page)}
+ const nav=e.target.closest("[data-page]");if(nav){e.preventDefault();showPage(nav.dataset.page,true)}
  const post=e.target.closest(".post-item,.search-result");if(post?.dataset.id)openArticle(Number(post.dataset.id));
- const close=e.target.closest("[data-close]");if(close)document.getElementById(close.dataset.close).close();
+ const close=e.target.closest("[data-close]");if(close)closeDialogAnimated(document.getElementById(close.dataset.close));
  const p=e.target.closest("[data-page-num]");if(p){page=Number(p.dataset.pageNum);render();scrollTo({top:250,behavior:"smooth"})}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.matches(".post-item"))openArticle(Number(e.target.dataset.id))});
 function closeMenu(){document.querySelector("nav").classList.remove("open");document.body.classList.remove("nav-open");$("#menuBtn").textContent="☰";$("#menuBtn").setAttribute("aria-expanded","false")}
-function showPage(id){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));document.querySelectorAll("nav a").forEach(x=>x.classList.toggle("active",x.dataset.page===id));closeMenu();history.replaceState(null,"","#"+id);scrollTo({top:0,behavior:"smooth"})}
+function showPage(id,push=false){
+ const target=document.getElementById(id);
+ if(!target?.classList.contains("page"))return;
+ const current=document.querySelector(".page.active");
+ closeMenu();
+ if(current===target)return;
+ const update=()=>{
+  document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x===target));
+  document.querySelectorAll("nav a").forEach(x=>x.classList.toggle("active",x.dataset.page===id));
+ };
+ if(canViewTransition()){
+  document.documentElement.dataset.transition="page";
+  const transition=document.startViewTransition(update);
+  transition.finished.finally(()=>delete document.documentElement.dataset.transition);
+ }else update();
+ if(push)history.pushState({page:id},"","#"+id);else history.replaceState({page:id},"","#"+id);
+ scrollTo({top:0,behavior:reduceMotion.matches?"auto":"smooth"});
+}
+window.showPage=showPage;
 $("#filters").onclick=e=>{const b=e.target.closest("[data-filter]");if(!b)return;filter=b.dataset.filter;page=1;$("#filters .active").classList.remove("active");b.classList.add("active");render()};
 document.querySelector(".tag-cloud").onclick=e=>{const b=e.target.closest("[data-tag]");if(!b)return;filter=b.dataset.tag;page=1;document.querySelectorAll("#filters button").forEach(x=>x.classList.remove("active"));render();scrollTo({top:280,behavior:"smooth"})};
 $("#menuBtn").setAttribute("aria-expanded","false");$("#menuBtn").onclick=()=>{const open=!document.querySelector("nav").classList.contains("open");document.querySelector("nav").classList.toggle("open",open);document.body.classList.toggle("nav-open",open);$("#menuBtn").textContent=open?"×":"☰";$("#menuBtn").setAttribute("aria-expanded",String(open))};$("#navBackdrop").onclick=closeMenu;
-const setTheme=d=>{document.body.classList.toggle("dark",d);document.querySelector('meta[name="theme-color"]').content=d?"#131517":"#f7f8fa";localStorage.setItem("yu-theme",d?"dark":"light")};setTheme(localStorage.getItem("yu-theme")==="dark"||(!localStorage.getItem("yu-theme")&&matchMedia("(prefers-color-scheme:dark)").matches));$("#themeBtn").onclick=()=>setTheme(!document.body.classList.contains("dark"));
+const setTheme=d=>{document.body.classList.toggle("dark",d);document.querySelector('meta[name="theme-color"]').content=d?"#131517":"#f7f8fa";localStorage.setItem("yu-theme",d?"dark":"light")};setTheme(localStorage.getItem("yu-theme")==="dark"||(!localStorage.getItem("yu-theme")&&matchMedia("(prefers-color-scheme:dark)").matches));$("#themeBtn").onclick=e=>animateThemeChange(!document.body.classList.contains("dark"),e);
 $("#searchBtn").onclick=()=>{$("#searchDialog").showModal();$("#searchInput").value="";search("");setTimeout(()=>$("#searchInput").focus(),50)};$("#searchInput").oninput=e=>search(e.target.value);
 function search(q){let l=q?posts.filter(p=>(p.title+p.desc+p.tags).toLowerCase().includes(q.toLowerCase())):posts.slice(0,4);$("#searchResults").innerHTML=l.map(p=>`<div class="search-result" data-id="${p.id}"><small>${esc(p.date)} · ${p.tags.map(esc).join(" / ")}</small><div>${esc(p.title)}</div></div>`).join("")||`<p class="search-hint">没有找到相关文章</p>`}
 window.onscroll=()=>$("#toTop").classList.toggle("show",scrollY>500);$("#toTop").onclick=()=>scrollTo({top:0,behavior:"smooth"});
 let currentPost;
-function openArticle(id){currentPost=posts.find(p=>p.id===id);window.currentPost=currentPost;$("#articleContent").innerHTML=`<div class="article-body"><div class="article-meta">${esc(currentPost.type)} · ${esc(currentPost.date)} · ${esc(currentPost.read)}</div><h1>${esc(currentPost.title)}</h1><p class="lead">${esc(currentPost.lead)}</p><div class="article-text">${currentPost.body}<p>感谢你读到这里。如果这篇文章对你有帮助，欢迎在评论区留下想法。</p></div></div>`;$("#searchDialog").close();$("#articleDialog").showModal();$("#articleDialog").scrollTop=0;renderComments()}
+function openArticle(id){currentPost=posts.find(p=>p.id===id);if(!currentPost)return;window.currentPost=currentPost;$("#articleContent").innerHTML=`<div class="article-body"><div class="article-meta">${esc(currentPost.type)} · ${esc(currentPost.date)} · ${esc(currentPost.read)}</div><h1>${esc(currentPost.title)}</h1><p class="lead">${esc(currentPost.lead)}</p><div class="article-text">${currentPost.body}<p>感谢你读到这里。如果这篇文章对你有帮助，欢迎在评论区留下想法。</p></div></div>`;if($("#searchDialog").open)$("#searchDialog").close();$("#articleDialog").showModal();$("#articleDialog").scrollTop=0;renderComments()}
 const defaults=[{id:101,name:"小满",text:"写得很实用，尤其喜欢“服务要少而精”这句话。折腾到最后，稳定真的比数量重要。",time:"2026-07-28 09:42",likes:6},{id:102,name:"North",text:"旧笔记本自带 UPS 这个角度确实没想到，周末准备试试看。",time:"2026-07-28 14:18",likes:2}];
 function getComments(){return JSON.parse(localStorage.getItem(`yu-comments-${currentPost.id}`)||"null")||(currentPost.id===1?defaults:[])}function saveComments(v){localStorage.setItem(`yu-comments-${currentPost.id}`,JSON.stringify(v))}
 function esc(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
@@ -53,4 +106,6 @@ $("#commentForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.t
 $("#commentList").onclick=async e=>{const like=e.target.closest("[data-like]"),del=e.target.closest("[data-delete]");if(del){if(window.blogAuth?.configured&&await window.blogAuth.deleteComment(Number(del.dataset.delete))){await renderComments();toast("评论已删除")}return}if(!like)return;if(window.blogAuth?.configured){if(await window.blogAuth.likeComment(Number(like.dataset.like),Number(like.dataset.likes)))await renderComments()}else{const l=getComments(),c=l.find(x=>x.id===Number(like.dataset.like));c.likes++;saveComments(l);renderComments()}};
 function toast(t){$("#toast").textContent=t;$("#toast").classList.add("show");setTimeout(()=>$("#toast").classList.remove("show"),1800)}window.toast=toast;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()});
-if(location.hash&&document.querySelector(location.hash+".page"))showPage(location.hash.slice(1));
+window.addEventListener("popstate",()=>showPage(location.hash.slice(1)||"home"));
+if(location.hash&&document.querySelector(location.hash+".page"))showPage(location.hash.slice(1));else history.replaceState({page:"home"},"","#home");
+requestAnimationFrame(()=>document.body.classList.add("motion-ready"));

@@ -175,7 +175,9 @@
     $("#resetPasswordBtn").addEventListener("click", resetPassword);
     $("#logoutBtn").addEventListener("click", logout);
     $("#authDialog").addEventListener("click", event => {
-      if (event.target === $("#authDialog")) $("#authDialog").close();
+      if (event.target === $("#authDialog")) {
+        if (window.closeDialog) window.closeDialog($("#authDialog")); else $("#authDialog").close();
+      }
     });
   }
 
@@ -223,7 +225,7 @@
       if (mode === "signup" && !result.data.session) {
         setMessage($("#authError"), "验证邮件已发送，请打开邮箱完成验证后再登录", "success");
       } else {
-        $("#authDialog").close();
+        if (window.closeDialog) window.closeDialog($("#authDialog")); else $("#authDialog").close();
         notify(mode === "signup" ? "账户创建成功" : "登录成功");
       }
     } catch (error) {
@@ -276,7 +278,7 @@
       recovering = false;
       form.reset();
       updateAuthUI();
-      $("#authDialog").close();
+      if (window.closeDialog) window.closeDialog($("#authDialog")); else $("#authDialog").close();
       notify("密码已更新，请妥善保管");
     } catch (error) {
       setMessage($("#recoveryError"), friendlyError(error));
@@ -290,7 +292,7 @@
     try {
       const { error } = await client.auth.signOut({ scope: "local" });
       if (error) return notify(friendlyError(error, "退出失败"));
-      $("#authDialog").close();
+      if (window.closeDialog) window.closeDialog($("#authDialog")); else $("#authDialog").close();
       notify("已退出登录");
     } finally {
       $("#logoutBtn").disabled = false;

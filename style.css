@@ -34,3 +34,50 @@ html{-webkit-text-size-adjust:100%}[hidden]{display:none!important}body{overflow
 .admin-page{max-width:1220px}.admin-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:25px}.admin-header small,.editor-top small{color:var(--blue);font-size:9px;letter-spacing:.18em;font-weight:700}.admin-header h1{font-size:30px;margin:8px 0}.admin-header p{color:var(--muted);font-size:13px;margin:0}.admin-header>.primary-btn{width:auto;padding:0 18px}.admin-gate{max-width:430px;margin:70px auto;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:42px}.admin-gate .project-icon{margin:auto}.admin-gate h2{font-size:18px}.admin-gate p{color:var(--muted);font-size:12px}.admin-gate .primary-btn{width:auto;padding:0 25px}.admin-layout{display:grid;grid-template-columns:265px minmax(0,1fr);gap:18px;align-items:start}.admin-posts,.post-editor{background:var(--surface);border:1px solid var(--line);border-radius:14px}.admin-posts{position:sticky;top:84px;max-height:calc(100vh - 105px);overflow:auto}.admin-list-head{position:sticky;top:0;background:var(--surface);display:flex;align-items:center;justify-content:space-between;padding:17px;border-bottom:1px solid var(--line);z-index:1}.admin-list-head strong{font-size:12px}.admin-list-head button{border:0;background:transparent;color:var(--muted);cursor:pointer}.admin-list-item{padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer}.admin-list-item:hover,.admin-list-item.active{background:var(--soft)}.admin-list-item strong{display:block;font-size:12px;line-height:1.5;margin-bottom:6px}.admin-list-item div{display:flex;justify-content:space-between;color:var(--muted);font-size:9px}.status-badge{padding:3px 6px;border-radius:4px;background:#f1f2f4}.status-badge.published{background:#e7f8ef;color:#25824e}.dark .status-badge{background:#292d31}.dark .status-badge.published{background:#20372b;color:#75d09a}.post-editor{padding:25px}.editor-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px}.editor-top h2{font-size:20px;margin:6px 0}.editor-top #saveState{font-size:10px;color:var(--muted)}.post-editor label>small{float:right}.post-editor textarea{line-height:1.7}.post-editor textarea[name=description],.post-editor textarea[name=lead]{height:85px;min-height:85px}.post-editor .body-editor{min-height:390px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;tab-size:2}.form-row.three{grid-template-columns:1fr 1.3fr .7fr}.editor-actions{display:flex;align-items:flex-end;justify-content:space-between;margin-top:15px}.editor-actions>div{display:flex;gap:8px}.editor-actions .primary-btn,.editor-actions .danger-button{width:auto;padding:0 18px}.secondary-btn{height:43px;padding:0 16px;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;cursor:pointer}.status-select{margin:0}.status-select select{display:block;margin-top:7px;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:9px 30px 9px 10px}
 @media(max-width:900px){.admin-layout{grid-template-columns:1fr}.admin-posts{position:static;max-height:280px}.form-row.three{grid-template-columns:1fr 1fr}.form-row.three label:last-child{grid-column:1/-1}}
 @media(max-width:600px){.admin-header{align-items:flex-start;gap:18px;flex-direction:column}.admin-header>.primary-btn{min-height:44px}.post-editor{padding:18px}.form-row.three{grid-template-columns:1fr}.form-row.three label:last-child{grid-column:auto}.editor-actions{align-items:stretch;flex-direction:column;gap:14px}.editor-actions>div{display:grid;grid-template-columns:1fr 1fr}.editor-actions .primary-btn{grid-column:1/-1}.post-editor label>small{float:none;display:block;margin-top:4px}.post-editor .body-editor{min-height:55vh}}
+
+/* Motion system */
+:root{--ease-out:cubic-bezier(.22,.75,.2,1);--ease-spring:cubic-bezier(.2,.9,.25,1.18)}
+.topbar{view-transition-name:site-header}.page.active{animation:pageFallback .42s var(--ease-out) both}
+html[data-transition="page"]::view-transition-old(root){animation:pageOut .2s ease both}
+html[data-transition="page"]::view-transition-new(root){animation:pageIn .44s var(--ease-out) both}
+html[data-transition="page"]::view-transition-group(site-header){animation-duration:.28s}
+html[data-transition="page"] .page.active{animation:none}
+html[data-transition="theme"] .topbar{view-transition-name:none}
+html[data-transition="theme"] *,html[data-transition="theme"] *::before,html[data-transition="theme"] *::after{transition:none!important}
+html[data-transition="theme"]::view-transition-old(root){animation:none;z-index:1}
+html[data-transition="theme"]::view-transition-new(root){animation:none;z-index:999}
+
+@keyframes pageFallback{from{opacity:0;transform:translateY(14px);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}
+@keyframes pageOut{to{opacity:0;transform:scale(.992);filter:blur(2px)}}
+@keyframes pageIn{from{opacity:0;transform:translateY(16px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+@keyframes dialogIn{from{opacity:0;transform:translateY(22px) scale(.975);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}
+@keyframes dialogOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(14px) scale(.985);filter:blur(2px)}}
+@keyframes backdropIn{from{background:#10131a00;backdrop-filter:blur(0)}to{background:#10131a80;backdrop-filter:blur(4px)}}
+@keyframes backdropOut{to{background:#10131a00;backdrop-filter:blur(0)}}
+@keyframes listItemIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes softPop{0%{transform:scale(.93);opacity:.4}100%{transform:scale(1);opacity:1}}
+
+dialog[open]{animation:dialogIn .36s var(--ease-spring) both}
+dialog[open]::backdrop{animation:backdropIn .3s ease both}
+dialog[open].dialog-closing{animation:dialogOut .2s ease both}
+dialog[open].dialog-closing::backdrop{animation:backdropOut .2s ease both}
+.post-list.is-refreshing .post-item{animation:listItemIn .42s var(--ease-out) both}
+.post-list.is-refreshing .post-item:nth-child(2){animation-delay:45ms}.post-list.is-refreshing .post-item:nth-child(3){animation-delay:90ms}.post-list.is-refreshing .post-item:nth-child(4){animation-delay:135ms}
+.page.active .project-grid article,.page.active .friend-grid>a{animation:listItemIn .46s var(--ease-out) both}
+.page.active .project-grid article:nth-child(2),.page.active .friend-grid>a:nth-child(2){animation-delay:60ms}.page.active .project-grid article:nth-child(3),.page.active .friend-grid>a:nth-child(3){animation-delay:120ms}.page.active .friend-grid>a:nth-child(4){animation-delay:180ms}
+.admin-list-item{animation:listItemIn .3s var(--ease-out) both}.comment{animation:listItemIn .35s var(--ease-out) both}.comment:nth-child(2){animation-delay:45ms}.comment:nth-child(3){animation-delay:90ms}
+.auth-tabs button,.filters button,.tag-cloud button,.pagination button,.actions button,.primary-btn,.secondary-btn,.danger-button,.like-btn,.friend-grid>a,.project-grid article{transition:transform .22s var(--ease-out),color .22s ease,background-color .22s ease,border-color .22s ease,box-shadow .22s ease}
+.primary-btn:not(:disabled):hover,.secondary-btn:hover{transform:translateY(-2px);box-shadow:0 7px 18px #5277ff25}.primary-btn:not(:disabled):active,.secondary-btn:active{transform:translateY(0) scale(.98)}
+.actions button:hover,.filters button:hover,.tag-cloud button:hover,.pagination button:hover{transform:translateY(-1px)}.like-btn:active{transform:scale(1.18)}
+.project-grid article:hover,.friend-grid>a:hover{transform:translateY(-4px);box-shadow:var(--shadow)}.logo-mark{transition:transform .35s var(--ease-spring),box-shadow .3s ease}.logo:hover .logo-mark{transform:rotate(-7deg) scale(1.08);box-shadow:0 9px 20px #5873ee70}
+.status-dot{animation:statusPulse 2.2s ease-in-out infinite}@keyframes statusPulse{50%{box-shadow:0 0 0 8px #2fcf7508;transform:scale(.92)}}
+.motion-ready .page-title .planet{animation:softPop .7s var(--ease-spring) both}.article-dialog[open] .article-meta{animation:listItemIn .38s .08s var(--ease-out) both}.article-dialog[open] .article-body h1{animation:listItemIn .42s .13s var(--ease-out) both}.article-dialog[open] .lead{animation:listItemIn .42s .18s var(--ease-out) both}
+
+@media(max-width:800px){
+  @keyframes dialogIn{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:none}}
+  @keyframes dialogOut{to{opacity:0;transform:translateY(40%)}}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto!important}*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  ::view-transition-old(root),::view-transition-new(root){animation:none!important}
+}
