@@ -36,34 +36,26 @@ html{-webkit-text-size-adjust:100%}[hidden]{display:none!important}body{overflow
 @media(max-width:600px){.admin-header{align-items:flex-start;gap:18px;flex-direction:column}.admin-header>.primary-btn{min-height:44px}.post-editor{padding:18px}.form-row.three{grid-template-columns:1fr}.form-row.three label:last-child{grid-column:auto}.editor-actions{align-items:stretch;flex-direction:column;gap:14px}.editor-actions>div{display:grid;grid-template-columns:1fr 1fr}.editor-actions .primary-btn{grid-column:1/-1}.post-editor label>small{float:none;display:block;margin-top:4px}.post-editor .body-editor{min-height:55vh}}
 
 /* Motion system */
-:root{--ease-out:cubic-bezier(.22,.75,.2,1);--ease-spring:cubic-bezier(.2,.9,.25,1.18)}
-.topbar{view-transition-name:site-header}.page.active{animation:pageFallback .42s var(--ease-out) both}
-html[data-transition="page"]::view-transition-old(root){animation:pageOut .2s ease both}
-html[data-transition="page"]::view-transition-new(root){animation:pageIn .44s var(--ease-out) both}
-html[data-transition="page"]::view-transition-group(site-header){animation-duration:.28s}
-html[data-transition="page"] .page.active{animation:none}
-html[data-transition="theme"] .topbar{view-transition-name:none}
-html[data-transition="theme"] *,html[data-transition="theme"] *::before,html[data-transition="theme"] *::after{transition:none!important}
-html[data-transition="theme"]::view-transition-old(root){animation:none;z-index:1}
-html[data-transition="theme"]::view-transition-new(root){animation:none;z-index:999}
+:root{--ease-out:cubic-bezier(.22,.75,.2,1);--ease-spring:cubic-bezier(.2,.9,.25,1.08)}
+.page.active{animation:pageFallback .28s var(--ease-out) both;will-change:opacity,transform}
+.theme-switching,.theme-switching .topbar,.theme-switching .page-title,.theme-switching .side-card,.theme-switching .post-list,.theme-switching .post-editor,.theme-switching .admin-posts{transition:background-color .2s ease,color .2s ease,border-color .2s ease}
 
-@keyframes pageFallback{from{opacity:0;transform:translateY(14px);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}
-@keyframes pageOut{to{opacity:0;transform:scale(.992);filter:blur(2px)}}
-@keyframes pageIn{from{opacity:0;transform:translateY(16px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
-@keyframes dialogIn{from{opacity:0;transform:translateY(22px) scale(.975);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}
-@keyframes dialogOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(14px) scale(.985);filter:blur(2px)}}
-@keyframes backdropIn{from{background:#10131a00;backdrop-filter:blur(0)}to{background:#10131a80;backdrop-filter:blur(4px)}}
-@keyframes backdropOut{to{background:#10131a00;backdrop-filter:blur(0)}}
+@keyframes pageFallback{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+@keyframes dialogIn{from{opacity:0;transform:translateY(14px) scale(.99)}to{opacity:1;transform:none}}
+@keyframes dialogOut{from{opacity:1;transform:none}to{opacity:0;transform:translateY(8px) scale(.995)}}
+@keyframes backdropIn{from{background:#10131a00}to{background:#10131a80}}
+@keyframes backdropOut{to{background:#10131a00}}
 @keyframes listItemIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @keyframes softPop{0%{transform:scale(.93);opacity:.4}100%{transform:scale(1);opacity:1}}
 
-dialog[open]{animation:dialogIn .36s var(--ease-spring) both}
-dialog[open]::backdrop{animation:backdropIn .3s ease both}
-dialog[open].dialog-closing{animation:dialogOut .2s ease both}
-dialog[open].dialog-closing::backdrop{animation:backdropOut .2s ease both}
-.post-list.is-refreshing .post-item{animation:listItemIn .42s var(--ease-out) both}
+dialog::backdrop{backdrop-filter:none}
+dialog[open]{animation:dialogIn .24s var(--ease-out) both;will-change:opacity,transform}
+dialog[open]::backdrop{animation:backdropIn .16s ease both}
+dialog[open].dialog-closing{animation:dialogOut .14s ease both}
+dialog[open].dialog-closing::backdrop{animation:backdropOut .14s ease both}
+.post-list.is-refreshing .post-item{animation:listItemIn .3s var(--ease-out) both}
 .post-list.is-refreshing .post-item:nth-child(2){animation-delay:45ms}.post-list.is-refreshing .post-item:nth-child(3){animation-delay:90ms}.post-list.is-refreshing .post-item:nth-child(4){animation-delay:135ms}
-.page.active .project-grid article,.page.active .friend-grid>a{animation:listItemIn .46s var(--ease-out) both}
+.page.active .project-grid article,.page.active .friend-grid>a{animation:listItemIn .32s var(--ease-out) both}
 .page.active .project-grid article:nth-child(2),.page.active .friend-grid>a:nth-child(2){animation-delay:60ms}.page.active .project-grid article:nth-child(3),.page.active .friend-grid>a:nth-child(3){animation-delay:120ms}.page.active .friend-grid>a:nth-child(4){animation-delay:180ms}
 .admin-list-item{animation:listItemIn .3s var(--ease-out) both}.comment{animation:listItemIn .35s var(--ease-out) both}.comment:nth-child(2){animation-delay:45ms}.comment:nth-child(3){animation-delay:90ms}
 .auth-tabs button,.filters button,.tag-cloud button,.pagination button,.actions button,.primary-btn,.secondary-btn,.danger-button,.like-btn,.friend-grid>a,.project-grid article{transition:transform .22s var(--ease-out),color .22s ease,background-color .22s ease,border-color .22s ease,box-shadow .22s ease}
@@ -79,5 +71,4 @@ dialog[open].dialog-closing::backdrop{animation:backdropOut .2s ease both}
 }
 @media(prefers-reduced-motion:reduce){
   html{scroll-behavior:auto!important}*,*::before,*::after{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
-  ::view-transition-old(root),::view-transition-new(root){animation:none!important}
 }

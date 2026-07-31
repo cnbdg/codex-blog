@@ -9,7 +9,6 @@ const seedPosts=[
 let posts=[...seedPosts];
 let filter="全部",page=1;const perPage=4,$=s=>document.querySelector(s);
 const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
-const canViewTransition=()=>Boolean(document.startViewTransition&&!reduceMotion.matches);
 
 function closeDialogAnimated(dialog){
  if(!dialog?.open)return;
@@ -29,17 +28,10 @@ document.querySelectorAll("dialog").forEach(dialog=>{
 });
 
 function animateThemeChange(dark,event){
- const apply=()=>setTheme(dark);
- if(!canViewTransition()){apply();return}
- document.documentElement.dataset.transition="theme";
- const x=event?.clientX??innerWidth-42,y=event?.clientY??36;
- const radius=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
- const transition=document.startViewTransition(apply);
- transition.ready.then(()=>document.documentElement.animate(
-  {clipPath:[`circle(0px at ${x}px ${y}px)`,`circle(${radius}px at ${x}px ${y}px)`]},
-  {duration:560,easing:"cubic-bezier(.22,.75,.2,1)",pseudoElement:"::view-transition-new(root)"}
- )).catch(()=>{});
- transition.finished.finally(()=>delete document.documentElement.dataset.transition);
+ document.body.classList.add("theme-switching");
+ setTheme(dark);
+ clearTimeout(animateThemeChange.timer);
+ animateThemeChange.timer=setTimeout(()=>document.body.classList.remove("theme-switching"),240);
 }
 function filtered(){return posts.filter(p=>filter==="全部"||p.tags.includes(filter))}
 function render(){
@@ -78,13 +70,9 @@ function showPage(id,push=false){
   document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x===target));
   document.querySelectorAll("nav a").forEach(x=>x.classList.toggle("active",x.dataset.page===id));
  };
- if(canViewTransition()){
-  document.documentElement.dataset.transition="page";
-  const transition=document.startViewTransition(update);
-  transition.finished.finally(()=>delete document.documentElement.dataset.transition);
- }else update();
+ update();
  if(push)history.pushState({page:id},"","#"+id);else history.replaceState({page:id},"","#"+id);
- scrollTo({top:0,behavior:reduceMotion.matches?"auto":"smooth"});
+ scrollTo({top:0,behavior:"auto"});
 }
 window.showPage=showPage;
 $("#filters").onclick=e=>{const b=e.target.closest("[data-filter]");if(!b)return;filter=b.dataset.filter;page=1;$("#filters .active").classList.remove("active");b.classList.add("active");render()};
