@@ -65,6 +65,9 @@ body.has-wallpaper{background:transparent}body.has-wallpaper:before{content:"";p
 
 @media(max-width:700px){.moderation-header{align-items:flex-start;flex-direction:column}.moderation-header .secondary-btn{width:100%}.moderation-user{align-items:flex-start;flex-direction:column}.moderation-user-actions{width:100%;justify-content:space-between}.moderation-user-actions button{flex:1}.moderation-action{grid-template-columns:1fr auto}.moderation-action small{grid-column:1/-1}}
 
+/* Thread replies and likes */
+.thread-engagement{margin-top:18px}.like-button{border:0;background:var(--soft);color:var(--muted);border-radius:7px;padding:7px 11px;font-size:11px;cursor:pointer}.like-button:hover,.like-button.liked{color:#e25572;background:#fff0f4}.dark .like-button:hover,.dark .like-button.liked{color:#ff91a7;background:#3c2730}.like-button.small{padding:4px 8px;font-size:10px}.reply-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px}.reply-tools .comment-delete,.reply-tools .comment-report{margin-left:0}.reply-to-button{border:0;background:transparent;color:var(--blue);font-size:10px;cursor:pointer;padding:0}.reply-toggle{border:0;background:transparent;color:var(--blue);font-size:10px;cursor:pointer;padding:7px 0}.nested-replies{margin:5px 0 0 14px;padding-left:13px;border-left:2px solid var(--line)}.nested-replies.collapsed{display:none}.reply-target{margin:8px 0;padding:8px 10px;border-radius:7px;background:var(--soft);color:var(--blue);font-size:10px}.form-foot>div{display:flex;align-items:center;gap:10px}.form-foot .text-button{margin:0;padding:0;font-size:10px}
+
 /* Motion system */
 :root{--ease-out:cubic-bezier(.22,.75,.2,1);--ease-spring:cubic-bezier(.2,.9,.25,1.08)}
 .page.active{animation:pageFallback .28s var(--ease-out) both;will-change:opacity,transform}

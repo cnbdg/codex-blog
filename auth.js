@@ -37,6 +37,8 @@
     ,[/ALREADY_REPORTED/i, "你已经举报过这条内容"]
     ,[/ADMIN_REQUIRED/i, "当前账号没有审核权限"]
     ,[/CANNOT_BAN_ADMIN/i, "不能限制其他管理员账号"]
+    ,[/AUTH_REQUIRED/i, "请先登录后再点赞"]
+    ,[/INVALID_REPLY_PARENT/i, "回复目标已不存在，请刷新后重试"]
   ];
 
   function friendlyError(error, fallback = "操作失败，请稍后重试") {
@@ -622,7 +624,7 @@
   async function listForumThreads() {
     if (!client) return null;
     const { data, error } = await client.from("forum_posts")
-      .select("id,title,content,created_at,updated_at,author_id,profiles(username,avatar_url,display_title,is_admin),forum_replies(count)")
+      .select("id,title,content,likes,created_at,updated_at,author_id,profiles(username,avatar_url,display_title,is_admin),forum_replies(count)")
       .order("updated_at", { ascending: false })
       .limit(100);
     if (error) return { error: friendlyError(error), rows: [] };
@@ -661,7 +663,7 @@
   async function listForumReplies(threadId) {
     if (!client) return [];
     const { data, error } = await client.from("forum_replies")
-      .select("id,content,floor_number,created_at,author_id,profiles(username,avatar_url,display_title,is_admin)")
+      .select("id,content,parent_id,likes,floor_number,created_at,author_id,profiles(username,avatar_url,display_title,is_admin)")
       .eq("post_id", threadId)
       .order("created_at", { ascending: true });
     if (error) {
@@ -671,7 +673,7 @@
     return data || [];
   }
 
-  async function addForumReply(threadId, content) {
+  async function addForumReply(threadId, content, parentId = null) {
     if (!client || !user) {
       openAuth();
       return false;
@@ -679,7 +681,7 @@
     const cleanContent = String(content || "").trim();
     if (cleanContent.length < 1 || cleanContent.length > 2000) return false;
     const { error } = await client.from("forum_replies")
-      .insert({ post_id: threadId, author_id: user.id, content: cleanContent });
+      .insert({ post_id: threadId, author_id: user.id, parent_id: parentId ? Number(parentId) : null, content: cleanContent });
     if (error) notify("回复发表失败：" + friendlyError(error));
     return !error;
   }
@@ -689,6 +691,22 @@
     const { error } = await client.from("forum_replies").delete().eq("id", id);
     if (error) notify("回复删除失败：" + friendlyError(error));
     return !error;
+  }
+
+  async function toggleForumLike(targetType, targetId) {
+    if (!client || !user) {
+      openAuth();
+      return null;
+    }
+    const { data, error } = await client.rpc("toggle_forum_like", {
+      p_target_type: targetType,
+      p_target_id: Number(targetId)
+    });
+    if (error) {
+      notify("点赞失败：" + friendlyError(error));
+      return null;
+    }
+    return data?.[0] || null;
   }
 
   async function reportContent(targetType, targetId, reason) {
@@ -764,7 +782,7 @@
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
     listForumThreads, saveForumThread, deleteForumThread,
-    listForumReplies, addForumReply, deleteForumReply,
+    listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     reportContent, getMyModeration, listModerationUsers, listModerationReports,
     listModerationActions, setUserBan, clearUserBan, moderateReport,
     get user() { return user; },

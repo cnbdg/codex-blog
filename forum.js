@@ -143,7 +143,7 @@
       <div class="thread-floor-mark">1楼</div>
       <div class="thread-detail-author">${avatarMarkup(thread)}<div><span><strong>${escapeText(authorName(thread))}</strong>${titleMarkup(thread, true)}</span><time>${formatTime(thread.created_at)}</time></div></div>
       <h1>${escapeText(thread.title)}</h1>
-      <div class="article-text">${window.blogMarkdown.render(thread.content)}</div>${actions}
+      <div class="article-text">${window.blogMarkdown.render(thread.content)}</div><div class="thread-engagement"><button class="like-button" data-like-type="post" data-like-id="${thread.id}">♡ <span>${thread.likes || 0}</span></button></div>${actions}
     </div>`;
     updateReplyAccess();
     if (!$("#threadDialog").open) $("#threadDialog").showModal();
@@ -156,13 +156,25 @@
     $("#replyList").innerHTML = `<p class="forum-empty">正在加载回复…</p>`;
     const replies = await window.blogAuth.listForumReplies(currentThread.id);
     $("#replyCount").textContent = replies.length;
-    $("#replyList").innerHTML = replies.length
-      ? replies.map((reply, index) => `<article class="comment forum-reply">
+    const children = new Map();
+    replies.forEach(reply => {
+      const parent = Number(reply.parent_id) || 0;
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent).push(reply);
+    });
+    const renderNode = reply => {
+      const nested = children.get(reply.id) || [];
+      const nestedMarkup = nested.length ? `<button type="button" class="reply-toggle" data-toggle-replies="${reply.id}">收起 ${nested.length} 条回复</button><div class="nested-replies" data-replies-for="${reply.id}">${nested.map(renderNode).join("")}</div>` : "";
+      return `<article class="comment forum-reply" data-reply-id="${reply.id}">
           ${avatarMarkup(reply)}
-          <div><div class="comment-head"><span class="reply-author"><strong>${escapeText(authorName(reply))}</strong>${titleMarkup(reply, true)}</span><span class="reply-floor"><b>${reply.floor_number || index + 2}楼</b><time>${formatTime(reply.created_at)}</time></span></div>
+          <div><div class="comment-head"><span class="reply-author"><strong>${escapeText(authorName(reply))}</strong>${titleMarkup(reply, true)}</span><span class="reply-floor"><b>${reply.floor_number || ""}楼</b><time>${formatTime(reply.created_at)}</time></span></div>
           <div class="reply-content">${window.blogMarkdown.render(reply.content)}</div>
-          <div class="reply-tools">${canManage(reply) ? `<button class="comment-delete" type="button" data-delete-reply="${reply.id}">删除</button>` : ""}<button class="comment-report" type="button" data-report-type="forum_reply" data-report-id="${reply.id}">举报</button></div></div>
-        </article>`).join("")
+          <div class="reply-tools"><button class="reply-to-button" type="button" data-reply-to="${reply.id}" data-reply-name="${escapeText(authorName(reply))}">回复</button><button class="like-button small" type="button" data-like-type="reply" data-like-id="${reply.id}">♡ <span>${reply.likes || 0}</span></button>${canManage(reply) ? `<button class="comment-delete" type="button" data-delete-reply="${reply.id}">删除</button>` : ""}<button class="comment-report" type="button" data-report-type="forum_reply" data-report-id="${reply.id}">举报</button></div>${nestedMarkup}</div>
+        </article>`;
+    };
+    const topLevel = children.get(0) || [];
+    $("#replyList").innerHTML = replies.length
+      ? topLevel.map(renderNode).join("")
       : `<p class="forum-empty">还没有回复，来参与讨论吧。</p>`;
   }
 
@@ -179,14 +191,15 @@
     const form = event.currentTarget;
     const content = form.elements.content.value.trim();
     if (!content) return;
-    const button = form.querySelector("button");
+    const button = form.querySelector("button:not([type=button])");
     button.disabled = true;
     button.textContent = "正在发表…";
-    const added = await window.blogAuth.addForumReply(currentThread.id, content);
+    const added = await window.blogAuth.addForumReply(currentThread.id, content, form.elements.parent_id.value || null);
     button.disabled = false;
     button.textContent = "发表回复";
     if (!added) return;
     form.reset();
+    resetReplyTarget();
     $("#replyCharCount").textContent = "0";
     window.toast("回复发表成功");
     await renderReplies();
@@ -214,12 +227,41 @@
     await loadThreads();
   }
 
+  function resetReplyTarget() {
+    const form = $("#replyForm");
+    form.elements.parent_id.value = "";
+    $("#replyTarget").hidden = true;
+    $("#replyTarget").textContent = "";
+    $("#cancelReplyBtn").hidden = true;
+  }
+
+  function prepareReply(id, name) {
+    if (!window.blogAuth?.user) return window.blogAuth?.openAuth("login");
+    const form = $("#replyForm");
+    form.elements.parent_id.value = id;
+    $("#replyTarget").hidden = false;
+    $("#replyTarget").textContent = `正在回复 @${name}`;
+    $("#cancelReplyBtn").hidden = false;
+    form.elements.content.focus();
+  }
+
+  async function toggleLike(type, id) {
+    const result = await window.blogAuth.toggleForumLike(type, id);
+    if (!result) return;
+    const button = document.querySelector(`[data-like-type="${type}"][data-like-id="${id}"]`);
+    if (button) {
+      button.classList.toggle("liked", result.liked);
+      button.querySelector("span").textContent = result.likes;
+    }
+  }
+
   function init() {
     $("#newThreadBtn").addEventListener("click", () => openEditor());
     $("#refreshThreadsBtn").addEventListener("click", loadThreads);
     $("#threadForm").addEventListener("submit", saveThread);
     $("#threadForm").elements.content.addEventListener("input", renderPreview);
     $("#replyForm").addEventListener("submit", addReply);
+    $("#cancelReplyBtn").addEventListener("click", resetReplyTarget);
     $("#replyForm").elements.content.addEventListener("input", event => {
       $("#replyCharCount").textContent = event.target.value.length;
     });
@@ -241,6 +283,20 @@
     $("#replyList").addEventListener("click", event => {
       const remove = event.target.closest("[data-delete-reply]");
       if (remove) deleteReply(Number(remove.dataset.deleteReply));
+      const replyTo = event.target.closest("[data-reply-to]");
+      if (replyTo) prepareReply(Number(replyTo.dataset.replyTo), replyTo.dataset.replyName);
+      const toggle = event.target.closest("[data-toggle-replies]");
+      if (toggle) {
+        const container = event.currentTarget.querySelector(`[data-replies-for="${toggle.dataset.toggleReplies}"]`);
+        const collapsed = container.classList.toggle("collapsed");
+        toggle.textContent = collapsed ? `展开回复` : `收起回复`;
+      }
+      const like = event.target.closest("[data-like-type]");
+      if (like) toggleLike(like.dataset.likeType, Number(like.dataset.likeId));
+    });
+    $("#threadContent").addEventListener("click", event => {
+      const like = event.target.closest("[data-like-type]");
+      if (like) toggleLike(like.dataset.likeType, Number(like.dataset.likeId));
     });
     window.addEventListener("blog-auth-change", updateReplyAccess);
     loadThreads();
