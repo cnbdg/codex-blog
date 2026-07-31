@@ -659,6 +659,18 @@
     return data;
   }
 
+  async function uploadCommunityImage(file) {
+    if (!client || !user || !file) return null;
+    if (!/^image\/(jpeg|png|gif|webp|avif)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
+      notify("图片需为 JPG、PNG、GIF、WebP 或 AVIF，且不超过 5MB"); return null;
+    }
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "jpg");
+    const path = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const { error } = await client.storage.from("community-media").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
+    if (error) { notify("图片上传失败：" + friendlyError(error)); return null; }
+    return client.storage.from("community-media").getPublicUrl(path).data.publicUrl;
+  }
+
   async function deleteForumThread(id) {
     if (!client || !user) return false;
     const { error } = await client.from("forum_posts").delete().eq("id", id);
@@ -903,7 +915,7 @@
   window.blogAuth = {
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
-    listForumThreads, saveForumThread, deleteForumThread,
+    listForumThreads, saveForumThread, uploadCommunityImage, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,
     searchUsers, getPublicProfile, adminUpdateMember, confirmAdminPassword, listNotifications, markNotificationsRead, listFriends,

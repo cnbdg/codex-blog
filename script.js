@@ -1,4 +1,4 @@
-const seedPosts=[];
+const seedPosts=[{title:"社区更新：图片上传与桌面布局优化",description:"本次更新增加社区图片上传、优化桌面三栏布局，并持续完善社区互动体验。",type:"更新日志",tags:["更新","社区","功能"],read_time:"1 分钟",lead:"感谢大家使用 cnbdg 博客。本次更新重点改善社区发布和桌面端浏览体验。",body:"## 本次更新\n\n- 社区发帖支持上传图片。\n- 桌面端右侧区域重新规划。\n- 统一窗口、按钮和内容卡片风格。\n- 持续修复移动端体验。",status:"published",published_at:"2026-07-31"}];
 let posts=[...seedPosts];
 let filter="全部",page=1;const perPage=4,$=s=>document.querySelector(s);
 const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");

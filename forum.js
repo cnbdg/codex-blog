@@ -130,9 +130,17 @@
     const button = $("#saveThreadBtn");
     button.disabled = true;
     button.textContent = id ? "正在保存…" : "正在发布…";
+    let content = String(data.get("content") || "").trim();
+    const image = data.get("image");
+    if (image?.size) {
+      button.textContent = "正在上传图片…";
+      const url = await window.blogAuth.uploadCommunityImage?.(image);
+      if (!url) { button.disabled = false; button.textContent = id ? "保存修改" : "发布话题"; return; }
+      content += `\n\n![社区图片](${url})`;
+    }
     const saved = await window.blogAuth.saveForumThread({
       title: data.get("title"),
-      content: data.get("content")
+      content
     }, id);
     button.disabled = false;
     button.textContent = id ? "保存修改" : "发布话题";
