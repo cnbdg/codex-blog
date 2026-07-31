@@ -559,3 +559,56 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
   .social-dialog, .dm-dialog, .public-profile-dialog, .wallpaper-dialog, .auth-dialog, .thread-editor-dialog { border-radius:20px 20px 0 0; }
   footer { display:block; margin:0; padding:21px 16px calc(var(--mobile-dock) + 18px); border:0; border-top:1px solid var(--line); border-radius:0; background:var(--surface); box-shadow:none; }
 }
+
+/* Desktop full-width repair and wallpaper-aware translucent information stream. */
+@media (min-width:1024px) {
+  :root { --x-page-pad:clamp(22px,3vw,56px); --x-context-gap:34px; }
+  .page, .forum-page {
+    width:calc(100vw - var(--x-rail)); max-width:none; margin-left:var(--x-rail); padding:0 var(--x-page-pad) 84px;
+    border:0; background:transparent;
+  }
+  .layout, .forum-layout { width:100%; max-width:none; }
+  .page-title, .forum-hero, .inner-title, .friendship-card, .feed-head, .forum-toolbar,
+  .post-list, .thread-list, .project-grid, .friend-grid, .about-box, .apply-card { max-width:none; }
+  .admin-page, body[data-desktop-page="admin"] .admin-page {
+    width:calc(100vw - var(--x-rail)); max-width:none; margin-left:var(--x-rail); padding-right:var(--x-page-pad);
+  }
+  footer {
+    width:calc(100vw - var(--x-rail)); max-width:none; margin:0 0 28px var(--x-rail); padding:22px var(--x-page-pad);
+    border-right:0; border-left:0; border-radius:0; background:transparent;
+  }
+}
+
+@media (min-width:1280px) {
+  .page, .forum-page { padding-right:calc(var(--x-right) + var(--x-page-pad) + var(--x-context-gap)); }
+  .admin-page, body[data-desktop-page="admin"] .admin-page { padding-right:var(--x-page-pad); }
+  footer { padding-right:calc(var(--x-right) + var(--x-page-pad) + var(--x-context-gap)); }
+  .desktop-context {
+    left:auto; right:clamp(22px,2.5vw,48px); width:var(--x-right); max-width:calc(100vw - var(--x-rail) - 42px);
+  }
+}
+
+@media (min-width:1024px) {
+  body.has-wallpaper:after { background:color-mix(in srgb,var(--bg) 28%,transparent); }
+  body.has-wallpaper .topbar { background:color-mix(in srgb,var(--surface) 72%,transparent); backdrop-filter:blur(18px); }
+  body.has-wallpaper .page, body.has-wallpaper .forum-page { background:transparent; }
+  body.has-wallpaper .page-title, body.has-wallpaper .forum-hero, body.has-wallpaper .inner-title,
+  body.has-wallpaper .friendship-card, body.has-wallpaper .feed-head, body.has-wallpaper .forum-toolbar,
+  body.has-wallpaper .post-item, body.has-wallpaper .thread-card, body.has-wallpaper .project-grid article,
+  body.has-wallpaper .friend-grid > a, body.has-wallpaper .about-box, body.has-wallpaper .apply-card,
+  body.has-wallpaper .side-card, body.has-wallpaper .admin-header, body.has-wallpaper .moderation-header,
+  body.has-wallpaper .admin-layout, body.has-wallpaper footer {
+    background:color-mix(in srgb,var(--surface) 52%,transparent)!important;
+    backdrop-filter:blur(11px);
+  }
+  body.has-wallpaper .post-list, body.has-wallpaper .thread-list, body.has-wallpaper .project-grid,
+  body.has-wallpaper .friend-grid { background:transparent!important; backdrop-filter:none; }
+  body.has-wallpaper .post-item:hover, body.has-wallpaper .thread-card:hover,
+  body.has-wallpaper .project-grid article:hover, body.has-wallpaper .friend-grid > a:hover {
+    background:color-mix(in srgb,var(--surface) 68%,transparent)!important;
+  }
+  body.has-wallpaper .desktop-context-search, body.has-wallpaper .desktop-context-card {
+    background:color-mix(in srgb,var(--surface) 66%,transparent); backdrop-filter:blur(14px);
+  }
+  body.has-wallpaper .desktop-context-profile { background:color-mix(in srgb,var(--surface) 72%,transparent); }
+}
