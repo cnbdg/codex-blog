@@ -5,17 +5,32 @@
   const $ = selector => document.querySelector(selector);
   let startX = 0;
   let startY = 0;
+  let trackedPointer = null;
 
   function isMobile() { return query.matches; }
   function nav() { return $("#mainNav"); }
   function isDialogOpen() { return Boolean(document.querySelector("dialog[open]")); }
 
   function setDrawer(open) {
-    if (!isMobile() || isDialogOpen()) return;
-    nav()?.classList.toggle("open", open);
-    document.body.classList.toggle("nav-open", open);
-    $("#menuBtn")?.setAttribute("aria-expanded", String(open));
-    $("#navBackdrop")?.toggleAttribute("data-visible", open);
+    const drawer = nav();
+    const mobile = isMobile();
+    const nextOpen = Boolean(open && mobile && !isDialogOpen());
+    if (!drawer) return;
+
+    drawer.classList.toggle("open", nextOpen);
+    document.body.classList.toggle("nav-open", nextOpen);
+    $("#menuBtn")?.setAttribute("aria-expanded", String(nextOpen));
+    const backdrop = $("#navBackdrop");
+    backdrop?.toggleAttribute("data-visible", nextOpen);
+    backdrop?.setAttribute("aria-hidden", String(!nextOpen));
+
+    if (mobile) {
+      drawer.toggleAttribute("inert", !nextOpen);
+      drawer.setAttribute("aria-hidden", String(!nextOpen));
+    } else {
+      drawer.removeAttribute("inert");
+      drawer.removeAttribute("aria-hidden");
+    }
   }
 
   function makeDock() {
@@ -84,6 +99,7 @@
     makeDock();
     makeComposeButton();
     syncDock();
+    setDrawer(false);
     query.addEventListener?.("change", () => { setDrawer(false); syncDock(); });
     window.addEventListener("blog-page-change", syncDock);
 
@@ -101,22 +117,31 @@
         event.preventDefault();
         handleAction(action);
       }
-      if (isMobile() && event.target.closest("#mainNav [data-page]")) setDrawer(false);
+      if (isMobile() && event.target.closest("#mainNav a, #mainNav button")) setDrawer(false);
     });
 
     document.addEventListener("pointerdown", event => {
+      trackedPointer = null;
       if (!isMobile() || event.pointerType === "mouse" || isDialogOpen()) return;
+      trackedPointer = event.pointerId;
       startX = event.clientX;
       startY = event.clientY;
     }, { passive: true });
     document.addEventListener("pointerup", event => {
+      if (trackedPointer !== event.pointerId) return;
+      trackedPointer = null;
       if (!isMobile() || event.pointerType === "mouse" || isDialogOpen()) return;
       const dx = event.clientX - startX;
       const dy = event.clientY - startY;
       if (Math.abs(dy) > 70 || Math.abs(dx) < 70) return;
       if (startX <= 28 && dx > 70) setDrawer(true);
-      if (nav()?.classList.contains("open") && startX < 360 && dx < -70) setDrawer(false);
+      const drawerWidth = Math.min(window.innerWidth * 0.82, 336);
+      if (nav()?.classList.contains("open") && startX <= drawerWidth && dx < -70) setDrawer(false);
     }, { passive: true });
+    document.addEventListener("pointercancel", () => { trackedPointer = null; }, { passive: true });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && nav()?.classList.contains("open")) setDrawer(false);
+    });
   }
 
   document.addEventListener("DOMContentLoaded", init, { once: true });

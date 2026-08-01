@@ -13,6 +13,7 @@ window.BLOG_CONFIG = {
   wallpaperSettings: {
     brightness: 85,
     blur: 5,
+    panelOpacity: 52,
     desktopDefault: "https://s21.ax1x.com/2025/07/23/pVGlmDO.jpg",
     mobileDefault: "https://home.cnbdg0826.dpdns.org/img/wallpaper/static-mobile/0001/image.png",
     desktop: [

@@ -6,7 +6,8 @@
     choice: "cnbdg-wallpaper-choice",
     custom: "cnbdg-wallpaper-custom",
     brightness: "cnbdg-wallpaper-brightness",
-    blur: "cnbdg-wallpaper-blur"
+    blur: "cnbdg-wallpaper-blur",
+    panelOpacity: "cnbdg-panel-opacity"
   };
   const $ = selector => document.querySelector(selector);
   const mobileQuery = matchMedia("(max-width: 800px)");
@@ -42,12 +43,16 @@
   function applyDisplaySettings() {
     const brightness = readNumber(storage.brightness, Number(config.brightness) || 85, 35, 120);
     const blur = readNumber(storage.blur, Number(config.blur) || 5, 0, 20);
+    const panelOpacity = readNumber(storage.panelOpacity, Number(config.panelOpacity) || 52, 20, 100);
     document.documentElement.style.setProperty("--wallpaper-brightness", `${brightness}%`);
     document.documentElement.style.setProperty("--wallpaper-blur", `${blur}px`);
+    document.documentElement.style.setProperty("--panel-opacity", `${panelOpacity}%`);
     $("#wallpaperBrightness").value = brightness;
     $("#wallpaperBlur").value = blur;
+    $("#panelOpacity").value = panelOpacity;
     $("#brightnessValue").textContent = `${brightness}%`;
     $("#blurValue").textContent = `${blur}px`;
+    $("#panelOpacityValue").textContent = `${panelOpacity}%`;
   }
 
   function applyWallpaper(showMessage = false) {
@@ -126,14 +131,11 @@
     applyWallpaper(true);
   }
 
-  function bindRange(input, output, key, unit) {
+  function bindRange(input, output, key, cssProperty, unit) {
     input.addEventListener("input", () => {
       const value = Number(input.value);
       localStorage.setItem(key, String(value));
-      document.documentElement.style.setProperty(
-        key === storage.brightness ? "--wallpaper-brightness" : "--wallpaper-blur",
-        `${value}${unit}`
-      );
+      document.documentElement.style.setProperty(cssProperty, `${value}${unit}`);
       output.textContent = `${value}${unit}`;
     });
   }
@@ -187,8 +189,9 @@
     });
     $("#customWallpaperForm").addEventListener("submit", applyCustom);
     $("#resetWallpaperBtn").addEventListener("click", () => selectWallpaper("auto"));
-    bindRange($("#wallpaperBrightness"), $("#brightnessValue"), storage.brightness, "%");
-    bindRange($("#wallpaperBlur"), $("#blurValue"), storage.blur, "px");
+    bindRange($("#wallpaperBrightness"), $("#brightnessValue"), storage.brightness, "--wallpaper-brightness", "%");
+    bindRange($("#wallpaperBlur"), $("#blurValue"), storage.blur, "--wallpaper-blur", "px");
+    bindRange($("#panelOpacity"), $("#panelOpacityValue"), storage.panelOpacity, "--panel-opacity", "%");
     mobileQuery.addEventListener?.("change", () => {
       if (choice === "auto") applyWallpaper();
     });
