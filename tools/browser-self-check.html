@@ -61,7 +61,7 @@
           assert(baseChecks.unifiedIcons, "主导航图标没有统一");
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
-          assert(baseChecks.newestPostTitle.startsWith("全站动效升级"), "本次更新日志没有显示在首页首位");
+          assert(baseChecks.newestPostTitle.startsWith("液态玻璃底栏"), "本次更新日志没有显示在首页首位");
           let desktopContextCheck = null;
           if (mode === "desktop") {
             w.blogUI?.navigate?.("forum");
@@ -86,7 +86,7 @@
             const transitionsBeforeRapidNavigation = w.blogMotion.state.pageTransitions;
             w.blogUI.navigate("home", { history: false });
             w.blogUI.navigate("forum", { history: false });
-            await wait(620);
+            await wait(900);
             desktopContextCheck.rapidNavigation = {
               page: w.blogUI.state.page,
               active: d.querySelector(".page.active")?.id || "",
@@ -94,7 +94,7 @@
               settled: !d.documentElement.classList.contains("motion-view-transition")
             };
             assert(desktopContextCheck.rapidNavigation.page === "forum" && desktopContextCheck.rapidNavigation.active === "forum", "快速连续切页没有停在最后一次目标");
-            if (baseChecks.motionEnabled) assert(desktopContextCheck.rapidNavigation.transitions >= 2 && desktopContextCheck.rapidNavigation.settled, "可中断转场没有正常结束");
+            if (baseChecks.motionEnabled) assert(desktopContextCheck.rapidNavigation.transitions >= 2 && desktopContextCheck.rapidNavigation.settled, `可中断转场没有正常结束：${JSON.stringify(desktopContextCheck.rapidNavigation)}`);
             else assert(desktopContextCheck.rapidNavigation.transitions === 0 && desktopContextCheck.rapidNavigation.settled, "减少动态效果模式仍残留页面转场");
           }
           const viewer = { id: "00000000-0000-0000-0000-000000000001" };
@@ -235,10 +235,33 @@
           assert(createDialog.open && createDialog.friends === 2, "手机创建群聊或好友选择器异常");
           assert(createDialog.noHorizontalOverflow, `手机创建群聊弹窗可以横向滚动（${createDialog.scrollWidth}/${createDialog.clientWidth}；${createDialog.overflowSources.join(", ")}）`);
           d.querySelector("#createGroupChatDialog").close();
+
+          w.blogUI?.navigate?.("forum", { history: false });
+          await wait(280);
+          const mobileTransitionStart = performance.now();
           w.blogUI?.navigate?.("home", { history: false });
-          await wait(50);
+          const mobileTransitionCallDuration = performance.now() - mobileTransitionStart;
+          const mobileActiveImmediately = d.querySelector(".page.active")?.id === "home";
+          await wait(280);
+          const mobileMotion = {
+            activeImmediately: mobileActiveImmediately,
+            callDuration: Math.round(mobileTransitionCallDuration * 10) / 10,
+            strategy: w.blogMotion?.state.lastStrategy || "",
+            mobileTransitions: w.blogMotion?.state.mobileTransitions || 0,
+            snapshotClass: d.documentElement.classList.contains("motion-view-transition"),
+            dockMoves: w.blogMobileShell?.state.moves || 0
+          };
+          assert(mobileMotion.activeImmediately && mobileMotion.callDuration < 60, "手机离开社区时仍会阻塞页面切换");
+          assert(!mobileMotion.snapshotClass, "手机切页仍启用了整页 View Transition 快照");
+          if (baseChecks.motionEnabled) {
+            assert(mobileMotion.strategy === "mobile-lightweight" && mobileMotion.mobileTransitions >= 2, "手机轻量转场策略没有启动");
+            assert(mobileMotion.dockMoves >= 1, "液态底栏指示器没有响应页面切换");
+          }
           const topbarRect = d.querySelector(".topbar")?.getBoundingClientRect();
           const heroRect = d.querySelector("#home .social-hero")?.getBoundingClientRect();
+          const dock = d.querySelector("#mobileDock");
+          const liquidIndicator = dock?.querySelector(".liquid-glass-indicator");
+          const indicatorRect = liquidIndicator?.getBoundingClientRect();
           const visibleHeaderActions = [...d.querySelectorAll(".topbar .actions button")]
             .filter(button => getComputedStyle(button).display !== "none");
           const mobileVisual = {
@@ -246,14 +269,44 @@
             headerFits: visibleHeaderActions.every(button => button.getBoundingClientRect().right <= w.innerWidth),
             minHeaderTarget: Math.min(...visibleHeaderActions.map(button => button.getBoundingClientRect().height)),
             dockTarget: Math.min(...[...d.querySelectorAll("#mobileDock button")].map(button => button.getBoundingClientRect().height)),
-            dockRadius: parseFloat(getComputedStyle(d.querySelector("#mobileDock")).borderTopLeftRadius) || 0,
+            dockRadius: parseFloat(getComputedStyle(dock).borderTopLeftRadius) || 0,
+            dockBackdrop: getComputedStyle(dock).backdropFilter || getComputedStyle(dock).webkitBackdropFilter || "",
+            liquidIndicator: Boolean(liquidIndicator),
+            liquidWidth: Math.round(indicatorRect?.width || 0),
+            liquidRadius: parseFloat(getComputedStyle(liquidIndicator).borderTopLeftRadius) || 0,
             heroTop: Math.round(heroRect?.top || 0),
             headerBottom: Math.round(topbarRect?.bottom || 0),
             heroRadius: parseFloat(getComputedStyle(d.querySelector("#home .social-hero")).borderTopLeftRadius) || 0
           };
           assert(mobileVisual.visibleHeaderActions === 3 && mobileVisual.headerFits, "手机顶部操作区拥挤或溢出");
           assert(mobileVisual.minHeaderTarget >= 44 && mobileVisual.dockTarget >= 44 && mobileVisual.dockRadius >= 18, "手机触控区域或底栏圆角不符合要求");
+          assert(mobileVisual.liquidIndicator && mobileVisual.liquidWidth >= 44 && mobileVisual.liquidRadius >= 16, "iOS 液态底栏指示器没有正确显示");
           assert(mobileVisual.heroTop >= mobileVisual.headerBottom && mobileVisual.heroRadius >= 18, "手机首屏标题被遮挡或卡片圆角丢失");
+
+          const maxScroll = Math.max(0, d.documentElement.scrollHeight - w.innerHeight);
+          if (maxScroll > 180) {
+            w.scrollTo({ top: Math.min(520, maxScroll), behavior: "instant" });
+            await wait(80);
+            mobileVisual.dockMinimized = dock.classList.contains("is-minimized");
+            mobileVisual.scrollAfterDown = Math.round(w.scrollY);
+            mobileVisual.dockStateAfterDown = {
+              minimized: w.blogMobileShell?.state.minimized,
+              lastScrollY: Math.round(w.blogMobileShell?.state.lastScrollY || 0),
+              scrollTravel: Math.round(w.blogMobileShell?.state.scrollTravel || 0)
+            };
+            w.scrollTo({ top: 0, behavior: "instant" });
+            await wait(80);
+            mobileVisual.dockRestored = !dock.classList.contains("is-minimized");
+            assert(mobileVisual.dockMinimized && mobileVisual.dockRestored, `液态底栏滚动收拢或恢复失败：${JSON.stringify({ maxScroll, visual: mobileVisual, state: w.blogMobileShell?.state })}`);
+          }
+
+          w.blogUI?.navigate?.("about", { history: false });
+          await wait(40);
+          mobileVisual.secondaryPageIndicatorHidden = !dock.classList.contains("has-active");
+          w.blogUI?.navigate?.("home", { history: false });
+          await wait(280);
+          mobileVisual.primaryPageIndicatorRestored = dock.classList.contains("has-active");
+          assert(mobileVisual.secondaryPageIndicatorHidden && mobileVisual.primaryPageIndicatorRestored, "底栏在非主标签页面显示了错误激活状态");
           d.querySelector("#menuBtn").click();
           await wait(50);
           const drawer = d.querySelector(".topbar nav");
@@ -274,7 +327,7 @@
           };
           assert(wallpaperPanel.open && wallpaperPanel.drawerClosed, "从手机侧栏打开壁纸面板失败");
           assert(wallpaperPanel.opacityControl, "壁纸面板缺少透明度控制");
-          finish("pass", { mode, baseChecks, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileVisual, mobileDrawer, wallpaperPanel });
+          finish("pass", { mode, baseChecks, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileMotion, mobileVisual, mobileDrawer, wallpaperPanel });
         } catch (error) {
           finish("fail", { mode, error: error.stack || error.message || String(error) });
         }

@@ -181,8 +181,6 @@ async function capture(origin, page, viewport) {
 
 async function main() {
   await mkdir(output, { recursive: true });
-  const server = await startServer();
-  const origin = `http://127.0.0.1:${server.address().port}`;
   const pages = ["home", "forum", "messages", "notifications", "profile"];
   const viewports = [
     { name: "desktop", width: 1440, height: 1000 },
@@ -190,6 +188,8 @@ async function main() {
   ].filter(viewport => !process.argv[2] || viewport.name === process.argv[2]);
 
   if (!viewports.length) throw new Error("视口参数只能是 desktop 或 mobile");
+  const server = await startServer();
+  const origin = `http://127.0.0.1:${server.address().port}`;
 
   try {
     const completed = [];

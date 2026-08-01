@@ -2,10 +2,24 @@
   "use strict";
 
   const query = window.matchMedia("(max-width: 1023px)");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const $ = selector => document.querySelector(selector);
   let startX = 0;
   let startY = 0;
   let trackedPointer = null;
+  const dockState = {
+    action: "",
+    x: 0,
+    width: 0,
+    moves: 0,
+    minimized: false,
+    lastScrollY: 0,
+    scrollTravel: 0,
+    scrollDirection: 0,
+    scrollFrame: 0,
+    lightFrame: 0,
+    animation: null
+  };
 
   function isMobile() { return query.matches; }
   function nav() { return $("#mainNav"); }
@@ -39,12 +53,64 @@
     dock.id = "mobileDock";
     dock.setAttribute("aria-label", "移动端快捷导航");
     dock.innerHTML = `
+      <i class="liquid-glass-indicator" aria-hidden="true"></i>
       <button type="button" data-mobile-action="home" aria-label="首页"><span><svg class="ui-icon"><use href="#icon-home"/></svg></span><small>首页</small></button>
       <button type="button" data-mobile-action="forum" aria-label="社区"><span><svg class="ui-icon"><use href="#icon-community"/></svg></span><small>社区</small></button>
       <button type="button" data-mobile-action="messages" aria-label="私信"><span><svg class="ui-icon"><use href="#icon-message"/></svg></span><small>私信</small></button>
       <button type="button" data-mobile-action="notifications" aria-label="通知"><span><svg class="ui-icon"><use href="#icon-bell"/></svg></span><small>通知</small></button>
       <button type="button" data-mobile-action="account" aria-label="我的"><span><svg class="ui-icon"><use href="#icon-user"/></svg></span><small>我的</small></button>`;
     document.body.append(dock);
+  }
+
+  function pageAction(page) {
+    return page === "profile" ? "account" : page;
+  }
+
+  function setDockMinimized(minimized) {
+    const next = Boolean(minimized && isMobile() && !isDialogOpen() && !document.body.classList.contains("nav-open"));
+    const dock = $("#mobileDock");
+    dockState.minimized = next;
+    dock?.classList.toggle("is-minimized", next);
+    document.body.classList.toggle("liquid-dock-minimized", next);
+  }
+
+  function syncLiquidIndicator(button, { instant = false } = {}) {
+    const dock = $("#mobileDock");
+    const indicator = dock?.querySelector(".liquid-glass-indicator");
+    if (!dock || !indicator || !button || !isMobile()) return;
+
+    const dockRect = dock.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    const x = Math.round((buttonRect.left - dockRect.left + 2) * 100) / 100;
+    const width = Math.max(44, Math.round((buttonRect.width - 4) * 100) / 100);
+    const previousX = dockState.x;
+    const previousWidth = dockState.width || width;
+
+    dock.style.setProperty("--liquid-x", `${x}px`);
+    dock.style.setProperty("--liquid-width", `${width}px`);
+    dockState.x = x;
+    dockState.width = width;
+
+    dockState.animation?.cancel?.();
+    if (instant || reduceMotion.matches || !indicator.animate || previousWidth === 0 || Math.abs(x - previousX) < 1) return;
+
+    const distance = x - previousX;
+    const direction = Math.sign(distance) || 1;
+    const stretch = Math.min(1.28, 1 + Math.abs(distance) / 420);
+    indicator.style.transformOrigin = direction > 0 ? "right center" : "left center";
+    dockState.animation = indicator.animate([
+      { transform: `translate3d(${previousX}px, 0, 0) scaleX(${previousWidth / width})` },
+      { transform: `translate3d(${x - direction * 5}px, 0, 0) scaleX(${stretch}) scaleY(.9)`, offset: .56 },
+      { transform: `translate3d(${x + direction * 2}px, 0, 0) scaleX(.985) scaleY(1.015)`, offset: .82 },
+      { transform: `translate3d(${x}px, 0, 0) scale(1)` }
+    ], {
+      duration: 520,
+      easing: "cubic-bezier(.2, .82, .22, 1)"
+    });
+    dockState.animation.finished.catch(() => {}).finally(() => {
+      if (dockState.animation?.playState === "finished") dockState.animation = null;
+    });
+    dockState.moves += 1;
   }
 
   function openComposer() {
@@ -70,13 +136,20 @@
     if (isMobile()) document.body.dataset.mobilePage = page;
     else delete document.body.dataset.mobilePage;
     if (!dock) return;
-    const activeAction = page === "profile" ? "account" : page;
+    const activeAction = pageAction(page);
+    let activeButton = null;
     dock.querySelectorAll("button").forEach(button => {
       const active = button.dataset.mobileAction === activeAction;
       button.classList.toggle("active", active);
+      if (active) activeButton = button;
       if (active) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     });
+    dock.classList.toggle("has-active", Boolean(activeButton));
+    dock.dataset.activeAction = activeAction;
+    const changed = dockState.action !== activeAction;
+    dockState.action = activeAction;
+    requestAnimationFrame(() => syncLiquidIndicator(activeButton, { instant: !changed || dockState.width === 0 }));
   }
 
   function openSearch() {
@@ -87,6 +160,13 @@
   }
 
   function handleAction(action) {
+    const currentPage = window.blogUI?.state?.page || location.hash.slice(1) || "home";
+    if (pageAction(currentPage) === action) {
+      setDockMinimized(false);
+      window.scrollTo({ top: 0, behavior: reduceMotion.matches ? "auto" : "smooth" });
+      return;
+    }
+    setDockMinimized(false);
     if (action === "home" || action === "forum") return window.blogUI?.navigate(action);
     if (action === "search") return openSearch();
     if (action === "messages") return window.openMessages?.();
@@ -95,19 +175,83 @@
     if (action === "account") return window.blogUI?.navigate("profile");
   }
 
+  function updateLiquidLight(event) {
+    const dock = $("#mobileDock");
+    if (!dock || !isMobile()) return;
+    const rect = dock.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+    cancelAnimationFrame(dockState.lightFrame);
+    dockState.lightFrame = requestAnimationFrame(() => {
+      dock.style.setProperty("--liquid-light-x", `${x}%`);
+      dock.style.setProperty("--liquid-light-y", `${y}%`);
+    });
+  }
+
+  function handleScroll() {
+    if (!isMobile()) return;
+    cancelAnimationFrame(dockState.scrollFrame);
+    dockState.scrollFrame = requestAnimationFrame(() => {
+      const current = Math.max(0, window.scrollY || document.documentElement.scrollTop || 0);
+      const delta = current - dockState.lastScrollY;
+      const direction = Math.sign(delta);
+
+      if (direction && direction !== dockState.scrollDirection) dockState.scrollTravel = 0;
+      if (Math.abs(delta) < 72) dockState.scrollTravel += delta;
+      else dockState.scrollTravel = delta;
+      dockState.scrollDirection = direction || dockState.scrollDirection;
+      dockState.lastScrollY = current;
+
+      if (current < 72 || dockState.scrollTravel < -28) {
+        setDockMinimized(false);
+        dockState.scrollTravel = 0;
+      } else if (current > 150 && dockState.scrollTravel > 38 && !isDialogOpen()) {
+        setDockMinimized(true);
+        dockState.scrollTravel = 0;
+      }
+    });
+  }
+
   function init() {
     makeDock();
     makeComposeButton();
     syncDock();
+    dockState.lastScrollY = Math.max(0, window.scrollY || 0);
     setDrawer(false);
-    query.addEventListener?.("change", () => { setDrawer(false); syncDock(); });
+    query.addEventListener?.("change", () => {
+      setDrawer(false);
+      setDockMinimized(false);
+      syncDock();
+    });
     window.addEventListener("blog-page-change", syncDock);
+
+    const dock = $("#mobileDock");
+    dock?.addEventListener("pointermove", updateLiquidLight, { passive: true });
+    dock?.addEventListener("pointerdown", event => {
+      updateLiquidLight(event);
+      dock.classList.add("is-pressing");
+      setDockMinimized(false);
+    }, { passive: true });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(type => {
+      dock?.addEventListener(type, () => dock.classList.remove("is-pressing"), { passive: true });
+    });
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", () => {
+      const active = dock?.querySelector("button.active");
+      requestAnimationFrame(() => syncLiquidIndicator(active, { instant: true }));
+    }, { passive: true });
+    window.visualViewport?.addEventListener("resize", () => {
+      const active = dock?.querySelector("button.active");
+      requestAnimationFrame(() => syncLiquidIndicator(active, { instant: true }));
+    }, { passive: true });
 
     $("#menuBtn")?.addEventListener("click", event => {
       if (!isMobile()) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      setDrawer(!nav()?.classList.contains("open"));
+      const opening = !nav()?.classList.contains("open");
+      setDrawer(opening);
+      if (opening) setDockMinimized(false);
     }, true);
     $("#navBackdrop")?.addEventListener("click", () => setDrawer(false));
 
@@ -143,6 +287,8 @@
       if (event.key === "Escape" && nav()?.classList.contains("open")) setDrawer(false);
     });
   }
+
+  window.blogMobileShell = { state: dockState, syncDock, setDockMinimized };
 
   document.addEventListener("DOMContentLoaded", init, { once: true });
 })();

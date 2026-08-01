@@ -117,6 +117,10 @@ html.motion-enabled .motion-reveal.is-visible {
   transform: translate3d(0, 0, 0) scale(1);
 }
 
+html.motion-enabled .motion-reveal.motion-settled {
+  will-change: auto;
+}
+
 /* A large but restrained depth response for the desktop hero. */
 @media (min-width:1024px) and (hover:hover) and (pointer:fine) {
   html.motion-enabled .social-hero .hero-visual {
@@ -238,9 +242,11 @@ html.motion-enabled .incoming-message-bubble.show {
 
 @media (max-width:1023px) {
   :root {
-    --motion-duration-page: 480ms;
+    --motion-duration-page: 230ms;
     --motion-duration-sheet: 620ms;
   }
+
+  html.motion-enabled .page.active { view-transition-name: none; }
 
   .topbar nav {
     transition: transform 520ms var(--motion-spring-out) !important;
@@ -277,35 +283,201 @@ html.motion-enabled .incoming-message-bubble.show {
     to { opacity: .35; transform: translate3d(0, 102%, 0) scale(.985); }
   }
 
-  #mobileDock button span,
-  #mobileDock button small {
+  /* iOS 26-style Liquid Glass navigation layer. */
+  #mobileDock {
+    --liquid-light-x: 50%;
+    --liquid-light-y: 0%;
+    isolation: isolate;
+    right: 9px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 9px;
+    width: auto;
+    height: 70px;
+    padding: 5px;
+    overflow: visible;
+    border: 1px solid rgba(255, 255, 255, .58);
+    border-radius: 25px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, .56), rgba(244, 250, 255, .28) 48%, rgba(220, 233, 247, .38)),
+      color-mix(in srgb, var(--surface) 52%, transparent) !important;
+    box-shadow:
+      0 18px 44px rgba(12, 28, 45, .19),
+      0 2px 8px rgba(24, 55, 78, .08),
+      inset 0 1px 0 rgba(255, 255, 255, .86),
+      inset 0 -1px 0 rgba(116, 143, 168, .13) !important;
+    -webkit-backdrop-filter: blur(28px) saturate(1.48) brightness(1.05);
+    backdrop-filter: blur(28px) saturate(1.48) brightness(1.05);
+    transform: translate3d(0, 0, 0) scale(1);
+    transform-origin: center bottom;
+    transition:
+      transform 560ms var(--motion-spring-out),
+      opacity 240ms ease,
+      box-shadow 300ms ease !important;
+    contain: layout style;
+  }
+
+  .dark #mobileDock {
+    border-color: rgba(255, 255, 255, .16);
+    background:
+      linear-gradient(145deg, rgba(48, 61, 73, .62), rgba(17, 24, 31, .42) 52%, rgba(24, 31, 39, .58)),
+      rgba(9, 14, 19, .52) !important;
+    box-shadow:
+      0 20px 50px rgba(0, 0, 0, .42),
+      inset 0 1px 0 rgba(255, 255, 255, .18),
+      inset 0 -1px 0 rgba(0, 0, 0, .22) !important;
+  }
+
+  #mobileDock::before,
+  #mobileDock::after {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  #mobileDock::before {
+    background:
+      radial-gradient(120px 72px at var(--liquid-light-x) var(--liquid-light-y), rgba(255, 255, 255, .72), transparent 68%),
+      linear-gradient(105deg, transparent 18%, rgba(255, 255, 255, .2) 42%, transparent 66%);
+    opacity: .72;
+    transition: opacity 240ms ease;
+  }
+
+  #mobileDock::after {
+    inset: 1px;
+    border: 1px solid rgba(255, 255, 255, .28);
+    box-shadow: inset 0 0 0 .5px rgba(93, 129, 157, .09);
+  }
+
+  #mobileDock .liquid-glass-indicator {
+    position: absolute;
+    z-index: 1;
+    top: 5px;
+    left: 0;
+    width: var(--liquid-width, 64px);
+    height: 60px;
+    border: 1px solid rgba(255, 255, 255, .66);
+    border-radius: 20px;
+    background:
+      radial-gradient(70px 48px at 35% 5%, rgba(255, 255, 255, .88), transparent 72%),
+      linear-gradient(145deg, rgba(255, 255, 255, .58), color-mix(in srgb, var(--blue) 13%, rgba(226, 241, 255, .44)));
+    box-shadow:
+      0 8px 20px color-mix(in srgb, var(--blue) 15%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, .9),
+      inset 0 -1px 0 rgba(74, 116, 151, .1);
+    transform: translate3d(var(--liquid-x, 5px), 0, 0);
     transform-origin: center;
-    transition: transform 420ms var(--motion-spring-out), opacity 200ms ease, background-color 220ms ease !important;
+    opacity: 0;
+    transition: opacity 180ms ease;
+    pointer-events: none;
   }
 
-  #mobileDock button.motion-dock-pop span {
-    animation: ios-dock-pop 520ms var(--motion-spring-out) both;
+  #mobileDock.has-active .liquid-glass-indicator { opacity: 1; }
+
+  .dark #mobileDock .liquid-glass-indicator {
+    border-color: rgba(255, 255, 255, .2);
+    background:
+      radial-gradient(70px 48px at 35% 5%, rgba(255, 255, 255, .24), transparent 70%),
+      linear-gradient(145deg, color-mix(in srgb, var(--blue) 25%, rgba(61, 74, 87, .62)), rgba(26, 35, 45, .52));
+    box-shadow:
+      0 9px 24px rgba(0, 0, 0, .28),
+      inset 0 1px 0 rgba(255, 255, 255, .23);
   }
 
-  #mobileDock button.motion-dock-pop small {
-    animation: ios-dock-label 380ms ease-out both;
+  #mobileDock button {
+    position: relative;
+    z-index: 2;
+    min-width: 0;
+    min-height: 60px;
+    height: 60px !important;
+    gap: 1px;
+    border-radius: 19px !important;
+    background: transparent !important;
+    color: color-mix(in srgb, var(--muted) 91%, transparent);
+    transform: translate3d(0, 0, 0);
+    transition: color 220ms ease, transform 360ms var(--motion-spring-out) !important;
   }
 
-  @keyframes ios-dock-pop {
-    0% { transform: translate3d(0, 5px, 0) scale(.76); }
-    58% { transform: translate3d(0, -3px, 0) scale(1.12); }
-    78% { transform: translate3d(0, 1px, 0) scale(.98); }
-    100% { transform: translate3d(0, 0, 0) scale(1); }
+  #mobileDock button span {
+    display: grid;
+    width: 32px;
+    height: 31px;
+    place-items: center;
+    border-radius: 12px;
+    background: transparent !important;
+    transform: translate3d(0, 0, 0) scale(1);
+    transform-origin: center;
+    transition: transform 480ms var(--motion-spring-out), color 220ms ease !important;
   }
 
-  @keyframes ios-dock-label {
-    from { opacity: .35; transform: translate3d(0, 3px, 0); }
-    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  #mobileDock button span .ui-icon { width: 20px; height: 20px; stroke-width: 1.85; }
+  #mobileDock button small {
+    max-height: 14px;
+    overflow: hidden;
+    font-size: 9px;
+    font-weight: 670;
+    letter-spacing: -.01em;
+    opacity: .76;
+    transform: translate3d(0, 0, 0);
+    transition: opacity 220ms ease, transform 480ms var(--motion-spring-out), max-height 420ms var(--motion-spring-out) !important;
+  }
+
+  #mobileDock button.active { color: var(--blue) !important; }
+  #mobileDock button.active span { color: var(--blue); transform: translate3d(0, -1px, 0) scale(1.1); }
+  #mobileDock button.active small { opacity: 1; transform: translate3d(0, 1px, 0); }
+  #mobileDock button.active::before { display: none !important; }
+
+  #mobileDock.is-pressing .liquid-glass-indicator {
+    filter: brightness(1.035);
+  }
+
+  #mobileDock.is-pressing button.active span { transform: translate3d(0, 1px, 0) scale(.91); }
+
+  #mobileDock.is-minimized {
+    opacity: .96;
+    transform: translate3d(0, 9px, 0) scale(.88, .84);
+    box-shadow:
+      0 11px 29px rgba(12, 28, 45, .17),
+      inset 0 1px 0 rgba(255, 255, 255, .78) !important;
+  }
+
+  #mobileDock.is-minimized button small {
+    max-height: 0;
+    opacity: 0;
+    transform: translate3d(0, 5px, 0);
+  }
+
+  #mobileDock.is-minimized button span { transform: translate3d(0, 5px, 0) scale(1.04); }
+  #mobileDock.is-minimized button.active span { transform: translate3d(0, 4px, 0) scale(1.14); }
+
+  body.liquid-dock-minimized #mobileComposeFab {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(.76);
+    pointer-events: none;
+  }
+
+  @supports (content-visibility:auto) {
+    #forum .thread-card,
+    #home .post-item,
+    .standalone-list .notification-item {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 132px;
+    }
   }
 
   #mobileComposeFab {
     transition: transform 480ms var(--motion-spring-out), opacity 240ms ease, box-shadow 240ms ease !important;
   }
+}
+
+@media (max-width:1023px) and (prefers-contrast:more) {
+  #mobileDock { background: color-mix(in srgb, var(--surface) 91%, transparent) !important; border-color: color-mix(in srgb, var(--text) 35%, transparent); }
+}
+
+@media (max-width:1023px) and (prefers-reduced-transparency:reduce) {
+  #mobileDock { background: var(--surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 /* The system preference wins: hierarchy remains clear through a short dissolve. */
@@ -325,12 +497,18 @@ html.motion-enabled .incoming-message-bubble.show {
   html.motion-enabled .social-hero .hero-visual,
   html.motion-enabled dialog[open],
   html.motion-enabled #toast.show,
-  html.motion-enabled .incoming-message-bubble.show,
-  html.motion-enabled #mobileDock button.motion-dock-pop span,
-  html.motion-enabled #mobileDock button.motion-dock-pop small {
+  html.motion-enabled .incoming-message-bubble.show {
     animation: none !important;
     transform: none !important;
     transition: none !important;
+  }
+
+  #mobileDock,
+  #mobileDock .liquid-glass-indicator,
+  #mobileDock button span,
+  #mobileDock button small {
+    animation: none !important;
+    transition-duration: .01ms !important;
   }
 
   ::view-transition-old(page-content) { animation: motion-dissolve-out 120ms ease both !important; }

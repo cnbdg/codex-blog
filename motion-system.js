@@ -4,6 +4,7 @@
   const root = document.documentElement;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+  const mobileViewport = window.matchMedia("(max-width: 1023px)");
   const pageOrder = ["home", "forum", "notifications", "messages", "profile", "projects", "about", "friends", "admin"];
   const revealSelector = [
     ".post-item",
@@ -22,8 +23,10 @@
     enabled: !reduceMotion.matches,
     pageTransitions: 0,
     dialogTransitions: 0,
+    mobileTransitions: 0,
     revealCount: 0,
     lastDirection: "none",
+    lastStrategy: "none",
     activeTransition: null
   };
 
@@ -51,7 +54,7 @@
   function fallbackPageTransition(update, direction) {
     update();
     const target = document.querySelector(".page.active");
-    if (!target?.animate) return Promise.resolve();
+    if (!target?.animate) return { finished: Promise.resolve(), skipTransition() {} };
     const sign = direction === "forward" ? 1 : -1;
     const animation = target.animate([
       { opacity: 0, transform: `translate3d(${sign * 64}px, 0, 0) scale(.982)` },
@@ -61,7 +64,41 @@
       duration: window.innerWidth < 1024 ? 480 : 520,
       easing: "cubic-bezier(.16, 1, .3, 1)"
     });
-    return animation.finished.catch(() => {});
+    return {
+      finished: animation.finished.catch(() => {}),
+      skipTransition: () => animation.cancel()
+    };
+  }
+
+  function mobilePageTransition(update, direction) {
+    update();
+    const page = document.querySelector(".page.active");
+    const target = page?.querySelector(":scope > .page-title, :scope > .forum-hero, :scope > .inner-title, :scope > .standalone-page-header, :scope > .profile-page-hero, :scope > .profile-page-guest") || null;
+    state.mobileTransitions += 1;
+    state.lastStrategy = "mobile-lightweight";
+    if (!target?.animate) return { finished: Promise.resolve(), skipTransition() {} };
+    const sign = direction === "forward" ? 1 : -1;
+    const animation = target.animate([
+      { opacity: .62, transform: `translate3d(${sign * 8}px, 3px, 0) scale(.992)` },
+      { opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" }
+    ], {
+      duration: 230,
+      easing: "cubic-bezier(.2, .82, .22, 1)"
+    });
+    return {
+      finished: animation.finished.catch(() => {}),
+      skipTransition: () => animation.cancel()
+    };
+  }
+
+  function activateTransition(controller) {
+    state.activeTransition = controller;
+    controller.finished.finally(() => {
+      if (state.activeTransition !== controller) return;
+      state.activeTransition = null;
+      clearDirection();
+    });
+    return controller.finished;
   }
 
   function transitionPage({ from = "home", to = "home", update }) {
@@ -83,29 +120,31 @@
     state.activeTransition?.skipTransition?.();
     const direction = directionFor(from, to);
     setDirection(direction);
-    root.classList.add("motion-view-transition");
     state.pageTransitions += 1;
 
+    if (mobileViewport.matches) {
+      return activateTransition(mobilePageTransition(update, direction));
+    }
+
+    root.classList.add("motion-view-transition");
+    state.lastStrategy = "desktop-view-transition";
+
     if (typeof document.startViewTransition !== "function") {
-      const finished = fallbackPageTransition(update, direction).finally(clearDirection);
-      state.activeTransition = { finished };
-      return finished;
+      state.lastStrategy = "desktop-fallback";
+      return activateTransition(fallbackPageTransition(update, direction));
     }
 
     let transition;
     try {
       transition = document.startViewTransition(() => update());
     } catch {
-      const finished = fallbackPageTransition(update, direction).finally(clearDirection);
-      state.activeTransition = { finished };
-      return finished;
+      state.lastStrategy = "desktop-fallback";
+      return activateTransition(fallbackPageTransition(update, direction));
     }
-    state.activeTransition = transition;
-    transition.finished.catch(() => {}).finally(() => {
-      if (state.activeTransition === transition) state.activeTransition = null;
-      clearDirection();
+    return activateTransition({
+      finished: transition.finished.catch(() => {}),
+      skipTransition: () => transition.skipTransition()
     });
-    return transition.finished.catch(() => {});
   }
 
   function finishDialogClose(dialog, resolve) {
@@ -161,6 +200,7 @@
       entries.forEach(entry => {
         if (!entry.isIntersecting) return;
         entry.target.classList.add("is-visible");
+        window.setTimeout(() => entry.target.classList.add("motion-settled"), 760);
         revealObserver.unobserve(entry.target);
       });
     }, { rootMargin: "0px 0px -7%", threshold: .04 });
@@ -173,16 +213,6 @@
       }));
     });
     mutationObserver.observe(document.body, { childList: true, subtree: true });
-  }
-
-  function animateDock(page) {
-    const button = document.querySelector(`#mobileDock [data-page="${CSS.escape(page)}"]`);
-    if (!button || reduceMotion.matches) return;
-    button.classList.remove("motion-dock-pop");
-    requestAnimationFrame(() => {
-      button.classList.add("motion-dock-pop");
-      window.setTimeout(() => button.classList.remove("motion-dock-pop"), 620);
-    });
   }
 
   function initHeroDepth() {
@@ -225,8 +255,7 @@
     syncMotionPreference();
     initReveal();
     initHeroDepth();
-    window.addEventListener("blog-page-change", event => {
-      animateDock(event.detail?.page || "home");
+    window.addEventListener("blog-page-change", () => {
       requestAnimationFrame(() => reveal(document.querySelectorAll(".page.active " + revealSelector.replaceAll(",", ",.page.active "))));
     });
     reduceMotion.addEventListener?.("change", syncMotionPreference);
