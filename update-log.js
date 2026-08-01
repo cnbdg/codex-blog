@@ -1,4 +1,14 @@
 window.LOCAL_UPDATE_POSTS = [{
+  title: "修复注册人机验证状态误判",
+  description: "区分浏览器挑战通过与 Supabase 服务端校验结果，修复令牌过期、刷新和错误提示混淆。",
+  type: "更新日志",
+  tags: ["注册", "Turnstile", "修复"],
+  read_time: "1 分钟",
+  lead: "注册页现在会可靠保存本次验证令牌，并在服务端拒绝、令牌过期或域名未授权时给出对应提示。",
+  body: "## 本次修复\n\n- 注册提交时固定使用按钮点击瞬间取得的 Turnstile 令牌，避免异步回调改变正在提交的令牌。\n- 记录令牌取得时间，在 Cloudflare 五分钟有效期之前主动刷新，避免提交已经过期的挑战。\n- Turnstile 域名未授权、客户端加载失败和 Supabase 服务端拒绝不再共用同一句错误提示。\n- 服务端校验失败后自动重置组件，防止重复使用只能验证一次的旧令牌。\n\n## 配置提醒\n\n如果页面显示浏览器验证成功、服务器校验仍然失败，请确认 Supabase Bot and Abuse Protection 选择的是 Cloudflare Turnstile，并填写与前端 Site Key 属于同一个 Widget 的 Secret Key。",
+  status: "published",
+  published_at: "2026-08-01"
+}, {
   title: "注册人机验证正式启用",
   description: "Cloudflare Turnstile 公开 Site Key 已接入网站，注册页面现在可以加载并提交安全验证。",
   type: "更新日志",

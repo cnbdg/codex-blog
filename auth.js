@@ -30,6 +30,8 @@
   let captchaWidgetId = null;
   let captchaApiPromise = null;
   let captchaRenderRequest = 0;
+  let captchaSolvedAt = 0;
+  const captchaMaxAge = 4 * 60 * 1000;
 
   const messages = [
     [/invalid login credentials/i, "邮箱或密码不正确"],
@@ -82,6 +84,11 @@
   function notify(message) {
     if (window.toast) window.toast(message);
     else console.info(message);
+  }
+
+  function isCaptchaVerificationError(error) {
+    const raw = error?.message || String(error || "");
+    return /captcha verification process failed|captcha.*(?:failed|invalid)|invalid captcha/i.test(raw);
   }
 
   function isMissingRpc(error) {
@@ -187,6 +194,7 @@
 
   function clearCaptchaWidget() {
     captchaToken = "";
+    captchaSolvedAt = 0;
     if (captchaWidgetId !== null && window.turnstile?.remove) {
       try { window.turnstile.remove(captchaWidgetId); } catch {}
     }
@@ -195,12 +203,13 @@
     syncCaptchaSubmitState();
   }
 
-  function resetSignupCaptcha(message = "请完成人机验证") {
+  function resetSignupCaptcha(message = "请完成人机验证", state = "waiting") {
     captchaToken = "";
+    captchaSolvedAt = 0;
     if (captchaWidgetId !== null && window.turnstile?.reset) {
       try { window.turnstile.reset(captchaWidgetId); } catch { clearCaptchaWidget(); }
     }
-    setCaptchaStatus(message, "waiting");
+    setCaptchaStatus(message, state);
     syncCaptchaSubmitState();
   }
 
@@ -211,6 +220,7 @@
     field.hidden = false;
     retry.hidden = true;
     captchaToken = "";
+    captchaSolvedAt = 0;
     syncCaptchaSubmitState();
     if (!captchaSiteKey) {
       setCaptchaStatus("站长尚未填写 Turnstile Site Key，新用户注册已安全暂停。", "missing");
@@ -240,14 +250,24 @@
         callback: token => {
           if (mode !== "signup") return;
           captchaToken = String(token || "");
+          captchaSolvedAt = captchaToken ? Date.now() : 0;
+          if (!captchaToken) {
+            setCaptchaStatus("没有取得有效验证令牌，请重新完成验证。", "error");
+            syncCaptchaSubmitState();
+            return;
+          }
           setCaptchaStatus("验证完成，可以创建账户。", "success");
+          retry.hidden = true;
           syncCaptchaSubmitState();
         },
         "expired-callback": () => resetSignupCaptcha("验证已过期，请重新完成验证。"),
         "timeout-callback": () => resetSignupCaptcha("验证等待超时，请重新完成验证。"),
-        "error-callback": () => {
+        "error-callback": code => {
           captchaToken = "";
-          setCaptchaStatus("安全验证加载失败，请检查网络后重新加载。", "error");
+          captchaSolvedAt = 0;
+          const domainError = String(code || "").startsWith("1102");
+          setCaptchaStatus(domainError ? "当前访问域名尚未被 Turnstile 授权，请联系管理员。" : "安全验证加载失败，请检查网络后重新加载。", "error");
+          console.warn("Turnstile client error", code || "unknown");
           retry.hidden = false;
           syncCaptchaSubmitState();
           return true;
@@ -554,9 +574,16 @@
     if (mode === "signup" && captchaRequiredForSignup && !captchaToken) {
       return setMessage($("#authError"), "请先完成人机验证");
     }
+    if (mode === "signup" && captchaRequiredForSignup && (!captchaSolvedAt || Date.now() - captchaSolvedAt > captchaMaxAge)) {
+      resetSignupCaptcha("验证令牌已经过期，请重新完成验证。", "error");
+      return setMessage($("#authError"), "人机验证已超过有效时间，请重新验证后注册");
+    }
 
     const button = $("#authSubmit");
     const submittedMode = mode;
+    const submittedCaptchaToken = captchaToken;
+    let captchaResetMessage = "验证已刷新，请重新完成验证。";
+    let captchaResetState = "waiting";
     setBusy(button, true, "请稍候…", mode === "signup" ? "注册" : "登录");
     try {
       const result = submittedMode === "signup"
@@ -565,12 +592,18 @@
             options: {
               data: { username },
               emailRedirectTo: authRedirectUrl(),
-              captchaToken: captchaRequiredForSignup ? captchaToken : undefined
+              captchaToken: captchaRequiredForSignup ? submittedCaptchaToken : undefined
             }
           }))
         : await withTimeout(client.auth.signInWithPassword({ email, password }));
 
       if (result.error) {
+        if (submittedMode === "signup" && isCaptchaVerificationError(result.error)) {
+          captchaResetMessage = "服务端未接受此次验证，组件已刷新，请重新验证。";
+          captchaResetState = "error";
+          console.warn("Supabase CAPTCHA validation failed", result.error.message || result.error);
+          return setMessage($("#authError"), "浏览器验证已通过，但服务器校验失败。请重新验证；如果再次出现，请管理员检查 Supabase 中的 Turnstile Secret Key 是否与当前 Site Key 配套");
+        }
         if (/email not confirmed/i.test(result.error.message || "")) {
           pendingEmail = email;
           localStorage.setItem("yu-pending-email", email);
@@ -594,7 +627,7 @@
       setMessage($("#authError"), friendlyError(error));
     } finally {
       setBusy(button, false, "", mode === "signup" ? "注册" : "登录");
-      if (submittedMode === "signup" && captchaRequiredForSignup) resetSignupCaptcha();
+      if (submittedMode === "signup" && captchaRequiredForSignup) resetSignupCaptcha(captchaResetMessage, captchaResetState);
       syncCaptchaSubmitState();
     }
   }
