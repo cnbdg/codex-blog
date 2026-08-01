@@ -1,4 +1,14 @@
 window.LOCAL_UPDATE_POSTS = [{
+  title: "注册人机验证正式启用",
+  description: "Cloudflare Turnstile 公开 Site Key 已接入网站，注册页面现在可以加载并提交安全验证。",
+  type: "更新日志",
+  tags: ["注册", "安全", "Turnstile"],
+  read_time: "1 分钟",
+  lead: "新用户注册入口已完成 Turnstile 客户端配置；验证令牌会继续交由 Supabase Auth 在服务端校验。",
+  body: "## 本次更新\n\n- 写入 Cloudflare Turnstile 公开 Site Key，解除此前因缺少配置而暂停的新用户注册。\n- 注册前必须完成人机验证，令牌会随注册请求提交给 Supabase Auth。\n- Secret Key 仍只应保存在 Supabase 的 Bot and Abuse Protection 后台，绝不会写入前端代码或 GitHub。\n\n## 站长需要确认\n\n请确保 Turnstile Widget 已允许 `cnbdg.co`，并在 Supabase Authentication 的 Bot and Abuse Protection 中启用 Cloudflare Turnstile、填写对应 Secret Key。",
+  status: "published",
+  published_at: "2026-08-01"
+}, {
   title: "启用全新独立域名 cnbdg.co",
   description: "博客正式迁移到独立域名 cnbdg.co，并同步更新登录回跳与人机验证配置说明。",
   type: "更新日志",
