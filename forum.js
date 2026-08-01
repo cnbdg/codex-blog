@@ -199,7 +199,7 @@
     }
     if (result.error) {
       list.innerHTML = "";
-      setNotice(/forum_posts|schema cache|could not find/i.test(result.error)
+      setNotice(/^(42P01|PGRST205)$/i.test(result.code || "") || /relation .*forum_posts.*does not exist|could not find the table.*forum_posts/i.test(result.error)
         ? "社区数据库还未启用。请先在 Supabase SQL Editor 中运行 community.sql。"
         : `社区加载失败：${result.error}`);
       return;

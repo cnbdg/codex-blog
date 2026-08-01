@@ -745,17 +745,17 @@
     if (!client) return null;
     let upgraded = true;
     let { data, error } = await client.from("forum_posts")
-      .select("id,title,content,topic_type,is_pinned,is_featured,view_count,likes,created_at,updated_at,author_id,profiles(user_uid,username,avatar_url,display_title,created_at,is_admin),forum_replies(count)")
+      .select("id,title,content,topic_type,is_pinned,is_featured,view_count,likes,created_at,updated_at,author_id,profiles!forum_posts_author_id_fkey(user_uid,username,avatar_url,display_title,created_at,is_admin),forum_replies(count)")
       .order("updated_at", { ascending: false })
       .limit(100);
     if (error && /topic_type|is_pinned|is_featured|view_count|column.*forum_posts/i.test(error.message || "")) {
       upgraded = false;
       ({ data, error } = await client.from("forum_posts")
-        .select("id,title,content,likes,created_at,updated_at,author_id,profiles(user_uid,username,avatar_url,display_title,created_at,is_admin),forum_replies(count)")
+        .select("id,title,content,likes,created_at,updated_at,author_id,profiles!forum_posts_author_id_fkey(user_uid,username,avatar_url,display_title,created_at,is_admin),forum_replies(count)")
         .order("updated_at", { ascending: false })
         .limit(100));
     }
-    if (error) return { error: friendlyError(error), rows: [] };
+    if (error) return { error: friendlyError(error), code: error.code || "", rows: [] };
     return { rows: (data || []).map(row => ({
       topic_type: "discussion", is_pinned: false, is_featured: false, view_count: 0, ...row
     })), upgraded };
