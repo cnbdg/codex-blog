@@ -24,7 +24,9 @@
   const isChatVisible = () => Boolean(targetUser && isMessagesPage() && !$("#messageThread")?.hidden);
 
   function clearImageSelection() {
-    if (selectedImagePreviewUrl) URL.revokeObjectURL(selectedImagePreviewUrl);
+    if (selectedImagePreviewUrl && globalThis.URL?.revokeObjectURL) {
+      globalThis.URL.revokeObjectURL(selectedImagePreviewUrl);
+    }
     selectedImageFile = null;
     selectedImagePreviewUrl = "";
     const input = $("#messageImageInput");
@@ -39,13 +41,15 @@
     const file = event.currentTarget.files?.[0];
     if (!file) return;
     if (!messageImageTypes.has(file.type) || file.size > 5 * 1024 * 1024) {
-      event.currentTarget.value = "";
+      clearImageSelection();
       window.toast?.("私信图片需为 JPG、PNG、GIF、WebP 或 AVIF，且不超过 5MB。");
       return;
     }
-    if (selectedImagePreviewUrl) URL.revokeObjectURL(selectedImagePreviewUrl);
+    if (selectedImagePreviewUrl && globalThis.URL?.revokeObjectURL) {
+      globalThis.URL.revokeObjectURL(selectedImagePreviewUrl);
+    }
     selectedImageFile = file;
-    selectedImagePreviewUrl = URL.createObjectURL(file);
+    selectedImagePreviewUrl = globalThis.URL?.createObjectURL?.(file) || "";
     const preview = $("#messageImagePreview");
     const previewImage = $("#messageImagePreview img");
     const previewName = $("#messageImagePreviewName");
