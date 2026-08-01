@@ -3,22 +3,118 @@
   const $ = selector => document.querySelector(selector);
   let records = [];
   let activeId = null;
+  let selectedMember = null;
+
+  function adminError(message = "") {
+    const target = $("#memberAdminError");
+    if (!target) return;
+    target.textContent = message;
+    target.hidden = !message;
+  }
+
+  function renderMemberPreview(member) {
+    const target = $("#adminMemberPreview");
+    selectedMember = member || null;
+    target.hidden = !member;
+    if (!member) { target.innerHTML = ""; return; }
+    const name = escapeText(member.username || "社区用户");
+    const restricted = Boolean(member.restricted ?? member.banned);
+    target.innerHTML = `<div class="owner-preview-avatar">${name.charAt(0).toUpperCase()}</div><div><strong>${name}</strong><span>UID ${member.user_uid || "—"} · ${escapeText(member.display_title || "社区成员")}</span><small>${member.is_admin ? "管理员" : "普通用户"}${restricted ? " · 当前受限" : " · 状态正常"}${member.strike_count != null ? ` · ${member.strike_count} 条违规记录` : ""}</small></div>`;
+    const form = $("#memberAdminForm");
+    form.elements.title.value = member.display_title || "社区成员";
+    form.elements.role_action.value = "keep";
+  }
+
+  async function lookupMember() {
+    const form = $("#memberAdminForm");
+    const uid = Number(form.elements.uid.value);
+    if (!Number.isInteger(uid) || uid < 1) return adminError("请输入有效的用户 UID");
+    const button = $("#memberLookupBtn");
+    button.disabled = true;
+    button.textContent = "读取中…";
+    adminError();
+    const result = await window.blogAuth.getAdminMemberByUid(uid);
+    button.disabled = false;
+    button.textContent = "读取用户";
+    if (!result.member) { renderMemberPreview(null); return adminError(result.error || "找不到这个 UID 对应的用户"); }
+    renderMemberPreview(result.member);
+  }
+
+  async function loadOwnerHealth() {
+    const target = $("#ownerHealthSummary");
+    if (!target) return;
+    target.innerHTML = `<p>正在检查治理系统…</p>`;
+    const result = await window.blogAuth.getGovernanceOverview();
+    if (!result.data) {
+      target.innerHTML = `<p class="owner-health-error">${escapeText(result.error || "治理系统尚未启用")}</p><small>请在 Supabase SQL Editor 执行 governance.sql。</small>`;
+      return;
+    }
+    const row = result.data;
+    target.innerHTML = `<div><strong>${row.pending_reports}</strong><span>待处理举报</span></div><div><strong>${row.restricted_users}</strong><span>受限用户</span></div><div><strong>${row.pending_appeals}</strong><span>待处理申诉</span></div><div><strong>${row.actions_today}</strong><span>今日操作</span></div>`;
+  }
+
+  function openMemberAdmin(uid = "") {
+    if (!window.blogAuth?.isAdmin) return window.blogAuth?.openAuth();
+    const form = $("#memberAdminForm");
+    form.reset();
+    selectedMember = null;
+    renderMemberPreview(null);
+    adminError();
+    if (uid) form.elements.uid.value = uid;
+    $("#memberAdminDialog").showModal();
+    loadOwnerHealth();
+    if (uid) lookupMember();
+    else setTimeout(() => form.elements.uid.focus(), 40);
+  }
 
   function init() {
-    $("#adminMemberBtn")?.addEventListener("click", () => {
-      if (!window.blogAuth?.isAdmin) return window.blogAuth?.openAuth();
-      $("#memberAdminForm")?.reset(); $("#memberAdminError").hidden = true; $("#memberAdminDialog").showModal();
-    });
+    $("#adminMemberBtn")?.addEventListener("click", () => openMemberAdmin());
+    $("#memberLookupBtn")?.addEventListener("click", lookupMember);
+    $("#memberAdminForm")?.elements.uid.addEventListener("change", () => { selectedMember = null; renderMemberPreview(null); });
     $("#memberAdminForm")?.addEventListener("submit", async event => {
       event.preventDefault();
-      const form = event.currentTarget, password = form.elements.password.value, uid = Number(form.elements.uid.value), title = form.elements.title.value.trim(), promote = form.elements.promote.checked;
-      if (!await window.blogAuth.confirmAdminPassword(password)) { $("#memberAdminError").textContent = "密码验证失败，未执行任何操作"; $("#memberAdminError").hidden = false; return; }
-      const results = await window.blogAuth.searchUsers(String(uid));
-      const member = results.find(row => Number(row.user_uid) === uid);
-      if (!member) { $("#memberAdminError").textContent = "找不到这个 UID 对应的用户"; $("#memberAdminError").hidden = false; return; }
-      const ok = await window.blogAuth.adminUpdateMember(member.id, title, promote);
+      const form = event.currentTarget;
+      const password = form.elements.password.value;
+      const uid = Number(form.elements.uid.value);
+      const title = form.elements.title.value.trim();
+      const roleAction = form.elements.role_action.value;
+      if (!selectedMember || Number(selectedMember.user_uid) !== uid) { await lookupMember(); if (!selectedMember) return; }
+      if (roleAction === "demote" && !confirm(`确认将 ${selectedMember.username} 降为普通用户吗？该用户将立即失去全部管理权限。`)) return;
+      const button = form.querySelector("button[type=submit]");
+      button.disabled = true;
+      button.textContent = "正在验证并保存…";
+      if (!await window.blogAuth.confirmAdminPassword(password)) { button.disabled = false; button.textContent = "保存身份设置"; return adminError("密码验证失败，未执行任何操作"); }
+      const ok = await window.blogAuth.adminManageMember(selectedMember.user_id || selectedMember.id, title, roleAction);
+      button.disabled = false;
+      button.textContent = "保存身份设置";
       if (!ok) return;
-      $("#memberAdminDialog").close(); window.toast?.("用户资料已更新");
+      window.toast?.("用户身份与头衔已更新");
+      await lookupMember();
+      await loadOwnerHealth();
+    });
+    $("#ownerOpenModerationBtn")?.addEventListener("click", () => {
+      $("#memberAdminDialog").close();
+      window.showPage?.("admin", true);
+      setTimeout(() => $("#moderationPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    });
+    $("#governanceCleanupBtn")?.addEventListener("click", async () => {
+      const form = $("#memberAdminForm");
+      if (!form.elements.password.value) return adminError("执行维护前请输入管理员密码");
+      if (!confirm("确认关闭所有已经到期的用户限制吗？该操作不会删除历史记录。")) return;
+      const button = $("#governanceCleanupBtn");
+      button.disabled = true;
+      button.textContent = "维护中…";
+      if (!await window.blogAuth.confirmAdminPassword(form.elements.password.value)) {
+        button.disabled = false; button.textContent = "清理过期限制"; return adminError("密码验证失败，未执行维护");
+      }
+      const result = await window.blogAuth.runGovernanceMaintenance();
+      button.disabled = false;
+      button.textContent = "清理过期限制";
+      if (!result.data) return adminError(result.error || "治理维护失败");
+      window.toast?.(`维护完成：关闭 ${result.data.expired_restrictions_closed} 条过期限制`);
+      adminError();
+      await loadOwnerHealth();
+      window.refreshGovernance?.();
     });
     $("#newPostBtn").addEventListener("click", () => {
       if (!window.blogAuth?.isAdmin) return window.blogAuth?.openAuth();
@@ -228,4 +324,5 @@
   }
 
   document.addEventListener("DOMContentLoaded", init, { once: true });
+  window.openMemberAdmin = openMemberAdmin;
 })();

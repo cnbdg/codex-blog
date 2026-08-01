@@ -20,6 +20,7 @@
   let recovering = false;
   let initialized = false;
   let profileRequest = 0;
+  let governanceRequest = 0;
   let directMessageChannel = null;
   let notificationChannel = null;
   let pendingEmail = localStorage.getItem("yu-pending-email") || "";
@@ -46,6 +47,22 @@
     ,[/CANNOT_MESSAGE_SELF/i, "不能给自己发私信"]
     ,[/INVALID_MESSAGE_IMAGE/i, "私信图片无效或尚未完成上传，请重新选择后发送"]
     ,[/send_direct_message.*message_image_path/i, "私信图片功能尚未启用：请先执行 direct-message-media.sql"]
+    ,[/CANNOT_DEMOTE_LAST_ADMIN/i, "不能移除最后一名管理员"]
+    ,[/CANNOT_CHANGE_SELF_ROLE/i, "不能在这里修改自己的管理员身份"]
+    ,[/CASE_ALREADY_REVIEWED/i, "这条举报已经处理，请刷新列表"]
+    ,[/REVIEW_NOTE_REQUIRED/i, "请填写完整的复核备注"]
+    ,[/APPEAL_ALREADY_PENDING/i, "你已有一条待处理申诉，请耐心等待"]
+    ,[/NO_ACTIVE_RESTRICTION/i, "当前账号没有可申诉的有效限制"]
+    ,[/APPEAL_ALREADY_REVIEWED/i, "这条申诉已经复核，请刷新列表"]
+    ,[/INVALID_ROLE_ACTION/i, "管理员角色操作无效"]
+    ,[/INVALID_APPEAL_REASON/i, "申诉说明需要 10–500 个字符"]
+    ,[/APPEAL_SUPERSEDED/i, "该申诉对应的处罚已被更新，请按当前处罚重新申诉"]
+    ,[/TITLE_LOCKED/i, "该头衔由站长设置，如需修改请联系管理员"]
+    ,[/PROTECTED_PROFILE_FIELD/i, "不能修改受保护的账号身份字段"]
+    ,[/CANNOT_BAN_SELF/i, "不能限制自己的账号"]
+    ,[/USER_NOT_FOUND/i, "找不到该用户，请刷新后重试"]
+    ,[/INVALID_CATEGORY/i, "请选择有效的违规类型"]
+    ,[/INVALID_DURATION/i, "请选择有效的限制时长"]
   ];
 
   function friendlyError(error, fallback = "操作失败，请稍后重试") {
@@ -57,6 +74,10 @@
   function notify(message) {
     if (window.toast) window.toast(message);
     else console.info(message);
+  }
+
+  function isMissingRpc(error) {
+    return Boolean(error && (/PGRST202|schema cache|Could not find the function/i.test(error.message || String(error))));
   }
 
   function authRedirectUrl() {
@@ -141,12 +162,7 @@
       $("#userAvatar").style.backgroundImage = profile?.avatar_url ? `url("${profile.avatar_url.replace(/["\\]/g, "")}")` : "";
       $("#userAvatar").classList.toggle("has-image", Boolean(profile?.avatar_url));
       $("#userRole").textContent = profile?.is_admin ? "管理员 · 邮箱已验证" : "邮箱已验证";
-      const profileForm = $("#profileForm");
-      if (profileForm && !profileForm.contains(document.activeElement)) {
-        profileForm.elements.username.value = displayName();
-        profileForm.elements.avatar_url.value = profile?.avatar_url || "";
-        profileForm.elements.display_title.value = profile?.display_title || "社区成员";
-      }
+      fillProfileForm($("#profileForm"));
     }
     updateProfilePage(signedIn);
   }
@@ -167,6 +183,10 @@
     form.elements.username.value = displayName();
     form.elements.avatar_url.value = profile?.avatar_url || "";
     form.elements.display_title.value = profile?.display_title || "社区成员";
+    const locked = Boolean(profile?.title_locked && !profile?.is_admin);
+    form.elements.display_title.readOnly = locked;
+    form.elements.display_title.classList.toggle("title-locked", locked);
+    form.elements.display_title.title = locked ? "该头衔由站长设置" : "";
   }
 
   function updateProfilePage(signedIn = Boolean(user)) {
@@ -175,7 +195,7 @@
     if (!guest || !account) return;
     guest.hidden = signedIn;
     account.hidden = !signedIn;
-    if (!signedIn) return;
+    if (!signedIn) { governanceRequest++; return; }
 
     const name = displayName();
     const avatarUrl = profile?.avatar_url || "";
@@ -187,6 +207,32 @@
     $("#profilePageAdminBadge").hidden = !profile?.is_admin;
     applyAvatar($("#profilePageAvatar"), name, avatarUrl);
     fillProfileForm($("#profilePageForm"));
+    syncOwnGovernanceStatus();
+  }
+
+  async function syncOwnGovernanceStatus() {
+    const copy = $("#profileModerationCopy");
+    const badge = $("#profileModerationStatus");
+    const appeal = $("#profileAppealBtn");
+    if (!copy || !badge || !appeal || !user) return;
+    const request = ++governanceRequest;
+    const activeUser = user.id;
+    const status = await getMyGovernanceStatus();
+    if (request !== governanceRequest || user?.id !== activeUser) return;
+    const restricted = Boolean(status?.restricted ?? status?.banned);
+    badge.textContent = restricted ? "受限" : "正常";
+    badge.classList.toggle("restricted", restricted);
+    badge.classList.toggle("normal", !restricted);
+    if (!restricted) {
+      copy.textContent = "账号状态正常，可以参与博客评论、社区发帖与回复。";
+      appeal.hidden = true;
+      return;
+    }
+    const until = status.restricted_until || status.banned_until;
+    const limit = until ? `限制至 ${new Date(until).toLocaleString("zh-CN", { hour12: false })}` : "永久限制";
+    copy.textContent = `${limit}。原因：${status.restriction_reason || status.reason || "违反社区规范"}${status.pending_appeal ? "。申诉正在处理中" : ""}`;
+    appeal.hidden = Boolean(status.pending_appeal);
+    appeal.textContent = status.pending_appeal ? "申诉处理中" : "提交申诉";
   }
 
   async function refreshProfile() {
@@ -198,11 +244,17 @@
       return;
     }
     let result = await client.from("profiles")
-      .select("user_uid,username,avatar_url,display_title,is_admin")
+      .select("user_uid,username,avatar_url,display_title,title_locked,is_admin")
       .eq("id", user.id)
       .maybeSingle();
     if (result.error) {
       await new Promise(resolve => setTimeout(resolve, 350));
+      result = await client.from("profiles")
+        .select("user_uid,username,avatar_url,display_title,title_locked,is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+    }
+    if (result.error && /title_locked|column.*profiles/i.test(result.error.message || "")) {
       result = await client.from("profiles")
         .select("user_uid,username,avatar_url,display_title,is_admin")
         .eq("id", user.id)
@@ -551,8 +603,10 @@
     const button = form.querySelector(".primary-btn");
     setBusy(button, true, "正在保存…", "保存个人资料");
     try {
+      const updates = { username, avatar_url: avatarUrl || null };
+      if (!profile?.title_locked || profile?.is_admin) updates.display_title = displayTitle;
       const { error } = await client.from("profiles")
-        .update({ username, avatar_url: avatarUrl || null, display_title: displayTitle })
+        .update(updates)
         .eq("id", user.id);
       if (error) return setMessage(message, friendlyError(error));
       await client.auth.updateUser({ data: { username } });
@@ -1019,6 +1073,31 @@
     return Boolean(data);
   }
 
+  async function getAdminMemberByUid(uid) {
+    if (!client || !profile?.is_admin) return { member: null, error: "当前账号没有站长权限" };
+    const result = await client.rpc("admin_get_member_by_uid", { requested_uid: Number(uid) });
+    if (!result.error) return { member: result.data?.[0] || null, error: "" };
+    if (!isMissingRpc(result.error)) return { member: null, error: friendlyError(result.error) };
+    const rows = await searchUsers(String(uid));
+    const member = rows.find(row => Number(row.user_uid) === Number(uid)) || null;
+    return { member, error: member ? "" : "找不到这个 UID 对应的用户" };
+  }
+
+  async function adminManageMember(targetUser, title, roleAction = "keep") {
+    if (!client || !profile?.is_admin) return false;
+    const result = await client.rpc("admin_manage_member", {
+      target_user: targetUser,
+      new_title: String(title || "").trim(),
+      role_action: roleAction
+    });
+    if (!result.error) return Boolean(result.data);
+    if (isMissingRpc(result.error) && roleAction === "promote") return adminUpdateMember(targetUser, title, true);
+    notify("站长操作失败：" + (isMissingRpc(result.error)
+      ? "请先在 Supabase SQL Editor 执行 governance.sql"
+      : friendlyError(result.error)));
+    return false;
+  }
+
   async function confirmAdminPassword(password) {
     if (!client || !user?.email || !password) return false;
     const { error } = await client.auth.signInWithPassword({ email: user.email, password });
@@ -1055,18 +1134,24 @@
     return data || [];
   }
 
-  async function reportContent(targetType, targetId, reason) {
+  async function reportContent(targetType, targetId, reason, category = "other") {
     if (!client || !user) {
       openAuth();
       return false;
     }
-    const { error } = await client.rpc("report_content", {
+    let result = await client.rpc("report_content_v2", {
+      report_target_type: targetType,
+      report_target_id: Number(targetId),
+      report_category: category,
+      report_reason: String(reason || "").trim()
+    });
+    if (isMissingRpc(result.error)) result = await client.rpc("report_content", {
       report_target_type: targetType,
       report_target_id: Number(targetId),
       report_reason: String(reason || "").trim()
     });
-    if (error) notify("举报提交失败：" + friendlyError(error));
-    return !error;
+    if (result.error) notify("举报提交失败：" + friendlyError(result.error));
+    return !result.error;
   }
 
   async function getMyModeration() {
@@ -1076,26 +1161,58 @@
     return data?.[0] || { banned: false };
   }
 
-  async function listModerationUsers() {
+  async function getMyGovernanceStatus() {
+    if (!client || !user) return null;
+    const result = await client.rpc("get_my_governance_status");
+    if (!result.error) return result.data?.[0] || { restricted: false, strike_count: 0, pending_appeal: false };
+    return isMissingRpc(result.error) ? getMyModeration() : null;
+  }
+
+  async function getGovernanceOverview() {
+    if (!client || !profile?.is_admin) return { data: null, error: "当前账号没有管理员权限" };
+    const result = await client.rpc("admin_governance_overview");
+    if (result.error) return { data: null, error: isMissingRpc(result.error) ? "请执行 governance.sql 启用治理中心 V2" : friendlyError(result.error) };
+    return { data: result.data?.[0] || null, error: "" };
+  }
+
+  async function listModerationUsers(options = {}) {
     if (!client || !profile?.is_admin) return { rows: null, error: "当前账号不是管理员或登录服务未连接" };
-    const { data, error } = await client.rpc("list_moderation_users");
+    let { data, error } = await client.rpc("admin_list_moderation_users", {
+      status_filter: options.status || "all", search_text: options.search || "", row_limit: options.limit || 100
+    });
+    if (isMissingRpc(error)) ({ data, error } = await client.rpc("list_moderation_users"));
     if (error) { notify("用户列表加载失败：" + friendlyError(error)); return { rows: null, error: friendlyError(error) }; }
     return { rows: data || [], error: "" };
   }
 
-  async function listModerationReports() {
+  async function listModerationReports(options = {}) {
     if (!client || !profile?.is_admin) return { rows: null, error: "当前账号不是管理员或登录服务未连接" };
-    const { data, error } = await client.rpc("list_moderation_reports");
+    let { data, error } = await client.rpc("admin_list_moderation_reports", {
+      status_filter: options.status || "all", search_text: options.search || "", row_limit: options.limit || 100
+    });
+    if (isMissingRpc(error)) ({ data, error } = await client.rpc("list_moderation_reports"));
     if (error) { notify("举报列表加载失败：" + friendlyError(error)); return { rows: null, error: friendlyError(error) }; }
     return { rows: data || [], error: "" };
   }
 
-  async function listModerationActions() {
+  async function listModerationActions(options = {}) {
     if (!client || !profile?.is_admin) return { rows: null, error: "当前账号不是管理员或登录服务未连接" };
-    const { data, error } = await client.from("moderation_actions")
-      .select("id,action,target_user_id,report_id,details,created_at,actor:profiles!moderation_actions_actor_id_fkey(username)")
-      .order("created_at", { ascending: false }).limit(100);
+    let { data, error } = await client.rpc("admin_list_moderation_actions", {
+      search_text: options.search || "", row_limit: options.limit || 100
+    });
+    if (isMissingRpc(error)) ({ data, error } = await client.from("moderation_actions")
+      .select("id,action,target_user_id,report_id,details,created_at")
+      .order("created_at", { ascending: false }).limit(options.limit || 100));
     if (error) { notify("操作日志加载失败：" + friendlyError(error)); return { rows: null, error: friendlyError(error) }; }
+    return { rows: data || [], error: "" };
+  }
+
+  async function listModerationAppeals(options = {}) {
+    if (!client || !profile?.is_admin) return { rows: null, error: "当前账号没有管理员权限" };
+    const { data, error } = await client.rpc("admin_list_moderation_appeals", {
+      status_filter: options.status || "all", search_text: options.search || "", row_limit: options.limit || 100
+    });
+    if (error) return { rows: null, error: isMissingRpc(error) ? "请执行 governance.sql 启用申诉管理" : friendlyError(error) };
     return { rows: data || [], error: "" };
   }
 
@@ -1106,6 +1223,24 @@
     });
     if (error) notify("限制用户失败：" + friendlyError(error));
     return !error;
+  }
+
+  async function setUserRestriction(userId, duration, category, reason) {
+    if (!client || !profile?.is_admin) return false;
+    const result = await client.rpc("admin_set_user_restriction", {
+      target_user: userId,
+      duration_code: duration,
+      violation_category: category,
+      restriction_reason: String(reason || "").trim()
+    });
+    if (!result.error) return true;
+    if (isMissingRpc(result.error)) {
+      const days = { "3d": 3, "7d": 7, "30d": 30 }[duration];
+      const until = days ? new Date(Date.now() + days * 86400000).toISOString() : null;
+      return setUserBan(userId, until, reason);
+    }
+    notify("限制用户失败：" + friendlyError(result.error));
+    return false;
   }
 
   async function clearUserBan(userId) {
@@ -1124,15 +1259,51 @@
     return !error;
   }
 
+  async function resolveModerationCase(reportId, decision, category, penalty, note) {
+    if (!client || !profile?.is_admin) return false;
+    const result = await client.rpc("admin_resolve_report", {
+      target_report_id: Number(reportId), review_decision: decision,
+      violation_category: category, penalty_code: penalty, moderator_note: String(note || "").trim()
+    });
+    if (!result.error) return result.data || true;
+    if (isMissingRpc(result.error) && ["dismiss", "delete"].includes(decision)) return moderateReport(reportId, decision);
+    notify("审核处理失败：" + (isMissingRpc(result.error) ? "请先执行 governance.sql" : friendlyError(result.error)));
+    return false;
+  }
+
+  async function submitModerationAppeal(reason) {
+    if (!client || !user) return false;
+    const { error } = await client.rpc("submit_moderation_appeal", { appeal_reason: String(reason || "").trim() });
+    if (error) notify("申诉提交失败：" + (isMissingRpc(error) ? "申诉功能尚未启用，请联系站长执行 governance.sql" : friendlyError(error)));
+    return !error;
+  }
+
+  async function reviewModerationAppeal(appealId, decision, note) {
+    if (!client || !profile?.is_admin) return false;
+    const { error } = await client.rpc("admin_review_moderation_appeal", {
+      target_appeal_id: Number(appealId), review_decision: decision, moderator_note: String(note || "").trim()
+    });
+    if (error) notify("申诉复核失败：" + friendlyError(error));
+    return !error;
+  }
+
+  async function runGovernanceMaintenance() {
+    if (!client || !profile?.is_admin) return { data: null, error: "当前账号没有管理员权限" };
+    const { data, error } = await client.rpc("admin_governance_maintenance");
+    if (error) return { data: null, error: isMissingRpc(error) ? "请先执行 governance.sql" : friendlyError(error) };
+    return { data: data?.[0] || null, error: "" };
+  }
+
   window.blogAuth = {
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
     listForumThreads, saveForumThread, uploadCommunityImage, uploadDirectMessageImage, getDirectMessageImageUrls, deleteDirectMessageImage, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,
-    searchUsers, getPublicProfile, adminUpdateMember, confirmAdminPassword, listNotifications, markNotificationsRead, markDirectMessagesRead, listFriends,
-    reportContent, getMyModeration, listModerationUsers, listModerationReports,
-    listModerationActions, setUserBan, clearUserBan, moderateReport,
+    searchUsers, getPublicProfile, adminUpdateMember, getAdminMemberByUid, adminManageMember, confirmAdminPassword, listNotifications, markNotificationsRead, markDirectMessagesRead, listFriends,
+    reportContent, getMyModeration, getMyGovernanceStatus, getGovernanceOverview, listModerationUsers, listModerationReports,
+    listModerationActions, listModerationAppeals, setUserBan, setUserRestriction, clearUserBan, moderateReport,
+    resolveModerationCase, submitModerationAppeal, reviewModerationAppeal, runGovernanceMaintenance,
     get user() { return user; },
     get profile() { return profile; },
     get isAdmin() { return Boolean(profile?.is_admin); },
