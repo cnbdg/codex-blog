@@ -564,17 +564,17 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
 @media (min-width:1024px) {
   :root { --x-page-pad:clamp(22px,3vw,56px); --x-context-gap:34px; }
   .page, .forum-page {
-    width:calc(100vw - var(--x-rail)); max-width:none; margin-left:var(--x-rail); padding:0 var(--x-page-pad) 84px;
+    width:calc(100% - var(--x-rail)); max-width:none; margin-left:var(--x-rail); padding:0 var(--x-page-pad) 84px;
     border:0; background:transparent;
   }
   .layout, .forum-layout { width:100%; max-width:none; }
   .page-title, .forum-hero, .inner-title, .friendship-card, .feed-head, .forum-toolbar,
   .post-list, .thread-list, .project-grid, .friend-grid, .about-box, .apply-card { max-width:none; }
   .admin-page, body[data-desktop-page="admin"] .admin-page {
-    width:calc(100vw - var(--x-rail)); max-width:none; margin-left:var(--x-rail); padding-right:var(--x-page-pad);
+    width:calc(100% - var(--x-rail)); max-width:none; margin-left:var(--x-rail); padding-right:var(--x-page-pad);
   }
   footer {
-    width:calc(100vw - var(--x-rail)); max-width:none; margin:0 0 28px var(--x-rail); padding:22px var(--x-page-pad);
+    width:calc(100% - var(--x-rail)); max-width:none; margin:0 0 28px var(--x-rail); padding:22px var(--x-page-pad);
     border-right:0; border-left:0; border-radius:0; background:transparent;
   }
 }

@@ -61,7 +61,7 @@
           assert(baseChecks.unifiedIcons, "主导航图标没有统一");
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
-          assert(baseChecks.newestPostTitle.startsWith("液态玻璃底栏"), "本次更新日志没有显示在首页首位");
+          assert(baseChecks.newestPostTitle.startsWith("桌面三栏稳固"), "本次更新日志没有显示在首页首位");
           let desktopContextCheck = null;
           if (mode === "desktop") {
             w.blogUI?.navigate?.("forum");
@@ -79,8 +79,13 @@
               motionTransitions: w.blogMotion?.state.pageTransitions || 0,
               motionDirection: w.blogMotion?.state.lastDirection || ""
             };
+            w.scrollTo(100, 0);
+            await wait(20);
+            desktopContextCheck.horizontalScroll = Math.round(w.scrollX);
+            w.scrollTo(0, 0);
             assert(desktopContextCheck.display !== "none" && desktopContextCheck.width >= 280, "桌面社区页右侧信息栏未显示");
             assert(desktopContextCheck.activeAria === "page" && desktopContextCheck.navTarget >= 44, "桌面导航状态或点击区域不符合要求");
+            assert(desktopContextCheck.horizontalScroll === 0, `桌面社区页可以横向滚动（${desktopContextCheck.horizontalScroll}px）`);
             if (baseChecks.motionEnabled) assert(desktopContextCheck.motionTransitions >= 1 && desktopContextCheck.motionDirection === "forward", "桌面层级转场没有启动或方向错误");
             else assert(desktopContextCheck.motionTransitions === 0, "减少动态效果模式仍启动了大范围页面转场");
             const transitionsBeforeRapidNavigation = w.blogMotion.state.pageTransitions;
