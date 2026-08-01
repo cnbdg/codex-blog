@@ -1,4 +1,14 @@
 window.LOCAL_UPDATE_POSTS = [{
+  title: "接入微信网站归属验证",
+  description: "在站点根目录加入微信平台校验文件，用于完成域名归属认证。",
+  type: "更新日志",
+  tags: ["微信", "域名", "认证"],
+  read_time: "1 分钟",
+  lead: "cnbdg.co 现已提供微信平台要求的公开校验文件，不影响博客现有页面和用户数据。",
+  body: "## 本次更新\n\n- 保留微信平台生成的校验文件名与文件内容并提交到网站根目录。\n- GitHub Pages 部署完成后，微信平台可以通过 HTTPS 直接读取该文件并完成域名归属验证。\n- 本次更新不修改登录、社区、私信或数据库功能。",
+  status: "published",
+  published_at: "2026-08-01"
+}, {
   title: "修复认证请求缺少 CAPTCHA 令牌",
   description: "Turnstile 从仅保护注册升级为覆盖登录、注册、重置密码和重发验证邮件的完整认证流程。",
   type: "更新日志",
