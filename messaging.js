@@ -8,7 +8,9 @@
   let stopMessageSync = null;
   let messagePoll = null;
   let renderedMessageKey = null;
+  let renderedMessageCount = 0;
   let hasRenderedMessages = false;
+  let chatOwner = null;
   let selectedImageFile = null;
   let selectedImagePreviewUrl = "";
   let signedImageRefreshAt = 0;
@@ -22,6 +24,15 @@
   })[char]);
   const isMessagesPage = () => document.getElementById("messages")?.classList.contains("active");
   const isChatVisible = () => Boolean(targetUser && isMessagesPage() && !$("#messageThread")?.hidden);
+
+  function announceMessage(message = "") {
+    const announcer = $("#messageAnnouncement");
+    if (!announcer) return;
+    announcer.textContent = "";
+    const update = () => { announcer.textContent = message; };
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(update);
+    else update();
+  }
 
   function clearImageSelection() {
     if (selectedImagePreviewUrl && globalThis.URL?.revokeObjectURL) {
@@ -103,7 +114,7 @@
     const status = $("#messageStatus");
     if (!status) return;
     status.dataset.state = state;
-    status.innerHTML = `<i></i>${escapeText(message)}`;
+    status.innerHTML = `<i aria-hidden="true"></i>${escapeText(message)}`;
   }
 
   function notifyInboxChanged() {
@@ -135,15 +146,16 @@
 
   function startChatSync() {
     const peer = targetUser;
-    if (!peer || !isChatVisible()) return;
+    const viewer = chatOwner || window.blogAuth?.user?.id;
+    if (!peer || !viewer || !isChatVisible()) return;
     stopChatSync();
     let connected = false;
     stopMessageSync = window.blogAuth?.subscribeDirectMessages?.(peer, async row => {
-      if (targetUser !== peer || !isChatVisible()) return;
+      if (targetUser !== peer || window.blogAuth?.user?.id !== viewer || !isChatVisible()) return;
       await renderMessages({ forceScroll: true });
       if (row.sender_id === peer) await markCurrentChatRead(peer);
     }, status => {
-      if (targetUser !== peer || !isChatVisible()) return;
+      if (targetUser !== peer || window.blogAuth?.user?.id !== viewer || !isChatVisible()) return;
       if (status === "SUBSCRIBED") {
         connected = true;
         setChatStatus("实时聊天已连接", "connected");
@@ -156,7 +168,7 @@
 
     // Realtime 短暂不可用时仍通过短轮询保证消息会出现。
     messagePoll = window.setInterval(() => {
-      if (document.hidden || targetUser !== peer || !isChatVisible()) return;
+      if (document.hidden || targetUser !== peer || window.blogAuth?.user?.id !== viewer || !isChatVisible()) return;
       renderMessages();
     }, 2000);
   }
@@ -235,12 +247,16 @@
   async function openChat(userId, name) {
     if (!window.blogAuth?.user) return window.blogAuth?.openAuth("login");
     if (!userId) return;
+    const viewer = window.blogAuth.user.id;
     const state = await window.blogAuth.getFollowState(userId);
+    if (viewer !== window.blogAuth?.user?.id) return;
     if (!state?.mutual) return window.toast?.("只有互相关注后才能私聊");
 
     targetUser = userId;
     targetName = name || "社区用户";
+    chatOwner = viewer;
     renderedMessageKey = null;
+    renderedMessageCount = 0;
     hasRenderedMessages = false;
     signedImageRefreshAt = 0;
     $("#messageForm")?.reset();
@@ -248,6 +264,7 @@
     $("#messageTitle").textContent = targetName;
     $("#messagePeerAvatar").textContent = targetName.slice(0, 1).toUpperCase();
     $("#messageList").innerHTML = `<p class="forum-empty">正在加载消息…</p>`;
+    window.renderMessageFriends?.();
     if ($("#publicProfileDialog")?.open) {
       if (window.blogUI?.closeDialog) window.blogUI.closeDialog($("#publicProfileDialog"));
       else $("#publicProfileDialog").close();
@@ -263,13 +280,18 @@
   function closeChat() {
     stopChatSync();
     targetUser = null;
+    targetName = "社区用户";
+    chatOwner = null;
     renderedMessageKey = null;
+    renderedMessageCount = 0;
     hasRenderedMessages = false;
     signedImageRefreshAt = 0;
     $("#messageForm")?.reset();
     clearImageSelection();
     showMessageThread(false);
     $("#messageList").replaceChildren();
+    announceMessage();
+    if (isMessagesPage()) window.renderMessageFriends?.();
   }
 
   function activateMessages() {
@@ -280,10 +302,11 @@
   }
 
   async function renderMessages({ forceScroll = false } = {}) {
-    if (!targetUser || !isChatVisible()) return;
+    const viewer = chatOwner || window.blogAuth?.user?.id;
+    if (!targetUser || !viewer || viewer !== window.blogAuth?.user?.id || !isChatVisible()) return;
     const peer = targetUser;
     const messages = await window.blogAuth.listDirectMessages(peer);
-    if (!messages || peer !== targetUser || !isChatVisible()) return;
+    if (!messages || peer !== targetUser || viewer !== window.blogAuth?.user?.id || !isChatVisible()) return;
     const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}:${message.image_path || ""}`).join("|") : "empty";
     const imagePaths = messages.map(message => message.image_path).filter(Boolean);
     const shouldRefreshImages = imagePaths.length && Date.now() >= signedImageRefreshAt;
@@ -293,7 +316,9 @@
     const imageUrls = imagePaths.length
       ? (await window.blogAuth?.getDirectMessageImageUrls?.(imagePaths)) || new Map()
       : new Map();
-    if (peer !== targetUser || !isChatVisible()) return;
+    if (peer !== targetUser || viewer !== window.blogAuth?.user?.id || !isChatVisible()) return;
+    const wasRendered = hasRenderedMessages;
+    const previousCount = renderedMessageCount;
     list.innerHTML = messages.length ? messages.map(message => {
       const own = message.sender_id === window.blogAuth.user?.id;
       const content = String(message.content || "").trim();
@@ -306,10 +331,15 @@
       return `<article class="dm-message ${own ? "own" : "other"}">${image}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time></article>`;
     }).join("") : `<p class="forum-empty">还没有消息，打个招呼吧。</p>`;
     renderedMessageKey = key;
+    renderedMessageCount = messages.length;
     hasRenderedMessages = true;
     signedImageRefreshAt = imagePaths.length
       ? Date.now() + (imagePaths.every(path => imageUrls.has(path)) ? 45 * 60 * 1000 : 60 * 1000)
       : 0;
+    if (wasRendered && messages.length > previousCount) {
+      const incoming = messages.slice(previousCount).filter(message => message.sender_id === peer);
+      if (incoming.length) announceMessage(`收到 ${incoming.length} 条来自 ${targetName} 的新私信`);
+    }
     if (forceScroll || isNearBottom) list.scrollTop = list.scrollHeight;
   }
 
@@ -317,15 +347,24 @@
     event.preventDefault();
     if (!targetUser) return;
     const recipient = targetUser;
+    const sender = chatOwner || window.blogAuth?.user?.id;
+    if (!sender || sender !== window.blogAuth?.user?.id) return;
     const form = event.currentTarget;
     const content = form.elements.content.value.trim();
     const image = selectedImageFile;
     if (!content && !image) return;
     const button = form.querySelector("[data-send-message]");
     if (!button) return;
+    if (form.dataset.sending === "true") return;
     const normalText = button.textContent;
+    const contentInput = form.elements.content;
+    const imageInput = $("#messageImageInput");
     let imagePath = null;
+    form.dataset.sending = "true";
+    form.setAttribute("aria-busy", "true");
     button.disabled = true;
+    if (contentInput) contentInput.disabled = true;
+    if (imageInput) imageInput.disabled = true;
     form.classList.add("is-uploading");
     try {
       if (image) {
@@ -333,7 +372,7 @@
         imagePath = await window.blogAuth.uploadDirectMessageImage(recipient, image);
         if (!imagePath) return;
       }
-      if (targetUser !== recipient) {
+      if (targetUser !== recipient || sender !== window.blogAuth?.user?.id) {
         if (imagePath) await window.blogAuth.deleteDirectMessageImage(imagePath);
         return;
       }
@@ -348,7 +387,11 @@
       signedImageRefreshAt = 0;
       await renderMessages({ forceScroll: true });
     } finally {
+      delete form.dataset.sending;
+      form.removeAttribute("aria-busy");
       button.disabled = false;
+      if (contentInput) contentInput.disabled = false;
+      if (imageInput) imageInput.disabled = false;
       button.textContent = normalText;
       form.classList.remove("is-uploading");
     }
@@ -372,6 +415,14 @@
         document.body.classList.remove("message-thread-open");
       }
     });
+    window.addEventListener("blog-auth-change", () => {
+      const currentUserId = window.blogAuth?.user?.id || null;
+      if (!currentUserId || (chatOwner && chatOwner !== currentUserId)) {
+        closeChat();
+        return;
+      }
+      if (isMessagesPage()) window.renderMessageFriends?.();
+    });
     document.addEventListener("click", event => {
       const follow = event.target.closest("[data-follow-user]");
       const chat = event.target.closest("[data-chat-user]");
@@ -394,8 +445,12 @@
       }
       if (ownProfile) {
         event.stopPropagation();
-        if ($("#publicProfileDialog")?.open) $("#publicProfileDialog").close();
-        window.blogAuth?.openAuth?.();
+        if ($("#publicProfileDialog")?.open) {
+          if (window.blogUI?.closeDialog) window.blogUI.closeDialog($("#publicProfileDialog"));
+          else $("#publicProfileDialog").close();
+        }
+        if (window.blogUI?.navigate) window.blogUI.navigate("profile", { focus: true });
+        else window.blogAuth?.openAuth?.();
       }
     });
   }

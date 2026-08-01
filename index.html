@@ -5,7 +5,7 @@
   <meta name="description" content="cnbdg的博客，记录生活的点点滴滴。"><meta name="author" content="cnbdg"><meta property="og:title" content="cnbdg的博客"><meta property="og:description" content="记录生活的点点滴滴"><meta property="og:type" content="website"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>cnbdg的博客</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260801-5">
+  <link rel="stylesheet" href="style.css?v=20260801-6">
 </head>
 <body>
   <header class="topbar">
@@ -124,7 +124,7 @@
           </div>
           <div id="messageFriendList" class="message-friend-list" aria-live="polite"></div>
         </aside>
-        <section id="messageConversation" class="message-conversation" aria-live="polite">
+        <section id="messageConversation" class="message-conversation" aria-label="私信会话">
           <div id="messageEmpty" class="message-empty">
             <span>✦</span>
             <h2>选择一位朋友开始聊天</h2>
@@ -134,14 +134,15 @@
             <header class="message-thread-header">
               <button id="messageBackBtn" type="button" class="message-back" aria-label="返回私信列表">←</button>
               <div id="messagePeerAvatar" class="dm-peer-avatar">U</div>
-              <div class="dm-peer-info"><strong id="messageTitle">私信</strong><span id="messageStatus"><i></i>互相关注 · 私密聊天</span></div>
+              <div class="dm-peer-info"><strong id="messageTitle">私信</strong><span id="messageStatus" role="status" aria-live="polite"><i aria-hidden="true"></i>互相关注 · 私密聊天</span></div>
             </header>
             <div class="message-privacy-label">今天 <span>消息仅对你们双方可见</span></div>
-            <div id="messageList" class="dm-list message-list"><p class="forum-empty">正在加载消息…</p></div>
+            <div id="messageList" class="dm-list message-list" aria-live="off" aria-label="消息记录"><p class="forum-empty">正在加载消息…</p></div>
+            <div id="messageAnnouncement" class="sr-only" role="status" aria-live="polite"></div>
             <form id="messageForm" class="dm-composer message-composer">
-              <div id="messageImagePreview" class="message-image-preview" hidden><img alt="待发送的私信图片"><span id="messageImagePreviewName"></span><button id="removeMessageImageBtn" type="button" aria-label="移除待发送图片">×</button></div>
-              <textarea name="content" maxlength="2000" placeholder="输入消息，按 Enter 发送…"></textarea>
-              <div class="dm-composer-foot"><label class="message-image-picker" title="添加图片"><input id="messageImageInput" name="image" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif"><span aria-hidden="true">▧</span><em>图片</em></label><small>Enter 发送 · Shift + Enter 换行 · 图片 ≤ 5MB</small><button type="submit" data-send-message aria-label="发送消息">➤</button></div>
+              <div id="messageImagePreview" class="message-image-preview" aria-live="polite" hidden><img alt="待发送的私信图片"><span id="messageImagePreviewName"></span><button id="removeMessageImageBtn" type="button" aria-label="移除待发送图片">×</button></div>
+              <textarea name="content" maxlength="2000" aria-label="私信内容" placeholder="输入消息，按 Enter 发送…"></textarea>
+              <div class="dm-composer-foot"><label class="message-image-picker" title="添加图片"><input id="messageImageInput" name="image" type="file" aria-label="选择私信图片" accept="image/jpeg,image/png,image/gif,image/webp,image/avif"><span aria-hidden="true">▧</span><em>图片</em></label><small>Enter 发送 · Shift + Enter 换行 · 图片 ≤ 5MB</small><button type="submit" data-send-message aria-label="发送消息">➤</button></div>
             </form>
           </div>
         </section>
@@ -243,5 +244,5 @@
   <dialog id="banDialog" class="report-dialog"><div class="dialog-title"><div><small>MODERATION</small><h2>限制用户发言</h2></div><button type="button" data-close="banDialog" aria-label="关闭">×</button></div><form id="banForm"><input name="user_id" type="hidden"><label>限制时长<select name="duration"><option value="1h">1 小时</option><option value="1d" selected>1 天</option><option value="7d">7 天</option><option value="30d">30 天</option><option value="permanent">永久限制</option></select></label><label>处理原因<textarea name="reason" required minlength="2" maxlength="300" placeholder="请填写审核原因，便于后续审计……"></textarea></label><p id="banError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="banDialog">取消</button><button class="danger-button">确认限制</button></div></form></dialog>
   <dialog id="publicProfileDialog" class="public-profile-dialog"><button type="button" class="profile-dialog-close" data-close="publicProfileDialog" aria-label="关闭">×</button><div id="publicProfileContent" class="public-profile-content"><div class="profile-loading"><span></span><p>正在加载用户资料…</p></div></div></dialog>
   <dialog id="memberAdminDialog" class="member-admin-dialog"><div class="dialog-title"><div><small>OWNER CONTROL</small><h2>站长面板</h2></div><button type="button" data-close="memberAdminDialog">×</button></div><p class="admin-panel-note">仅管理员可用。每次打开都需要重新验证管理员密码。</p><form id="memberAdminForm"><label>管理员密码<input name="password" type="password" required autocomplete="current-password" placeholder="输入当前账号密码"></label><label>用户 UID<input name="uid" type="number" min="1" required placeholder="例如 12"></label><label>自定义头衔<input name="title" maxlength="30" placeholder="例如：摄影师、版主、开发者"></label><label class="admin-check"><input name="promote" type="checkbox"> 提拔为管理员</label><p id="memberAdminError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="memberAdminDialog">取消</button><button class="primary-btn">保存设置</button></div></form></dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260731-18"></script><script src="auth.js?v=20260801-4"></script><script src="script.js?v=20260731-18"></script><script src="wallpaper.js?v=20260731-18"></script><script src="forum.js?v=20260801-2"></script><script src="messaging.js?v=20260801-3"></script><script src="social.js?v=20260801-1"></script><script src="moderation.js?v=20260731-18"></script><script src="admin.js?v=20260731-18"></script>
-<script src="update-log.js?v=20260801-5"></script><script src="interaction.js?v=20260731-20"></script><script src="mobile-shell.js?v=20260801-1"></script><script src="desktop-shell.js?v=20260731-25"></script></body></html>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260731-18"></script><script src="auth.js?v=20260801-4"></script><script src="script.js?v=20260731-18"></script><script src="wallpaper.js?v=20260731-18"></script><script src="forum.js?v=20260801-2"></script><script src="messaging.js?v=20260801-4"></script><script src="social.js?v=20260801-2"></script><script src="moderation.js?v=20260731-18"></script><script src="admin.js?v=20260731-18"></script>
+<script src="update-log.js?v=20260801-6"></script><script src="interaction.js?v=20260731-20"></script><script src="mobile-shell.js?v=20260801-2"></script><script src="desktop-shell.js?v=20260801-26"></script></body></html>

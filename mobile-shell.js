@@ -53,8 +53,12 @@
     const dock = $("#mobileDock");
     if (!dock) return;
     const page = window.blogUI?.state?.page || location.hash.slice(1) || "home";
+    const activeAction = page === "profile" ? "account" : page;
     dock.querySelectorAll("button").forEach(button => {
-      button.classList.toggle("active", button.dataset.mobileAction === page);
+      const active = button.dataset.mobileAction === activeAction;
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
     });
   }
 
@@ -70,7 +74,8 @@
     if (action === "search") return openSearch();
     if (action === "messages") return window.openMessages?.();
     if (action === "notifications") return window.openNotifications?.();
-    if (action === "account") return window.blogAuth?.openAuth?.();
+    // “我的”已有独立页面。未登录时由页面提供登录/注册入口，避免再次退回旧弹窗。
+    if (action === "account") return window.blogUI?.navigate("profile");
   }
 
   function init() {

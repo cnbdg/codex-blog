@@ -4,7 +4,6 @@
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const $ = selector => document.querySelector(selector);
   let pendingGo = false;
-  let lastKey = "";
   let lastKeyAt = 0;
 
   function enabled() { return desktop.matches; }
@@ -66,12 +65,12 @@
         <h2>快捷入口</h2>
         <button type="button" data-page="forum"><small>社区</small><strong>看看大家正在讨论什么</strong><span>›</span></button>
         <button type="button" data-desktop-compose><small>发布</small><strong>写下你的新想法</strong><span>›</span></button>
-        <button type="button" data-open-auth><small>个人</small><strong>管理资料与账号</strong><span>›</span></button>
+        <button type="button" data-page="profile"><small>个人</small><strong>管理资料与账号</strong><span>›</span></button>
       </section>
       <section class="desktop-context-card desktop-context-tips">
         <h2>使用技巧</h2>
         <p><kbd>/</kbd> 搜索　<kbd>N</kbd> 发布话题</p>
-        <p><kbd>G</kbd> + <kbd>H / C / A</kbd> 快速导航</p>
+        <p><kbd>G</kbd> + <kbd>H / C / N / M / P</kbd> 快速导航</p>
       </section>`;
     document.body.append(rail);
     rail.addEventListener("click", event => {
@@ -88,18 +87,20 @@
 
   function onKeydown(event) {
     if (!enabled() || editable(event.target) || event.altKey || document.querySelector("dialog[open]")) return;
+    if (pendingGo && Date.now() - lastKeyAt < 900) {
+      const key = event.key.toLowerCase();
+      const pages = { h: "home", c: "forum", n: "notifications", m: "messages", p: "profile", a: "about" };
+      pendingGo = false;
+      if (pages[key]) {
+        event.preventDefault();
+        navigate(pages[key]);
+      }
+      return;
+    }
+    pendingGo = false;
     if (event.key === "/") { event.preventDefault(); openSearch(); return; }
     if (event.key.toLowerCase() === "n" && !event.ctrlKey && !event.metaKey) { event.preventDefault(); openComposer(); return; }
     if (event.key.toLowerCase() === "g") { pendingGo = true; lastKeyAt = Date.now(); return; }
-    if (pendingGo && Date.now() - lastKeyAt < 900) {
-      const key = event.key.toLowerCase();
-      if (key === "h") navigate("home");
-      if (key === "c") navigate("forum");
-      if (key === "a") navigate("about");
-      pendingGo = false;
-      return;
-    }
-    lastKey = event.key;
   }
 
   function init() {

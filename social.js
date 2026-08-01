@@ -6,6 +6,8 @@
   let stopNotificationSync = null;
   let bubbleTimer = null;
   let badgeRequest = 0;
+  let notificationRequest = 0;
+  let friendsRequest = 0;
 
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -100,7 +102,7 @@
   }
 
   function showIncomingMessageBubble(row) {
-    if (row.kind !== "direct_message" || document.hidden) return;
+    if (!window.blogAuth?.user || row.kind !== "direct_message" || document.hidden) return;
     const bubble = ensureMessageBubble();
     const name = nameOf(row);
     const preview = String(row.payload?.preview || "给你发来一条新消息").trim();
@@ -123,16 +125,17 @@
   async function refreshBadge() {
     const notificationBadge = ensureBadge("#notificationBtn", "notification-count-badge");
     const messageBadge = ensureBadge("#friendsBtn", "message-count-badge");
-    if (!window.blogAuth?.user) {
+    const request = ++badgeRequest;
+    const currentUser = window.blogAuth?.user;
+    if (!currentUser) {
       setBadge(notificationBadge, 0, "0 条未读通知");
       setBadge(messageBadge, 0, "0 条未读私信");
       setDockUnread("notifications", 0);
       setDockUnread("messages", 0);
       return;
     }
-    const request = ++badgeRequest;
     const rows = await window.blogAuth.listNotifications();
-    if (request !== badgeRequest) return;
+    if (request !== badgeRequest || window.blogAuth?.user?.id !== currentUser.id) return;
     const unread = rows.filter(row => !row.read_at);
     const unreadMessages = unread.filter(row => row.kind === "direct_message");
     setBadge(notificationBadge, unread.length, "{count} 条未读通知");
@@ -161,38 +164,49 @@
   async function renderNotifications() {
     const list = $("#standaloneNotificationList");
     if (!list) return;
-    if (!window.blogAuth?.user) {
+    const request = ++notificationRequest;
+    const currentUser = window.blogAuth?.user;
+    if (!currentUser) {
       list.innerHTML = `<p class="social-empty">登录后即可查看你的通知。</p>`;
       return;
     }
+    list.setAttribute("aria-busy", "true");
     const rows = await window.blogAuth.listNotifications();
+    if (request !== notificationRequest || window.blogAuth?.user?.id !== currentUser.id) return;
     list.innerHTML = rows.length
       ? rows.map(notificationMarkup).join("")
       : `<p class="social-empty">还没有新的通知。</p>`;
+    list.removeAttribute("aria-busy");
   }
 
   async function renderFriends() {
     const list = $("#messageFriendList");
     if (!list) return;
-    if (!window.blogAuth?.user) {
+    const request = ++friendsRequest;
+    const currentUser = window.blogAuth?.user;
+    if (!currentUser) {
       list.innerHTML = `<p class="social-empty">登录后，互相关注的用户会出现在这里。</p>`;
       return;
     }
+    list.setAttribute("aria-busy", "true");
     const rows = await window.blogAuth.listFriends();
+    if (request !== friendsRequest || window.blogAuth?.user?.id !== currentUser.id) return;
     list.innerHTML = rows.length ? rows.map(row => {
       const name = row.username || "社区用户";
+      const active = window.blogMessages?.peer === row.id;
       const avatarUrl = safeAvatarUrl(row.avatar_url);
       const avatar = avatarUrl
         ? `<button type="button" class="social-avatar has-image" data-user-profile="${esc(row.id)}" aria-label="查看 ${esc(name)} 的资料" style="background-image:url(&quot;${esc(avatarUrl)}&quot;)"></button>`
         : `<button type="button" class="social-avatar" data-user-profile="${esc(row.id)}" aria-label="查看 ${esc(name)} 的资料">${esc(name[0].toUpperCase())}</button>`;
-      return `<article class="message-friend-item">
+      return `<article class="message-friend-item${active ? " active" : ""}">
         ${avatar}
-        <button type="button" class="message-friend-main" data-chat-user="${esc(row.id)}" data-chat-name="${esc(name)}">
+        <button type="button" class="message-friend-main" data-chat-user="${esc(row.id)}" data-chat-name="${esc(name)}"${active ? " aria-current=\"true\"" : ""}>
           <strong>${esc(name)}</strong><small>${esc(row.display_title || "社区成员")} · UID ${esc(row.user_uid)}</small>
         </button>
         <button type="button" class="message-friend-profile" data-user-profile="${esc(row.id)}" aria-label="查看 ${esc(name)} 的资料">⋯</button>
       </article>`;
     }).join("") : `<p class="social-empty">还没有可以私信的朋友。互相关注后会自动出现在这里。</p>`;
+    list.removeAttribute("aria-busy");
   }
 
   async function loadNotifications({ markRead = false } = {}) {
@@ -256,6 +270,14 @@
     window.addEventListener("blog-auth-change", () => {
       stopNotificationSync?.();
       stopNotificationSync = null;
+      const bubble = $("#incomingMessageBubble");
+      window.clearTimeout(bubbleTimer);
+      if (bubble) {
+        bubble.classList.remove("show");
+        bubble.hidden = true;
+        delete bubble.dataset.chatUser;
+        delete bubble.dataset.chatName;
+      }
       if (window.blogAuth?.user) {
         stopNotificationSync = window.blogAuth.subscribeNotifications?.(row => {
           if (row.kind === "direct_message") showIncomingMessageBubble(row);

@@ -797,3 +797,16 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
   .message-composer .dm-composer-foot small { font-size:8px; }
   .dm-message .dm-image-link { max-width:min(250px,100%); }
 }
+
+/* Message-page state, keyboard focus and screen-reader refinements. */
+.sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
+.message-friend-item { position:relative; transition:background-color .18s ease,box-shadow .18s ease; }
+.message-friend-item.active { background:color-mix(in srgb,var(--blue) 9%,var(--surface)); box-shadow:inset 3px 0 0 var(--blue); }
+.message-friend-item.active .message-friend-main strong { color:var(--blue); }
+.message-friend-item:focus-within { z-index:1; box-shadow:inset 3px 0 0 color-mix(in srgb,var(--blue) 58%,transparent); }
+.message-composer[aria-busy="true"] { cursor:progress; }
+.message-composer[aria-busy="true"] textarea { cursor:wait; opacity:.68; }
+.message-composer[aria-busy="true"] [data-send-message] { box-shadow:none; }
+@media (max-width:1023px) {
+  .message-friend-item.active { box-shadow:inset 3px 0 0 var(--blue); }
+}
