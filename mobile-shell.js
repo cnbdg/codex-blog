@@ -41,7 +41,7 @@
     dock.innerHTML = `
       <button type="button" data-mobile-action="home" aria-label="首页"><span>⌂</span><small>首页</small></button>
       <button type="button" data-mobile-action="forum" aria-label="社区"><span>◌</span><small>社区</small></button>
-      <button type="button" data-mobile-action="messages" aria-label="私信"><span>✉</span><small>私信</small></button>
+      <button type="button" data-mobile-action="messages" aria-label="消息"><span>✉</span><small>消息</small></button>
       <button type="button" data-mobile-action="notifications" aria-label="通知"><span>✦</span><small>通知</small></button>
       <button type="button" data-mobile-action="account" aria-label="我的"><span>◉</span><small>我的</small></button>`;
     document.body.append(dock);

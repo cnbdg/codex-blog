@@ -22,6 +22,7 @@
   let profileRequest = 0;
   let governanceRequest = 0;
   let directMessageChannel = null;
+  let groupMessageChannel = null;
   let notificationChannel = null;
   let pendingEmail = localStorage.getItem("yu-pending-email") || "";
   const captchaSiteKey = String(config.turnstileSiteKey || "").trim();
@@ -77,6 +78,15 @@
     ,[/INVALID_CATEGORY/i, "请选择有效的违规类型"]
     ,[/INVALID_DURATION/i, "请选择有效的限制时长"]
     ,[/INVALID_TOPIC_TYPE/i, "请选择有效的帖子类型"]
+    ,[/GROUP_MEMBER_REQUIRED/i, "创建群聊时请至少选择一位好友"]
+    ,[/GROUP_MEMBER_LIMIT/i, "每个群聊最多可容纳 50 人"]
+    ,[/GROUP_MEMBERSHIP_REQUIRED/i, "你已不在这个群聊中"]
+    ,[/GROUP_ADMIN_REQUIRED/i, "只有群主或管理员可以进行此操作"]
+    ,[/CANNOT_REMOVE_GROUP_ADMIN/i, "不能移除群主；管理员只能由群主移除"]
+    ,[/USE_LEAVE_GROUP/i, "请使用退出群聊功能"]
+    ,[/INVALID_GROUP_NAME/i, "群名称需要包含 2–40 个字符"]
+    ,[/INVALID_GROUP_DESCRIPTION/i, "群简介不能超过 200 个字符"]
+    ,[/INVALID_GROUP_AVATAR/i, "群头像地址无效"]
   ];
 
   function friendlyError(error, fallback = "操作失败，请稍后重试") {
@@ -1407,6 +1417,127 @@
     };
   }
 
+  async function listGroupChats() {
+    if (!client || !user) return [];
+    const { data, error } = await client.rpc("list_my_group_chats");
+    if (error) return isMissingRpc(error) ? null : [];
+    return data || [];
+  }
+
+  async function createGroupChat(name, description, avatarUrl, memberIds) {
+    if (!client || !user) { openAuth("login"); return null; }
+    const { data, error } = await client.rpc("create_group_chat", {
+      p_name: String(name || "").trim(),
+      p_description: String(description || "").trim(),
+      p_avatar_url: String(avatarUrl || "").trim() || null,
+      p_member_ids: Array.isArray(memberIds) ? memberIds : []
+    });
+    if (error) {
+      notify("群聊创建失败：" + (isMissingRpc(error) ? "请先执行 group-chat.sql" : friendlyError(error)));
+      return null;
+    }
+    return data || null;
+  }
+
+  async function listGroupChatMessages(groupId, limit = 120) {
+    if (!client || !user || !groupId) return null;
+    const { data, error } = await client.rpc("list_group_chat_messages", {
+      p_group_id: groupId,
+      p_limit: Math.min(Math.max(Number(limit) || 120, 1), 200)
+    });
+    if (error) {
+      notify("群消息加载失败：" + (isMissingRpc(error) ? "请先执行 group-chat.sql" : friendlyError(error)));
+      return null;
+    }
+    return data || [];
+  }
+
+  async function sendGroupChatMessage(groupId, content) {
+    if (!client || !user) { openAuth("login"); return false; }
+    const cleanContent = String(content || "").trim();
+    if (!groupId || !cleanContent || cleanContent.length > 2000) return false;
+    const { error } = await client.rpc("send_group_chat_message", {
+      p_group_id: groupId,
+      p_content: cleanContent
+    });
+    if (error) notify("群消息发送失败：" + (isMissingRpc(error) ? "请先执行 group-chat.sql" : friendlyError(error)));
+    return !error;
+  }
+
+  async function markGroupChatRead(groupId) {
+    if (!client || !user || !groupId) return false;
+    const { error } = await client.rpc("mark_group_chat_read", { p_group_id: groupId });
+    return !error;
+  }
+
+  async function listGroupChatMembers(groupId) {
+    if (!client || !user || !groupId) return [];
+    const { data, error } = await client.rpc("list_group_chat_members", { p_group_id: groupId });
+    if (error) {
+      notify("群成员加载失败：" + friendlyError(error));
+      return [];
+    }
+    return data || [];
+  }
+
+  async function updateGroupChat(groupId, name, description, avatarUrl) {
+    if (!client || !user || !groupId) return false;
+    const { error } = await client.rpc("update_group_chat", {
+      p_group_id: groupId,
+      p_name: String(name || "").trim(),
+      p_description: String(description || "").trim(),
+      p_avatar_url: String(avatarUrl || "").trim() || null
+    });
+    if (error) notify("群资料保存失败：" + friendlyError(error));
+    return !error;
+  }
+
+  async function addGroupChatMembers(groupId, memberIds) {
+    if (!client || !user || !groupId || !Array.isArray(memberIds) || !memberIds.length) return 0;
+    const { data, error } = await client.rpc("add_group_chat_members", {
+      p_group_id: groupId,
+      p_member_ids: memberIds
+    });
+    if (error) {
+      notify("添加群成员失败：" + friendlyError(error));
+      return 0;
+    }
+    return Number(data || 0);
+  }
+
+  async function removeGroupChatMember(groupId, memberId) {
+    if (!client || !user || !groupId || !memberId) return false;
+    const { data, error } = await client.rpc("remove_group_chat_member", {
+      p_group_id: groupId,
+      p_user_id: memberId
+    });
+    if (error) notify("移除群成员失败：" + friendlyError(error));
+    return !error && Boolean(data);
+  }
+
+  async function leaveGroupChat(groupId) {
+    if (!client || !user || !groupId) return false;
+    const { data, error } = await client.rpc("leave_group_chat", { p_group_id: groupId });
+    if (error) notify("退出群聊失败：" + friendlyError(error));
+    return !error && Boolean(data);
+  }
+
+  function subscribeGroupChatMessages(groupId, onMessage, onStatus) {
+    if (!client || !user || !groupId) return () => {};
+    if (groupMessageChannel) client.removeChannel(groupMessageChannel);
+    const currentUserId = user.id;
+    const channel = client.channel(`group-chat-${groupId}-${currentUserId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "group_chat_messages", filter: `group_id=eq.${groupId}`
+      }, payload => onMessage?.(payload.new))
+      .subscribe((status, error) => onStatus?.(status, error));
+    groupMessageChannel = channel;
+    return () => {
+      client.removeChannel(channel);
+      if (groupMessageChannel === channel) groupMessageChannel = null;
+    };
+  }
+
   function subscribeNotifications(onNotification, onStatus) {
     if (!client || !user) return () => {};
     if (notificationChannel) client.removeChannel(notificationChannel);
@@ -1699,6 +1830,8 @@
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     listForumBookmarks, toggleForumBookmark, recordForumView, getForumThreadState, adminSetForumPostStatus,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,
+    listGroupChats, createGroupChat, listGroupChatMessages, sendGroupChatMessage, markGroupChatRead,
+    listGroupChatMembers, updateGroupChat, addGroupChatMembers, removeGroupChatMember, leaveGroupChat, subscribeGroupChatMessages,
     searchUsers, getPublicProfile, adminUpdateMember, getAdminMemberByUid, adminManageMember, prepareAdminCaptcha, confirmAdminPassword, listNotifications, markNotificationsRead, markDirectMessagesRead, listFriends,
     reportContent, getMyModeration, getMyGovernanceStatus, getGovernanceOverview, listModerationUsers, listModerationReports,
     listModerationActions, listModerationAppeals, setUserBan, setUserRestriction, clearUserBan, moderateReport,
