@@ -242,7 +242,7 @@ $$;
 -- 回复帖子或楼中楼时通知对应用户。
 alter table public.notifications drop constraint if exists notifications_kind_check;
 alter table public.notifications add constraint notifications_kind_check
-  check (kind in ('follow', 'forum_like', 'comment_like', 'direct_message', 'forum_reply'));
+  check (kind in ('follow', 'forum_like', 'comment_like', 'direct_message', 'forum_reply', 'group_message'));
 
 create or replace function public.notify_forum_reply_created()
 returns trigger

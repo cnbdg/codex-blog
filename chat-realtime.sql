@@ -4,7 +4,7 @@
 
 alter table public.notifications drop constraint if exists notifications_kind_check;
 alter table public.notifications add constraint notifications_kind_check
-  check (kind in ('follow', 'forum_like', 'comment_like', 'direct_message'));
+  check (kind in ('follow', 'forum_like', 'comment_like', 'direct_message', 'forum_reply', 'group_message'));
 
 grant select on public.direct_messages, public.notifications to authenticated;
 
@@ -57,7 +57,7 @@ returns void language sql security definer set search_path = public as $$
   set read_at = now()
   where recipient_id = auth.uid()
     and read_at is null
-    and kind <> 'direct_message';
+    and kind not in ('direct_message', 'group_message');
 $$;
 
 create or replace function public.mark_direct_messages_read(sender_user uuid)

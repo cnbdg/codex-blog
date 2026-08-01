@@ -108,6 +108,13 @@
   function showIncomingMessageBubble(row) {
     const group = row.kind === "group_message";
     if (!window.blogAuth?.user || (!group && row.kind !== "direct_message") || document.hidden) return;
+    const activeChat = window.blogMessages;
+    const isCurrentConversation = isActivePage("messages") && (
+      group
+        ? activeChat?.group === row.payload?.group_id
+        : activeChat?.peer === row.actor_id
+    );
+    if (isCurrentConversation) return;
     const bubble = ensureMessageBubble();
     const senderName = nameOf(row);
     const name = group ? (row.payload?.group_name || "群聊") : senderName;

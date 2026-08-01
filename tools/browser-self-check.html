@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>博客浏览器自检</title>
+  <style>html,body,iframe{width:100%;height:100%;margin:0;border:0}#result{position:fixed;z-index:9;inset:0;margin:0;padding:20px;background:#fff;color:#111;white-space:pre-wrap}#result[data-status="running"]{display:none}</style>
+</head>
+<body>
+  <pre id="result" data-status="running">RUNNING</pre>
+  <iframe id="site" title="被测博客"></iframe>
+  <script>
+    (() => {
+      const result = document.querySelector("#result");
+      const frame = document.querySelector("#site");
+      const mode = new URLSearchParams(location.search).get("mode") === "mobile" ? "mobile" : "desktop";
+      const runId = new URLSearchParams(location.search).get("run") || "";
+      if (mode === "mobile") {
+        frame.style.width = "390px";
+        frame.style.height = "844px";
+      }
+      const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+      const assert = (condition, message) => { if (!condition) throw new Error(message); };
+
+      function finish(status, detail) {
+        result.dataset.status = status;
+        result.textContent = JSON.stringify(detail);
+        fetch(`/__self-check-report?run=${encodeURIComponent(runId)}`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ status, detail }),
+          keepalive: true
+        }).catch(() => {});
+      }
+
+      frame.addEventListener("load", async () => {
+        try {
+          const w = frame.contentWindow;
+          const d = frame.contentDocument;
+          await wait(300);
+          const sanitizedMarkdown = w.blogMarkdown?.render('<p>安全测试<script>window.__xss=1<\/script><a href="javascript:alert(1)" onclick="alert(2)">链接</a><img src="x" onerror="alert(3)"></p>') || "";
+          const baseChecks = {
+            modulesLoaded: Boolean(w.blogUI && w.blogAuth && w.blogMarkdown),
+            captchaConfigured: Boolean(w.BLOG_CONFIG?.captchaRequiredForAuth && w.BLOG_CONFIG?.turnstileSiteKey),
+            markdownSanitized: !/script|javascript:|onerror|onclick/i.test(sanitizedMarkdown) && !w.__xss
+          };
+          assert(baseChecks.modulesLoaded, "页面核心模块没有完整加载");
+          assert(baseChecks.captchaConfigured, "登录人机验证配置缺失");
+          assert(baseChecks.markdownSanitized, "Markdown 内容清理未通过安全测试");
+          const viewer = { id: "00000000-0000-0000-0000-000000000001" };
+          const friend = { id: "00000000-0000-0000-0000-000000000002", user_uid: 2, username: "测试好友", avatar_url: "", display_title: "好友" };
+          const friend2 = { id: "00000000-0000-0000-0000-000000000003", user_uid: 3, username: "第二位好友", avatar_url: "", display_title: "成员" };
+          const group = { group_id: "10000000-0000-0000-0000-000000000001", group_name: "自检交流群", group_description: "群聊交互自动测试", group_avatar_url: "", owner_id: viewer.id, group_role: "owner", member_count: 3, unread_count: 2, last_message: "晚上一起讨论吧", last_message_at: new Date().toISOString(), last_sender_name: "测试好友" };
+          w.blogAuth = {
+            user: viewer,
+            profile: { id: viewer.id, username: "站长", user_uid: 1 },
+            openAuth() {},
+            getFollowState: async () => ({ mutual: true, following: true, followedBy: true }),
+            listFriends: async () => [friend, friend2],
+            listNotifications: async () => [],
+            markNotificationsRead: async () => true,
+            markDirectMessagesRead: async () => true,
+            subscribeNotifications(callback) { w.__selfCheckNotification = callback; return () => {}; },
+            listGroupChats: async () => [group],
+            listGroupChatMessages: async () => [
+              { id: 1, group_id: group.group_id, sender_id: friend.id, content: "欢迎来到群聊", created_at: new Date(Date.now() - 60000).toISOString(), sender_username: friend.username, sender_avatar_url: "", sender_uid: 2, sender_title: "好友" },
+              { id: 2, group_id: group.group_id, sender_id: viewer.id, content: "群聊自检开始", created_at: new Date().toISOString(), sender_username: "站长", sender_avatar_url: "", sender_uid: 1, sender_title: "站长" }
+            ],
+            listDirectMessages: async () => [],
+            listGroupChatMembers: async () => [
+              { user_id: viewer.id, user_uid: 1, username: "站长", avatar_url: "", display_title: "站长", member_role: "owner" },
+              { user_id: friend.id, user_uid: 2, username: friend.username, avatar_url: "", display_title: "好友", member_role: "member" },
+              { user_id: friend2.id, user_uid: 3, username: friend2.username, avatar_url: "", display_title: "成员", member_role: "member" }
+            ],
+            markGroupChatRead: async () => true,
+            subscribeGroupChatMessages(groupId, callback, status) { setTimeout(() => status("SUBSCRIBED"), 0); return () => {}; },
+            subscribeDirectMessages(peer, callback, status) { setTimeout(() => status("SUBSCRIBED"), 0); return () => {}; },
+            createGroupChat: async () => group.group_id,
+            updateGroupChat: async () => true,
+            addGroupChatMembers: async (_groupId, ids) => ids.length,
+            removeGroupChatMember: async () => true,
+            leaveGroupChat: async () => true,
+            sendGroupChatMessage: async () => true,
+            sendDirectMessage: async () => true,
+            getPublicProfile: async id => ({ id, username: id === viewer.id ? "站长" : "测试好友", user_uid: id === viewer.id ? 1 : 2, display_title: "社区成员", follower_count: 1, following_count: 1 })
+          };
+          w.blogUI?.navigate?.("messages");
+          w.dispatchEvent(new w.CustomEvent("blog-auth-change", { detail: { user: viewer } }));
+          await wait(80);
+          d.querySelector('[data-message-inbox-tab="groups"]')?.click();
+          await wait(80);
+
+          const listResult = {
+            viewportWidth: w.innerWidth,
+            viewportHeight: w.innerHeight,
+            groupItems: d.querySelectorAll(".message-group-item").length,
+            unread: d.querySelector(".message-group-unread")?.textContent,
+            scrollWidth: d.documentElement.scrollWidth,
+            clientWidth: d.documentElement.clientWidth,
+            overflowRule: getComputedStyle(d.body).overflowX
+          };
+          w.scrollTo(100, 0);
+          await wait(20);
+          listResult.horizontalScroll = Math.round(w.scrollX);
+          w.scrollTo(0, 0);
+          assert(listResult.groupItems === 1, "群聊列表未渲染");
+          assert(listResult.unread === "2", "群聊未读数未渲染");
+          assert(listResult.horizontalScroll === 0, `消息页可以横向滚动（${listResult.scrollWidth}/${listResult.clientWidth}）`);
+          d.querySelector(".message-group-item").click();
+          await wait(100);
+          const threadResult = {
+            title: d.querySelector("#messageTitle")?.textContent,
+            messages: d.querySelectorAll("#messageList .dm-message").length,
+            senders: d.querySelectorAll(".group-message-sender").length,
+            infoVisible: !d.querySelector("#messageInfoBtn")?.hidden
+          };
+          assert(threadResult.title === "自检交流群", "群聊标题错误");
+          assert(threadResult.messages === 2 && threadResult.senders === 1, "群消息或发送者信息渲染错误");
+          assert(threadResult.infoVisible, "群资料入口没有显示");
+
+          if (mode === "desktop") {
+            const shellWidth = Math.round(d.querySelector(".messages-shell").getBoundingClientRect().width);
+            assert(shellWidth > 700, "桌面消息页宽度异常");
+            d.querySelector("#messageInfoBtn").click();
+            await wait(100);
+            const groupInfo = {
+              open: d.querySelector("#groupChatInfoDialog")?.open,
+              members: d.querySelectorAll(".group-member-item").length,
+              editable: !d.querySelector("#groupChatInfoForm")?.hidden,
+              removeButtons: d.querySelectorAll("[data-remove-group-member]").length
+            };
+            assert(groupInfo.open && groupInfo.members === 3, "群资料或成员列表渲染失败");
+            assert(groupInfo.editable && groupInfo.removeButtons === 2, "群主管理控件权限错误");
+            d.querySelector("#groupChatInfoDialog").close();
+            w.__selfCheckNotification?.({ kind: "group_message", actor_id: friend.id, actor_username: friend.username, payload: { group_id: group.group_id, group_name: group.group_name, preview: "当前会话消息" } });
+            await wait(30);
+            assert(d.querySelector("#incomingMessageBubble")?.hidden !== false, "当前群聊仍会重复弹出消息气泡");
+            w.blogMessages.close();
+            w.__selfCheckNotification?.({ kind: "group_message", actor_id: friend.id, actor_username: friend.username, payload: { group_id: group.group_id, group_name: group.group_name, preview: "其他会话消息" } });
+            await wait(30);
+            assert(d.querySelector("#incomingMessageBubble")?.hidden === false, "非当前会话没有显示新消息气泡");
+            finish("pass", { mode, baseChecks, listResult, threadResult, shellWidth, groupInfo, bubbleRules: true });
+            return;
+          }
+
+          const mobileOpen = {
+            bodyOpen: d.body.classList.contains("message-thread-open"),
+            pageOpen: d.querySelector("#messages")?.classList.contains("chat-open"),
+            conversation: getComputedStyle(d.querySelector(".message-conversation")).display
+          };
+          assert(mobileOpen.bodyOpen && mobileOpen.pageOpen && mobileOpen.conversation === "flex", "手机未进入全屏群聊");
+          d.querySelector("#messageBackBtn").click();
+          await wait(50);
+          const mobileClosed = {
+            bodyOpen: d.body.classList.contains("message-thread-open"),
+            pageOpen: d.querySelector("#messages")?.classList.contains("chat-open"),
+            inbox: getComputedStyle(d.querySelector(".messages-inbox")).display,
+            conversation: getComputedStyle(d.querySelector(".message-conversation")).display,
+            scrollY: Math.round(w.scrollY)
+          };
+          assert(!mobileClosed.bodyOpen && !mobileClosed.pageOpen, "手机返回后会话状态没有清除");
+          assert(mobileClosed.inbox !== "none" && mobileClosed.conversation === "none", "手机返回后列表没有恢复");
+          assert(mobileClosed.scrollY < 20, "手机关闭会话后页面跳到底部");
+          d.querySelector("#createGroupChatBtn").click();
+          await wait(80);
+          const createDialog = {
+            open: d.querySelector("#createGroupChatDialog")?.open,
+            friends: d.querySelectorAll("#createGroupFriendPicker .group-friend-option").length,
+            noHorizontalOverflow: d.documentElement.scrollWidth <= d.documentElement.clientWidth
+          };
+          assert(createDialog.open && createDialog.friends === 2, "手机创建群聊或好友选择器异常");
+          assert(createDialog.noHorizontalOverflow, "手机创建群聊弹窗横向溢出");
+          d.querySelector("#createGroupChatDialog").close();
+          d.querySelector("#menuBtn").click();
+          await wait(50);
+          const drawer = d.querySelector(".topbar nav");
+          const mobileDrawer = {
+            open: drawer?.classList.contains("open"),
+            bodyOpen: d.body.classList.contains("nav-open"),
+            interactive: !drawer?.hasAttribute("inert") && getComputedStyle(drawer).pointerEvents !== "none",
+            wallpaperEntry: Boolean(drawer?.querySelector("[data-open-wallpaper]"))
+          };
+          assert(mobileDrawer.open && mobileDrawer.bodyOpen && mobileDrawer.interactive, "手机侧栏无法正常交互");
+          assert(mobileDrawer.wallpaperEntry, "手机侧栏缺少壁纸入口");
+          drawer.querySelector("[data-open-wallpaper]").click();
+          await wait(50);
+          const wallpaperPanel = {
+            open: d.querySelector("#wallpaperDialog")?.open,
+            drawerClosed: !drawer.classList.contains("open") && !d.body.classList.contains("nav-open"),
+            opacityControl: Boolean(d.querySelector("#panelOpacity"))
+          };
+          assert(wallpaperPanel.open && wallpaperPanel.drawerClosed, "从手机侧栏打开壁纸面板失败");
+          assert(wallpaperPanel.opacityControl, "壁纸面板缺少透明度控制");
+          finish("pass", { mode, baseChecks, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileDrawer, wallpaperPanel });
+        } catch (error) {
+          finish("fail", { mode, error: error.stack || error.message || String(error) });
+        }
+      }, { once: true });
+      frame.src = "/__self-check-index.html";
+    })();
+  </script>
+</body>
+</html>
