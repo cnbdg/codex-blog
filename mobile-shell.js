@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+
   const query = window.matchMedia("(max-width: 1023px)");
   const $ = selector => document.querySelector(selector);
   let startX = 0;
@@ -25,7 +26,7 @@
     dock.innerHTML = `
       <button type="button" data-mobile-action="home" aria-label="首页"><span>⌂</span><small>首页</small></button>
       <button type="button" data-mobile-action="forum" aria-label="社区"><span>◌</span><small>社区</small></button>
-      <button type="button" data-mobile-action="search" aria-label="搜索"><span>⌕</span><small>搜索</small></button>
+      <button type="button" data-mobile-action="messages" aria-label="私信"><span>✉</span><small>私信</small></button>
       <button type="button" data-mobile-action="notifications" aria-label="通知"><span>✦</span><small>通知</small></button>
       <button type="button" data-mobile-action="account" aria-label="我的"><span>◉</span><small>我的</small></button>`;
     document.body.append(dock);
@@ -43,7 +44,7 @@
     button.id = "mobileComposeFab";
     button.type = "button";
     button.setAttribute("aria-label", "发布社区话题");
-    button.innerHTML = "＋";
+    button.textContent = "＋";
     button.addEventListener("click", openComposer);
     document.body.append(button);
   }
@@ -53,8 +54,7 @@
     if (!dock) return;
     const page = window.blogUI?.state?.page || location.hash.slice(1) || "home";
     dock.querySelectorAll("button").forEach(button => {
-      const action = button.dataset.mobileAction;
-      button.classList.toggle("active", action === page);
+      button.classList.toggle("active", button.dataset.mobileAction === page);
     });
   }
 
@@ -68,7 +68,8 @@
   function handleAction(action) {
     if (action === "home" || action === "forum") return window.blogUI?.navigate(action);
     if (action === "search") return openSearch();
-    if (action === "notifications") return window.openSocial?.("notifications");
+    if (action === "messages") return window.openMessages?.();
+    if (action === "notifications") return window.openNotifications?.();
     if (action === "account") return window.blogAuth?.openAuth?.();
   }
 
@@ -89,13 +90,17 @@
 
     document.addEventListener("click", event => {
       const action = event.target.closest("[data-mobile-action]")?.dataset.mobileAction;
-      if (action) { event.preventDefault(); handleAction(action); }
+      if (action) {
+        event.preventDefault();
+        handleAction(action);
+      }
       if (isMobile() && event.target.closest("#mainNav [data-page]")) setDrawer(false);
     });
 
     document.addEventListener("pointerdown", event => {
       if (!isMobile() || event.pointerType === "mouse" || isDialogOpen()) return;
-      startX = event.clientX; startY = event.clientY;
+      startX = event.clientX;
+      startY = event.clientY;
     }, { passive: true });
     document.addEventListener("pointerup", event => {
       if (!isMobile() || event.pointerType === "mouse" || isDialogOpen()) return;

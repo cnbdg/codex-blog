@@ -100,6 +100,13 @@
     notice.hidden = !message;
   }
 
+  function setThreadFormError(message = "") {
+    const target = $("#threadFormError");
+    if (!target) return;
+    target.textContent = message;
+    target.hidden = !message;
+  }
+
   async function loadThreads() {
     ensureAsideWorkspace();
     const list = $("#threadList");
@@ -159,7 +166,7 @@
     if (!thread) restoreDraft(form);
     $("#threadEditorTitle").textContent = thread ? "编辑话题" : "发布话题";
     $("#saveThreadBtn").textContent = thread ? "保存修改" : "发布话题";
-    $("#threadFormError").hidden = true;
+    setThreadFormError();
     renderPreview();
     if (!$("#threadEditorDialog").open) $("#threadEditorDialog").showModal();
   }
@@ -182,26 +189,37 @@
     button.textContent = id ? "正在保存…" : "正在发布…";
     let content = String(data.get("content") || "").trim();
     const image = data.get("image");
-    if (image?.size) {
-      button.textContent = "正在上传图片…";
-      const url = await window.blogAuth.uploadCommunityImage?.(image);
-      if (!url) { button.disabled = false; button.textContent = id ? "保存修改" : "发布话题"; return; }
-      content += `\n\n![社区图片](${url})`;
+    setThreadFormError();
+    try {
+      if (image?.size) {
+        button.textContent = "正在上传图片…";
+        const url = await window.blogAuth.uploadCommunityImage?.(image);
+        if (!url) {
+          setThreadFormError("图片未能上传。首次启用图片功能时，请在 Supabase SQL Editor 执行仓库中的 community-media.sql 后重试。");
+          return;
+        }
+        content += `\n\n![社区图片](${url})`;
+      }
+      button.textContent = id ? "正在保存…" : "正在发布…";
+      const saved = await window.blogAuth.saveForumThread({
+        title: data.get("title"),
+        content
+      }, id);
+      if (!saved) return;
+      localStorage.removeItem(DRAFT_KEY);
+      clearImagePreview();
+      if (window.closeDialog) window.closeDialog($("#threadEditorDialog")); else $("#threadEditorDialog").close();
+      window.toast(id ? "话题已更新" : "话题发布成功");
+      await loadThreads();
+      const fresh = threads.find(thread => thread.id === saved.id);
+      if (fresh) openThread(fresh);
+    } catch (error) {
+      console.error("Forum image or post save failed", error);
+      setThreadFormError("发布失败，请检查网络或图片存储配置后重试。");
+    } finally {
+      button.disabled = false;
+      button.textContent = id ? "保存修改" : "发布话题";
     }
-    const saved = await window.blogAuth.saveForumThread({
-      title: data.get("title"),
-      content
-    }, id);
-    button.disabled = false;
-    button.textContent = id ? "保存修改" : "发布话题";
-    if (!saved) return;
-    localStorage.removeItem(DRAFT_KEY);
-    clearImagePreview();
-    if (window.closeDialog) window.closeDialog($("#threadEditorDialog")); else $("#threadEditorDialog").close();
-    window.toast(id ? "话题已更新" : "话题发布成功");
-    await loadThreads();
-    const fresh = threads.find(thread => thread.id === saved.id);
-    if (fresh) openThread(fresh);
   }
 
   async function openThread(thread) {

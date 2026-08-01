@@ -662,16 +662,71 @@
     return data;
   }
 
-  async function uploadCommunityImage(file) {
-    if (!client || !user || !file) return null;
-    if (!/^image\/(jpeg|png|gif|webp|avif)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
-      notify("图片需为 JPG、PNG、GIF、WebP 或 AVIF，且不超过 5MB"); return null;
+  function makeStorageObjectId() {
+    const cryptoApi = globalThis.crypto;
+    if (typeof cryptoApi?.randomUUID === "function") return cryptoApi.randomUUID();
+    const values = new Uint32Array(2);
+    if (typeof cryptoApi?.getRandomValues === "function") cryptoApi.getRandomValues(values);
+    else {
+      values[0] = Math.floor(Math.random() * 0xffffffff);
+      values[1] = Math.floor(Math.random() * 0xffffffff);
     }
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "jpg");
-    const path = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
-    const { error } = await client.storage.from("community-media").upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
-    if (error) { notify("图片上传失败：" + friendlyError(error)); return null; }
-    return client.storage.from("community-media").getPublicUrl(path).data.publicUrl;
+    return `${values[0].toString(36)}${values[1].toString(36)}`;
+  }
+
+  function communityUploadError(error) {
+    const raw = String(error?.message || error?.error || error || "");
+    if (/bucket not found|nosuchbucket/i.test(raw)) {
+      return "图片上传尚未启用：请先在 Supabase SQL Editor 执行仓库中的 community-media.sql。";
+    }
+    if (/row-level security|new row violates|permission denied|not authorized/i.test(raw)) {
+      return "图片上传权限尚未配置：请重新执行 community-media.sql 后重试。";
+    }
+    if (/failed to fetch|network|timeout/i.test(raw)) {
+      return "图片上传网络连接失败，请检查网络后重试。";
+    }
+    return `图片上传失败：${friendlyError(error)}`;
+  }
+
+  async function uploadCommunityImage(file) {
+    if (!client || !user || !file) {
+      notify("请先登录后再上传图片。");
+      return null;
+    }
+    const extensions = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/gif": "gif",
+      "image/webp": "webp",
+      "image/avif": "avif"
+    };
+    const extension = extensions[file.type];
+    if (!extension || file.size > 5 * 1024 * 1024) {
+      notify("图片需为 JPG、PNG、GIF、WebP 或 AVIF，且不超过 5MB。");
+      return null;
+    }
+
+    const path = `${user.id}/${Date.now()}-${makeStorageObjectId()}.${extension}`;
+    try {
+      const { error } = await client.storage.from("community-media").upload(path, file, {
+        cacheControl: "31536000",
+        upsert: false,
+        contentType: file.type
+      });
+      if (error) {
+        notify(communityUploadError(error));
+        return null;
+      }
+      const publicUrl = client.storage.from("community-media").getPublicUrl(path).data.publicUrl;
+      if (!publicUrl) {
+        notify("图片已上传，但公开地址未生成；请确认 community-media 桶设为公开。");
+        return null;
+      }
+      return publicUrl;
+    } catch (error) {
+      notify(communityUploadError(error));
+      return null;
+    }
   }
 
   async function deleteForumThread(id) {

@@ -6,6 +6,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=20260731-27">
+  <link rel="stylesheet" href="style.css?v=20260801-1">
 </head>
 <body>
   <header class="topbar">
@@ -89,6 +90,57 @@
       </div>
       <section id="moderationPanel" class="moderation-panel" hidden><div class="moderation-header"><div><small>SAFETY CENTER</small><h2>社区审核</h2><p>处理举报、隐藏违规内容，并管理用户发言权限。所有操作都会留下记录。</p></div><button id="refreshModerationBtn" type="button" class="secondary-btn">↻ 刷新审核数据</button></div><div class="moderation-tabs"><button type="button" class="active" data-moderation-tab="reports">举报记录</button><button type="button" data-moderation-tab="users">用户管理</button><button type="button" data-moderation-tab="actions">操作日志</button></div><div id="moderationNotice" class="forum-notice" hidden></div><div id="moderationList"></div></section>
     </section>
+    <section id="notifications" class="page standalone-page notifications-page" tabindex="-1">
+      <header class="standalone-page-header">
+        <div>
+          <small class="standalone-eyebrow">YOUR ACTIVITY</small>
+          <h1>通知</h1>
+          <p>关注、点赞和私信提醒会集中显示在这里。</p>
+        </div>
+        <button id="markNotificationsReadBtn" type="button" class="secondary-btn">标记互动已读</button>
+      </header>
+      <div class="standalone-section-head">
+        <strong>全部动态</strong>
+        <span>私信提醒会保留到打开对应会话后再标为已读</span>
+      </div>
+      <div id="standaloneNotificationList" class="notification-list standalone-list" aria-live="polite"></div>
+    </section>
+
+    <section id="messages" class="page standalone-page messages-page" tabindex="-1">
+      <header class="standalone-page-header messages-page-header">
+        <div>
+          <small class="standalone-eyebrow">PRIVATE MESSAGES</small>
+          <h1>私信</h1>
+          <p>只有互相关注的朋友可以互相发送消息。</p>
+        </div>
+      </header>
+      <div class="messages-shell">
+        <aside id="messagesInbox" class="messages-inbox" aria-label="私信联系人">
+          <div class="messages-inbox-head">
+            <div><strong>消息</strong><small>互相关注的朋友</small></div>
+            <button id="refreshMessageFriendsBtn" type="button" aria-label="刷新联系人">↻</button>
+          </div>
+          <div id="messageFriendList" class="message-friend-list" aria-live="polite"></div>
+        </aside>
+        <section id="messageConversation" class="message-conversation" aria-live="polite">
+          <div id="messageEmpty" class="message-empty">
+            <span>✦</span>
+            <h2>选择一位朋友开始聊天</h2>
+            <p>私信会实时同步，并且只有参与会话的双方可见。</p>
+          </div>
+          <div id="messageThread" class="message-thread" hidden>
+            <header class="message-thread-header">
+              <button id="messageBackBtn" type="button" class="message-back" aria-label="返回私信列表">←</button>
+              <div id="messagePeerAvatar" class="dm-peer-avatar">U</div>
+              <div class="dm-peer-info"><strong id="messageTitle">私信</strong><span id="messageStatus"><i></i>互相关注 · 私密聊天</span></div>
+            </header>
+            <div class="message-privacy-label">今天 <span>消息仅对你们双方可见</span></div>
+            <div id="messageList" class="dm-list message-list"><p class="forum-empty">正在加载消息…</p></div>
+            <form id="messageForm" class="dm-composer message-composer"><textarea name="content" required maxlength="2000" placeholder="输入消息，按 Enter 发送…"></textarea><div class="dm-composer-foot"><small>Enter 发送 · Shift + Enter 换行</small><button type="submit" aria-label="发送消息">➤</button></div></form>
+          </div>
+        </section>
+      </div>
+    </section>
   </main>
 
   <footer><div><strong>cnbdg的博客</strong><p>记录生活的点点滴滴。</p></div><div class="footer-links"><a href="https://home.cnbdg0826.dpdns.org/" target="_blank" rel="noopener">导航页</a><a href="https://xsf.indevs.in/" target="_blank" rel="noopener">旧博客</a><a href="https://github.com/cnbdg" target="_blank" rel="noopener">GitHub</a><a href="mailto:3606604482@qq.com">联系</a></div><small>© 2026 cnbdg. All rights reserved.</small></footer>
@@ -119,8 +171,6 @@
   <dialog id="reportDialog" class="report-dialog"><div class="dialog-title"><div><small>COMMUNITY SAFETY</small><h2>举报内容</h2></div><button type="button" data-close="reportDialog" aria-label="关闭">×</button></div><p>请说明这条内容违反了哪项社区规则。管理员会查看并记录处理结果。</p><form id="reportForm"><input name="target_type" type="hidden"><input name="target_id" type="hidden"><label>举报原因<textarea name="reason" required minlength="2" maxlength="300" placeholder="例如：广告、骚扰、泄露隐私、恶意内容……"></textarea></label><p id="reportError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="reportDialog">取消</button><button class="primary-btn">提交举报</button></div></form></dialog>
   <dialog id="banDialog" class="report-dialog"><div class="dialog-title"><div><small>MODERATION</small><h2>限制用户发言</h2></div><button type="button" data-close="banDialog" aria-label="关闭">×</button></div><form id="banForm"><input name="user_id" type="hidden"><label>限制时长<select name="duration"><option value="1h">1 小时</option><option value="1d" selected>1 天</option><option value="7d">7 天</option><option value="30d">30 天</option><option value="permanent">永久限制</option></select></label><label>处理原因<textarea name="reason" required minlength="2" maxlength="300" placeholder="请填写审核原因，便于后续审计……"></textarea></label><p id="banError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="banDialog">取消</button><button class="danger-button">确认限制</button></div></form></dialog>
   <dialog id="publicProfileDialog" class="public-profile-dialog"><button type="button" class="profile-dialog-close" data-close="publicProfileDialog" aria-label="关闭">×</button><div id="publicProfileContent" class="public-profile-content"><div class="profile-loading"><span></span><p>正在加载用户资料…</p></div></div></dialog>
-  <dialog id="socialDialog" class="social-dialog"><div class="dialog-title"><div><small>YOUR SPACE</small><h2>通知与好友</h2></div><button type="button" data-close="socialDialog" aria-label="关闭">×</button></div><div class="social-tabs"><button type="button" data-social-tab="notifications" class="active">通知</button><button type="button" data-social-tab="friends">好友</button></div><section id="notificationPanel"><div id="notificationList" class="notification-list"></div></section><section id="friendsPanel" hidden><div class="friends-heading"><span>互相关注的朋友</span><button id="refreshFriendsBtn" type="button">↻ 刷新</button></div><div id="friendList" class="friend-list"></div></section></dialog>
-  <dialog id="dmDialog" class="dm-dialog"><header class="dm-header"><div class="dm-peer-avatar" id="dmPeerAvatar">U</div><div class="dm-peer-info"><strong id="dmTitle">私聊</strong><span id="dmStatus"><i></i>互相关注 · 私密聊天</span></div><button type="button" class="dm-close" data-close="dmDialog" aria-label="关闭">×</button></header><div class="dm-chat-label">TODAY <span>消息仅对你们双方可见</span></div><div id="dmList" class="dm-list"><p class="forum-empty">正在加载消息…</p></div><form id="dmForm" class="dm-composer"><textarea name="content" required maxlength="2000" placeholder="输入消息，按 Enter 发送…"></textarea><div class="dm-composer-foot"><small>Enter 发送 · Shift + Enter 换行</small><button type="submit" aria-label="发送消息">➤</button></div></form></dialog>
   <dialog id="memberAdminDialog" class="member-admin-dialog"><div class="dialog-title"><div><small>OWNER CONTROL</small><h2>站长面板</h2></div><button type="button" data-close="memberAdminDialog">×</button></div><p class="admin-panel-note">仅管理员可用。每次打开都需要重新验证管理员密码。</p><form id="memberAdminForm"><label>管理员密码<input name="password" type="password" required autocomplete="current-password" placeholder="输入当前账号密码"></label><label>用户 UID<input name="uid" type="number" min="1" required placeholder="例如 12"></label><label>自定义头衔<input name="title" maxlength="30" placeholder="例如：摄影师、版主、开发者"></label><label class="admin-check"><input name="promote" type="checkbox"> 提拔为管理员</label><p id="memberAdminError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="memberAdminDialog">取消</button><button class="primary-btn">保存设置</button></div></form></dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260731-18"></script><script src="auth.js?v=20260731-24"></script><script src="script.js?v=20260731-18"></script><script src="wallpaper.js?v=20260731-18"></script><script src="forum.js?v=20260731-18"></script><script src="messaging.js?v=20260731-24"></script><script src="social.js?v=20260731-24"></script><script src="moderation.js?v=20260731-18"></script><script src="admin.js?v=20260731-18"></script>
-<script src="update-log.js?v=20260731-27"></script><script src="interaction.js?v=20260731-20"></script><script src="mobile-shell.js?v=20260731-26"></script><script src="desktop-shell.js?v=20260731-25"></script></body></html>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260731-18"></script><script src="auth.js?v=20260801-2"></script><script src="script.js?v=20260731-18"></script><script src="wallpaper.js?v=20260731-18"></script><script src="forum.js?v=20260801-2"></script><script src="messaging.js?v=20260801-1"></script><script src="social.js?v=20260801-1"></script><script src="moderation.js?v=20260731-18"></script><script src="admin.js?v=20260731-18"></script>
+<script src="update-log.js?v=20260801-2"></script><script src="interaction.js?v=20260731-20"></script><script src="mobile-shell.js?v=20260801-1"></script><script src="desktop-shell.js?v=20260731-25"></script></body></html>

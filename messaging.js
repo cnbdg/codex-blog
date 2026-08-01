@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+
   const $ = selector => document.querySelector(selector);
   let targetUser = null;
   let targetName = "社区用户";
@@ -12,11 +13,13 @@
   const escapeText = value => String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   })[char]);
+  const isMessagesPage = () => document.getElementById("messages")?.classList.contains("active");
+  const isChatVisible = () => Boolean(targetUser && isMessagesPage() && !$("#messageThread")?.hidden);
 
   function setFollowButton(button, state) {
     button.classList.toggle("following", Boolean(state?.following));
     button.textContent = state?.following ? (state?.mutual ? "互相关注" : "已关注") : "关注";
-    button.title = state?.mutual ? "可以私聊" : state?.following ? "等待对方回关后可私聊" : "关注后等待对方回关";
+    button.title = state?.mutual ? "可以私信" : state?.following ? "等待对方回关后可以私信" : "关注后等待对方回关";
   }
 
   function safeAvatarUrl(value) {
@@ -32,9 +35,7 @@
     if (!value) return "暂未记录";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "暂未记录";
-    return date.toLocaleDateString("zh-CN", {
-      year: "numeric", month: "long", day: "numeric"
-    });
+    return date.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
   }
 
   function syncProfileSidebar() {
@@ -47,13 +48,17 @@
     }
     if (!aside) return;
     let panel = aside.querySelector(".profile-sidebar-card");
-    if (!panel) { panel = document.createElement("section"); panel.className = "side-card profile-sidebar-card"; aside.prepend(panel); }
+    if (!panel) {
+      panel = document.createElement("section");
+      panel.className = "side-card profile-sidebar-card";
+      aside.prepend(panel);
+    }
     panel.hidden = false;
     panel.innerHTML = dialogContent.innerHTML;
   }
 
   function setChatStatus(message, state = "ready") {
-    const status = $("#dmStatus");
+    const status = $("#messageStatus");
     if (!status) return;
     status.dataset.state = state;
     status.innerHTML = `<i></i>${escapeText(message)}`;
@@ -69,6 +74,16 @@
     if (marked) notifyInboxChanged();
   }
 
+  function showMessageThread(show) {
+    const page = $("#messages");
+    const empty = $("#messageEmpty");
+    const thread = $("#messageThread");
+    document.body.classList.toggle("message-thread-open", show);
+    page?.classList.toggle("chat-open", show);
+    if (empty) empty.hidden = show;
+    if (thread) thread.hidden = !show;
+  }
+
   function stopChatSync() {
     stopMessageSync?.();
     stopMessageSync = null;
@@ -78,14 +93,15 @@
 
   function startChatSync() {
     const peer = targetUser;
-    if (!peer) return;
+    if (!peer || !isChatVisible()) return;
+    stopChatSync();
     let connected = false;
-    stopMessageSync = window.blogAuth.subscribeDirectMessages?.(peer, async row => {
-      if (targetUser !== peer || !$("#dmDialog")?.open) return;
+    stopMessageSync = window.blogAuth?.subscribeDirectMessages?.(peer, async row => {
+      if (targetUser !== peer || !isChatVisible()) return;
       await renderMessages({ forceScroll: true });
       if (row.sender_id === peer) await markCurrentChatRead(peer);
     }, status => {
-      if (targetUser !== peer || !$("#dmDialog")?.open) return;
+      if (targetUser !== peer || !isChatVisible()) return;
       if (status === "SUBSCRIBED") {
         connected = true;
         setChatStatus("实时聊天已连接", "connected");
@@ -96,9 +112,9 @@
       }
     }) || (() => {});
 
-    // Realtime 不可用时仍以短轮询保证对方消息会出现，避免聊天停在旧内容。
+    // Realtime 短暂不可用时仍通过短轮询保证消息会出现。
     messagePoll = window.setInterval(() => {
-      if (document.hidden || targetUser !== peer || !$("#dmDialog")?.open) return;
+      if (document.hidden || targetUser !== peer || !isChatVisible()) return;
       renderMessages();
     }, 2000);
   }
@@ -125,6 +141,7 @@
       item.classList.toggle("available", Boolean(state.mutual));
       item.title = state.mutual ? "发送私信" : "互相关注后即可私信";
     });
+    window.renderMessageFriends?.();
     window.toast?.(state.mutual ? "已互相关注，现在可以私聊了" : state.following ? "已关注，等待对方回关" : "已取消关注");
   }
 
@@ -132,6 +149,7 @@
     if (!userId) return;
     const dialog = $("#publicProfileDialog");
     const content = $("#publicProfileContent");
+    if (!dialog || !content) return;
     const request = ++profileRequest;
     content.innerHTML = `<div class="profile-loading"><span></span><p>正在加载用户资料…</p></div>`;
     if (!dialog.open) dialog.showModal();
@@ -162,7 +180,7 @@
         <div><small>加入时间</small><strong>${escapeText(formatJoinDate(publicProfile.created_at))}</strong></div>
         <div><small>账户状态</small><strong>${publicProfile.is_admin ? "社区管理员" : "正常使用中"}</strong></div>
       </div>
-      <p class="profile-privacy-note">这里只展示公开社区资料，不会显示邮箱等隐私信息。</p>
+      <p class="profile-privacy-note">这里仅展示公开社区资料，不会显示邮箱等隐私信息。</p>
       <div class="profile-actions">
         ${ownProfile
           ? `<button type="button" class="profile-edit-button" data-open-own-profile>编辑我的资料</button>`
@@ -174,33 +192,53 @@
 
   async function openChat(userId, name) {
     if (!window.blogAuth?.user) return window.blogAuth?.openAuth("login");
+    if (!userId) return;
     const state = await window.blogAuth.getFollowState(userId);
     if (!state?.mutual) return window.toast?.("只有互相关注后才能私聊");
+
     targetUser = userId;
     targetName = name || "社区用户";
     renderedMessageKey = null;
     hasRenderedMessages = false;
-    $("#dmTitle").textContent = targetName;
-    $("#dmPeerAvatar").textContent = targetName.slice(0, 1).toUpperCase();
-    $("#dmList").innerHTML = `<p class="forum-empty">正在加载消息…</p>`;
-    if ($("#socialDialog")?.open) $("#socialDialog").close();
-    if ($("#publicProfileDialog")?.open) $("#publicProfileDialog").close();
-    $("#dmDialog").showModal();
+    $("#messageTitle").textContent = targetName;
+    $("#messagePeerAvatar").textContent = targetName.slice(0, 1).toUpperCase();
+    $("#messageList").innerHTML = `<p class="forum-empty">正在加载消息…</p>`;
+    if ($("#publicProfileDialog")?.open) {
+      if (window.blogUI?.closeDialog) window.blogUI.closeDialog($("#publicProfileDialog"));
+      else $("#publicProfileDialog").close();
+    }
+    if (window.blogUI?.navigate) window.blogUI.navigate("messages");
+    else if (typeof window.showPage === "function") window.showPage("messages", true);
+    showMessageThread(true);
     setChatStatus("正在连接实时聊天…", "connecting");
-    stopChatSync();
     startChatSync();
     await Promise.all([renderMessages({ forceScroll: true }), markCurrentChatRead()]);
   }
 
+  function closeChat() {
+    stopChatSync();
+    targetUser = null;
+    renderedMessageKey = null;
+    hasRenderedMessages = false;
+    showMessageThread(false);
+    $("#messageList").replaceChildren();
+  }
+
+  function activateMessages() {
+    if (!isMessagesPage() || !targetUser) return;
+    showMessageThread(true);
+    if (!stopMessageSync) startChatSync();
+    renderMessages({ forceScroll: !hasRenderedMessages });
+  }
+
   async function renderMessages({ forceScroll = false } = {}) {
-    if (!targetUser) return;
+    if (!targetUser || !isChatVisible()) return;
     const peer = targetUser;
     const messages = await window.blogAuth.listDirectMessages(peer);
-    if (!messages) return;
-    if (peer !== targetUser || !$("#dmDialog")?.open) return;
+    if (!messages || peer !== targetUser || !isChatVisible()) return;
     const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}`).join("|") : "empty";
     if (hasRenderedMessages && key === renderedMessageKey) return;
-    const list = $("#dmList");
+    const list = $("#messageList");
     const isNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
     list.innerHTML = messages.length ? messages.map(message => {
       const own = message.sender_id === window.blogAuth.user?.id;
@@ -227,30 +265,44 @@
   }
 
   function init() {
-    $("#dmForm").addEventListener("submit", sendMessage);
-    $("#dmForm textarea")?.addEventListener("keydown", event => {
+    $("#messageForm")?.addEventListener("submit", sendMessage);
+    $("#messageForm textarea")?.addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
         event.preventDefault();
-        $("#dmForm").requestSubmit();
+        $("#messageForm").requestSubmit();
       }
     });
-    $("#dmDialog")?.addEventListener("close", () => {
-      stopChatSync();
-      targetUser = null;
-      renderedMessageKey = null;
-      hasRenderedMessages = false;
+    $("#messageBackBtn")?.addEventListener("click", closeChat);
+    window.addEventListener("blog-page-change", event => {
+      if (event.detail?.page === "messages") activateMessages();
+      else {
+        stopChatSync();
+        document.body.classList.remove("message-thread-open");
+      }
     });
     document.addEventListener("click", event => {
       const follow = event.target.closest("[data-follow-user]");
       const chat = event.target.closest("[data-chat-user]");
       const profileLink = event.target.closest("[data-user-profile]");
       const ownProfile = event.target.closest("[data-open-own-profile]");
-      if (follow) { event.stopPropagation(); toggleFollow(follow); }
-      if (chat) { event.stopPropagation(); openChat(chat.dataset.chatUser, chat.dataset.chatName); }
-      if (profileLink) { event.stopPropagation(); openPublicProfile(profileLink.dataset.userProfile); }
+      if (follow) {
+        event.stopPropagation();
+        toggleFollow(follow);
+        return;
+      }
+      if (chat) {
+        event.stopPropagation();
+        openChat(chat.dataset.chatUser, chat.dataset.chatName);
+        return;
+      }
+      if (profileLink) {
+        event.stopPropagation();
+        openPublicProfile(profileLink.dataset.userProfile);
+        return;
+      }
       if (ownProfile) {
         event.stopPropagation();
-        if ($("#publicProfileDialog").open) $("#publicProfileDialog").close();
+        if ($("#publicProfileDialog")?.open) $("#publicProfileDialog").close();
         window.blogAuth?.openAuth?.();
       }
     });
@@ -258,5 +310,7 @@
 
   window.hydrateFollowButton = hydrateFollowButton;
   window.openPublicProfile = openPublicProfile;
+  window.openChat = openChat;
+  window.blogMessages = { activate: activateMessages, close: closeChat, get peer() { return targetUser; } };
   document.addEventListener("DOMContentLoaded", init, { once: true });
 })();
