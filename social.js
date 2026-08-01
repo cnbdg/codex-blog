@@ -8,7 +8,6 @@
   let badgeRequest = 0;
   let notificationRequest = 0;
   let friendsRequest = 0;
-  let friendRows = [];
 
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -180,65 +179,33 @@
     list.removeAttribute("aria-busy");
   }
 
-  function friendSearchTerm() {
-    return ($("#messageFriendSearch")?.value || "").trim().toLocaleLowerCase();
-  }
-
-  function friendMatches(row, query) {
-    if (!query) return true;
-    return [row.username, row.display_title, row.user_uid, `uid ${row.user_uid || ""}`]
-      .some(value => String(value || "").toLocaleLowerCase().includes(query));
-  }
-
-  function friendMarkup(row) {
-    const name = row.username || "社区用户";
-    const active = window.blogMessages?.peer === row.id;
-    const avatarUrl = safeAvatarUrl(row.avatar_url);
-    const avatar = avatarUrl
-      ? `<button type="button" class="social-avatar has-image" data-user-profile="${esc(row.id)}" aria-label="查看 ${esc(name)} 的资料" style="background-image:url(&quot;${esc(avatarUrl)}&quot;)"></button>`
-      : `<button type="button" class="social-avatar" data-user-profile="${esc(row.id)}" aria-label="查看 ${esc(name)} 的资料">${esc(name[0].toUpperCase())}</button>`;
-    return `<article class="message-friend-item${active ? " active" : ""}">
-      ${avatar}
-      <button type="button" class="message-friend-main" data-chat-user="${esc(row.id)}" data-chat-name="${esc(name)}"${active ? " aria-current=\"true\"" : ""}>
-        <strong>${esc(name)}</strong><small>${esc(row.display_title || "社区成员")} · UID ${esc(row.user_uid)}</small>
-      </button>
-      <button type="button" class="message-friend-profile" data-user-profile="${esc(row.id)}" aria-label="查看 ${esc(name)} 的资料">⋯</button>
-    </article>`;
-  }
-
-  function renderFriendRows() {
-    const list = $("#messageFriendList");
-    if (!list) return;
-    if (!window.blogAuth?.user) {
-      list.innerHTML = `<p class="social-empty">登录后，互相关注的用户会出现在这里。</p>`;
-      return;
-    }
-    const query = friendSearchTerm();
-    const rows = query ? friendRows.filter(row => friendMatches(row, query)) : friendRows;
-    if (rows.length) {
-      list.innerHTML = rows.map(friendMarkup).join("");
-    } else if (query) {
-      list.innerHTML = `<p class="social-empty">没有找到与“${esc(query)}”匹配的好友。</p>`;
-    } else {
-      list.innerHTML = `<p class="social-empty">还没有可以私信的朋友。互相关注后会自动出现在这里。</p>`;
-    }
-  }
-
   async function renderFriends() {
     const list = $("#messageFriendList");
     if (!list) return;
     const request = ++friendsRequest;
     const currentUser = window.blogAuth?.user;
     if (!currentUser) {
-      friendRows = [];
-      renderFriendRows();
+      list.innerHTML = `<p class="social-empty">登录后，互相关注的用户会出现在这里。</p>`;
       return;
     }
     list.setAttribute("aria-busy", "true");
     const rows = await window.blogAuth.listFriends();
     if (request !== friendsRequest || window.blogAuth?.user?.id !== currentUser.id) return;
-    friendRows = Array.isArray(rows) ? rows : [];
-    renderFriendRows();
+    list.innerHTML = rows.length ? rows.map(row => {
+      const name = row.username || "社区用户";
+      const active = window.blogMessages?.peer === row.id;
+      const avatarUrl = safeAvatarUrl(row.avatar_url);
+      const avatar = avatarUrl
+        ? `<button type="button" class="social-avatar has-image" data-user-profile="${esc(row.id)}" aria-label="查看 ${esc(name)} 的资料" style="background-image:url(&quot;${esc(avatarUrl)}&quot;)"></button>`
+        : `<button type="button" class="social-avatar" data-user-profile="${esc(row.id)}" aria-label="查看 ${esc(name)} 的资料">${esc(name[0].toUpperCase())}</button>`;
+      return `<article class="message-friend-item${active ? " active" : ""}">
+        ${avatar}
+        <button type="button" class="message-friend-main" data-chat-user="${esc(row.id)}" data-chat-name="${esc(name)}"${active ? " aria-current=\"true\"" : ""}>
+          <strong>${esc(name)}</strong><small>${esc(row.display_title || "社区成员")} · UID ${esc(row.user_uid)}</small>
+        </button>
+        <button type="button" class="message-friend-profile" data-user-profile="${esc(row.id)}" aria-label="查看 ${esc(name)} 的资料">⋯</button>
+      </article>`;
+    }).join("") : `<p class="social-empty">还没有可以私信的朋友。互相关注后会自动出现在这里。</p>`;
     list.removeAttribute("aria-busy");
   }
 
@@ -285,7 +252,6 @@
     $("#friendsBtn")?.addEventListener("click", () => openMessages());
     $("#markNotificationsReadBtn")?.addEventListener("click", () => loadNotifications({ markRead: true }));
     $("#refreshMessageFriendsBtn")?.addEventListener("click", renderFriends);
-    $("#messageFriendSearch")?.addEventListener("input", renderFriendRows);
     document.addEventListener("click", event => {
       const quick = event.target.closest("[data-open-social]");
       if (!quick) return;
@@ -304,8 +270,6 @@
     window.addEventListener("blog-auth-change", () => {
       stopNotificationSync?.();
       stopNotificationSync = null;
-      friendRows = [];
-      renderFriendRows();
       const bubble = $("#incomingMessageBubble");
       window.clearTimeout(bubbleTimer);
       if (bubble) {
