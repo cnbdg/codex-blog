@@ -5,7 +5,7 @@
   <meta name="description" content="cnbdg的博客，记录生活的点点滴滴。"><meta name="author" content="cnbdg"><meta property="og:title" content="cnbdg的博客"><meta property="og:description" content="记录生活的点点滴滴"><meta property="og:type" content="website"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>cnbdg的博客</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260801-8">
+  <link rel="stylesheet" href="style.css?v=20260801-9">
 </head>
 <body>
   <header class="topbar">
@@ -121,6 +121,12 @@
           <div class="messages-inbox-head">
             <div><strong>消息</strong><small>互相关注的朋友</small></div>
             <button id="refreshMessageFriendsBtn" type="button" aria-label="刷新联系人">↻</button>
+          </div>
+          <div class="messages-inbox-tools">
+            <label class="messages-inbox-search" for="messageFriendSearch">
+              <span aria-hidden="true">⌕</span>
+              <input id="messageFriendSearch" type="search" autocomplete="off" placeholder="搜索好友、称号或 UID">
+            </label>
           </div>
           <div id="messageFriendList" class="message-friend-list" aria-live="polite"></div>
         </aside>
@@ -244,5 +250,5 @@
   <dialog id="banDialog" class="report-dialog"><div class="dialog-title"><div><small>MODERATION</small><h2>限制用户发言</h2></div><button type="button" data-close="banDialog" aria-label="关闭">×</button></div><form id="banForm"><input name="user_id" type="hidden"><label>限制时长<select name="duration"><option value="1h">1 小时</option><option value="1d" selected>1 天</option><option value="7d">7 天</option><option value="30d">30 天</option><option value="permanent">永久限制</option></select></label><label>处理原因<textarea name="reason" required minlength="2" maxlength="300" placeholder="请填写审核原因，便于后续审计……"></textarea></label><p id="banError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="banDialog">取消</button><button class="danger-button">确认限制</button></div></form></dialog>
   <dialog id="publicProfileDialog" class="public-profile-dialog"><button type="button" class="profile-dialog-close" data-close="publicProfileDialog" aria-label="关闭">×</button><div id="publicProfileContent" class="public-profile-content"><div class="profile-loading"><span></span><p>正在加载用户资料…</p></div></div></dialog>
   <dialog id="memberAdminDialog" class="member-admin-dialog"><div class="dialog-title"><div><small>OWNER CONTROL</small><h2>站长面板</h2></div><button type="button" data-close="memberAdminDialog">×</button></div><p class="admin-panel-note">仅管理员可用。每次打开都需要重新验证管理员密码。</p><form id="memberAdminForm"><label>管理员密码<input name="password" type="password" required autocomplete="current-password" placeholder="输入当前账号密码"></label><label>用户 UID<input name="uid" type="number" min="1" required placeholder="例如 12"></label><label>自定义头衔<input name="title" maxlength="30" placeholder="例如：摄影师、版主、开发者"></label><label class="admin-check"><input name="promote" type="checkbox"> 提拔为管理员</label><p id="memberAdminError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="memberAdminDialog">取消</button><button class="primary-btn">保存设置</button></div></form></dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260731-18"></script><script src="auth.js?v=20260801-4"></script><script src="script.js?v=20260731-18"></script><script src="wallpaper.js?v=20260731-18"></script><script src="forum.js?v=20260801-2"></script><script src="messaging.js?v=20260801-4"></script><script src="social.js?v=20260801-2"></script><script src="moderation.js?v=20260731-18"></script><script src="admin.js?v=20260731-18"></script>
-<script src="update-log.js?v=20260801-8"></script><script src="interaction.js?v=20260731-20"></script><script src="mobile-shell.js?v=20260801-3"></script><script src="desktop-shell.js?v=20260801-27"></script></body></html>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260731-18"></script><script src="auth.js?v=20260801-4"></script><script src="script.js?v=20260731-18"></script><script src="wallpaper.js?v=20260731-18"></script><script src="forum.js?v=20260801-2"></script><script src="messaging.js?v=20260801-4"></script><script src="social.js?v=20260801-3"></script><script src="moderation.js?v=20260731-18"></script><script src="admin.js?v=20260731-18"></script>
+<script src="update-log.js?v=20260801-9"></script><script src="interaction.js?v=20260731-20"></script><script src="mobile-shell.js?v=20260801-3"></script><script src="desktop-shell.js?v=20260801-28"></script></body></html>

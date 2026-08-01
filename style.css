@@ -383,11 +383,11 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
   .desktop-context-search > span:first-child { color:var(--muted); font-size:18px; }
   .desktop-context-card { overflow:hidden; margin-top:16px; border:0; border-radius:16px; background:var(--soft); }
   .desktop-context-card h2 { margin:0; padding:13px 15px 9px; color:var(--text); font-size:18px; letter-spacing:-.02em; }
-  .desktop-context-trends > button {
+  .desktop-context-trends > button, .desktop-context-trends #desktopContextActions > button {
     display:grid; grid-template-columns:minmax(0,1fr) auto; width:100%; gap:2px; padding:12px 15px; border:0; border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent);
     background:transparent; color:var(--text); text-align:left; cursor:pointer;
   }
-  .desktop-context-trends > button:hover { background:color-mix(in srgb,var(--surface) 44%,transparent); }
+  .desktop-context-trends > button:hover, .desktop-context-trends #desktopContextActions > button:hover { background:color-mix(in srgb,var(--surface) 44%,transparent); }
   .desktop-context-trends small { color:var(--muted); font-size:11px; }
   .desktop-context-trends strong { grid-column:1; overflow:hidden; font-size:13px; text-overflow:ellipsis; white-space:nowrap; }
   .desktop-context-trends span { grid-column:2; grid-row:1 / span 2; align-self:center; color:var(--muted); font-size:20px; }
@@ -618,7 +618,16 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
 
 .messages-shell{display:grid;grid-template-columns:minmax(250px,310px) minmax(0,1fr);min-height:min(690px,calc(100dvh - 210px));overflow:hidden;border:1px solid var(--line);border-radius:20px;background:color-mix(in srgb,var(--surface) 97%,transparent);box-shadow:0 14px 36px #0f14190a}.messages-inbox{min-width:0;border-right:1px solid var(--line);background:color-mix(in srgb,var(--surface) 88%,var(--soft))}.messages-inbox-head{display:flex;align-items:center;justify-content:space-between;min-height:72px;padding:14px 16px;border-bottom:1px solid var(--line)}.messages-inbox-head>div{display:grid;gap:3px}.messages-inbox-head strong{font-size:15px}.messages-inbox-head small{color:var(--muted);font-size:10px}.messages-inbox-head button{display:grid;place-items:center;width:31px;height:31px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:18px;cursor:pointer}.messages-inbox-head button:hover{background:var(--soft);color:var(--text)}.message-friend-list{display:grid;align-content:start}.message-friend-item{display:grid;grid-template-columns:42px minmax(0,1fr) 30px;gap:10px;align-items:center;min-height:67px;padding:11px 13px;border-bottom:1px solid var(--line);background:transparent}.message-friend-item:hover{background:color-mix(in srgb,var(--soft) 62%,var(--surface))}.message-friend-item .social-avatar{width:40px;height:40px;margin:0;border:0;border-radius:50%;background:linear-gradient(135deg,#7285ff,#b56fdd);background-size:cover;background-position:center;color:#fff;font-size:12px;font-weight:750;cursor:pointer}.message-friend-main{display:grid;min-width:0;gap:4px;padding:0;border:0;background:transparent;color:var(--text);text-align:left;cursor:pointer}.message-friend-main strong,.message-friend-main small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.message-friend-main strong{font-size:12px}.message-friend-main small{color:var(--muted);font-size:10px}.message-friend-profile{display:grid;place-items:center;width:30px;height:30px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:17px;cursor:pointer}.message-friend-profile:hover{background:var(--soft);color:var(--text)}.message-conversation{display:flex;min-width:0;min-height:0;background:color-mix(in srgb,var(--surface) 98%,transparent)}.message-empty{display:grid;place-content:center;justify-items:center;min-height:100%;width:100%;padding:34px;text-align:center}.message-empty>span{display:grid;place-items:center;width:56px;height:56px;border-radius:18px;background:linear-gradient(135deg,#e8f4ff,#f5edff);color:var(--blue);font-size:24px}.dark .message-empty>span{background:linear-gradient(135deg,#172c3e,#2a1b3a)}.message-empty h2{margin:18px 0 8px;font-size:17px}.message-empty p{max-width:290px;margin:0;color:var(--muted);font-size:12px;line-height:1.7}.message-thread{display:flex;flex:1;min-width:0;min-height:0;flex-direction:column}.message-thread-header{display:grid;grid-template-columns:34px 42px minmax(0,1fr);gap:10px;align-items:center;min-height:72px;padding:12px 16px;border-bottom:1px solid var(--line)}.message-back{display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text);font-size:21px;cursor:pointer}.message-back:hover{background:var(--soft)}.message-thread-header .dm-peer-avatar{width:40px;height:40px;margin:0;border-radius:50%;background:linear-gradient(135deg,#7285ff,#b56fdd);color:#fff}.message-thread-header .dm-peer-info{min-width:0}.message-thread-header .dm-peer-info strong{display:block;overflow:hidden;font-size:13px;text-overflow:ellipsis;white-space:nowrap}.message-thread-header .dm-peer-info span{display:flex;align-items:center;gap:5px;overflow:hidden;margin-top:3px;color:var(--muted);font-size:10px;text-overflow:ellipsis;white-space:nowrap}.message-thread-header .dm-peer-info i{display:inline-block;flex:none;width:7px;height:7px;border-radius:50%;background:#31c777;box-shadow:0 0 0 3px #31c77718}.message-privacy-label{padding:10px 16px;border-bottom:1px solid var(--line);color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.message-privacy-label span{margin-left:7px;font-weight:400;letter-spacing:0;text-transform:none}.message-list{display:flex;flex:1;flex-direction:column;min-height:0;padding:18px;overflow:auto;background:linear-gradient(180deg,color-mix(in srgb,var(--soft) 30%,transparent),transparent 32%)}.message-list .forum-empty{margin:auto;text-align:center}.message-composer{flex:none;margin:0;padding:11px 14px 14px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--surface) 96%,transparent)}.message-composer textarea{min-height:48px;height:48px;max-height:120px;margin:0;padding:12px 14px;border-radius:16px;background:var(--bg);font-size:13px;line-height:1.45;resize:none}.message-composer:focus-within{box-shadow:0 -8px 22px #1d9bf00c}.message-composer .dm-composer-foot{margin-top:7px}.message-composer .dm-composer-foot button{width:34px;height:34px;border-radius:50%}.dm-peer-info #messageStatus[data-state="fallback"] i{background:#e6a23c;box-shadow:0 0 0 3px #e6a23c22}.dm-peer-info #messageStatus[data-state="connecting"] i{background:var(--blue);box-shadow:0 0 0 3px #1d9bf022;animation:softPulse 1.3s ease-in-out infinite}
 
+/* A real inbox search keeps the message workspace useful even on narrower screens. */
+.messages-inbox-tools{padding:10px 13px;border-bottom:1px solid var(--line)}
+.messages-inbox-search{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 11px;border:1px solid transparent;border-radius:999px;background:var(--soft);color:var(--muted);transition:border-color .18s ease,background-color .18s ease,box-shadow .18s ease}
+.messages-inbox-search:focus-within{border-color:color-mix(in srgb,var(--blue) 62%,transparent);background:var(--surface);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 14%,transparent)}
+.messages-inbox-search span{flex:none;font-size:17px;line-height:1}
+.messages-inbox-search input{width:100%;min-width:0;height:32px;padding:0;border:0!important;outline:0;background:transparent!important;color:var(--text);font:inherit;font-size:12px}
+.messages-inbox-search input::placeholder{color:var(--muted);opacity:.88}
+
 @media(max-width:1023px){.standalone-page{padding:0 0 calc(var(--mobile-dock) + 18px);background:var(--surface)}.standalone-page-header{align-items:flex-start;margin:0;padding:18px 16px;border:0;border-bottom:1px solid var(--line)}.standalone-page-header h1{font-size:22px}.standalone-page-header p{margin-top:5px;font-size:11px}.standalone-page-header .secondary-btn{min-height:36px;padding:0 12px;font-size:11px}.standalone-section-head{min-height:50px;padding:0 16px;border-bottom:1px solid var(--line)}.standalone-section-head strong{font-size:13px}.standalone-section-head span{display:none}.standalone-list{border:0;border-radius:0;box-shadow:none}.standalone-list .notification-item{grid-template-columns:42px minmax(0,1fr);min-height:72px;padding:13px 16px}.standalone-list .notification-item.unread:before{left:10px;position:absolute}.standalone-list .notification-item{position:relative}.notification-open{grid-column:2;justify-self:start;min-height:28px;margin-top:-4px;padding:0 8px;font-size:10px}.messages-page-header{padding-bottom:17px}.messages-shell{display:block;min-height:0;border:0;border-radius:0;box-shadow:none}.messages-inbox{border:0;background:var(--surface)}.messages-inbox-head{min-height:57px;padding:10px 16px}.message-friend-item{min-height:68px;padding:12px 16px}.message-conversation{display:none}.messages-page.chat-open{padding:0;background:var(--surface)}.messages-page.chat-open .messages-page-header,.messages-page.chat-open .messages-inbox{display:none}.messages-page.chat-open .message-conversation{display:flex;height:calc(100dvh - var(--mobile-bar) - var(--mobile-dock) - env(safe-area-inset-bottom));min-height:0}.messages-page.chat-open .messages-shell{height:calc(100dvh - var(--mobile-bar) - var(--mobile-dock) - env(safe-area-inset-bottom))}.messages-page.chat-open .message-thread{height:100%;min-height:0}.message-thread-header{min-height:61px;padding:9px 13px;grid-template-columns:32px 38px minmax(0,1fr)}.message-thread-header .dm-peer-avatar{width:37px;height:37px}.message-privacy-label{padding:8px 13px}.message-list{padding:14px 12px}.message-composer{padding:9px 12px calc(10px + env(safe-area-inset-bottom))}.message-composer textarea{height:45px;min-height:45px;font-size:16px}.message-thread-header .dm-peer-info strong{font-size:13px}.message-thread-header .dm-peer-info span{font-size:9px}.message-thread-open #mobileComposeFab{display:none}.message-thread-open .incoming-message-bubble{bottom:calc(var(--mobile-dock) + 14px + env(safe-area-inset-bottom))}.message-empty{min-height:260px}.message-empty h2{font-size:16px}}
+@media(max-width:1023px){.messages-inbox-tools{padding:8px 16px}.messages-inbox-search{min-height:38px}.messages-inbox-search input{font-size:16px}}
 @media(max-width:380px){.standalone-page-header{padding-inline:13px}.standalone-list .notification-item{padding-inline:13px}.message-friend-item{padding-inline:13px}.message-thread-header{padding-inline:10px}.message-list{padding-inline:10px}}
 @media(max-width:1023px){.actions #searchBtn,.actions #notificationBtn,.actions #authBtn,.actions #menuBtn{display:grid;place-items:center}}
 
@@ -835,20 +844,11 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
   .message-empty h2 { margin-bottom:0; }
 }
 
-/* Dedicated desktop pages should not inherit the generic shortcut/tips side rail. */
+/* Desktop social pages share the full workspace with the search/context rail. */
 @media (min-width:1024px) {
-  body.desktop-utility-page .desktop-context { display:none!important; }
-  body.desktop-utility-page .standalone-page {
-    padding-inline:max(var(--x-page-pad),calc((100vw - var(--x-rail) - 720px) / 2));
-  }
-}
-
-/* One desktop workspace frame for activity, private messages and account pages. */
-@media (min-width:1024px) {
-  :root { --desktop-utility-width:760px; }
   body.desktop-utility-page .standalone-page {
     --desktop-utility-surface:var(--surface);
-    padding-inline:max(var(--x-page-pad),calc((100vw - var(--x-rail) - var(--desktop-utility-width)) / 2));
+    padding-inline:var(--x-page-pad);
     padding-bottom:0;
   }
   body.desktop-utility-page .notifications-page > .standalone-page-header,
@@ -858,8 +858,8 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
   body.desktop-utility-page .messages-page > .messages-shell,
   body.desktop-utility-page .profile-page > .profile-page-guest,
   body.desktop-utility-page .profile-page > .profile-page-user {
-    width:min(100%,var(--desktop-utility-width));
-    max-width:var(--desktop-utility-width);
+    width:100%;
+    max-width:none;
     margin-inline:0;
     border-right:1px solid var(--line);
     border-left:1px solid var(--line);
@@ -884,10 +884,22 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
     border-radius:0;
   }
   body.desktop-utility-page .messages-page > .messages-shell {
+    height:calc(100dvh - 64px);
     min-height:calc(100dvh - 64px);
     border-top:0;
     border-bottom:1px solid var(--line);
     border-radius:0;
+  }
+  body.desktop-utility-page .messages-inbox {
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+  body.desktop-utility-page .message-friend-list {
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    scrollbar-width:thin;
   }
   body.desktop-utility-page .messages-inbox,
   body.desktop-utility-page .message-conversation,
@@ -913,6 +925,13 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
     font-size:20px;
     letter-spacing:-.02em;
   }
+}
+
+@media (min-width:1280px) {
+  body.desktop-utility-page .standalone-page {
+    padding-right:calc(var(--x-right) + var(--x-page-pad) + var(--x-context-gap));
+  }
+  body.desktop-utility-page .desktop-context { display:block!important; }
 }
 
 @media (min-width:1024px) {
