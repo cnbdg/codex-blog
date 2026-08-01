@@ -46,6 +46,21 @@
           assert(baseChecks.modulesLoaded, "页面核心模块没有完整加载");
           assert(baseChecks.captchaConfigured, "登录人机验证配置缺失");
           assert(baseChecks.markdownSanitized, "Markdown 内容清理未通过安全测试");
+          let desktopContextCheck = null;
+          if (mode === "desktop") {
+            w.blogUI?.navigate?.("forum");
+            await wait(50);
+            const context = d.querySelector("#desktopContext");
+            const contextRect = context?.getBoundingClientRect();
+            desktopContextCheck = {
+              exists: Boolean(context),
+              display: context ? getComputedStyle(context).display : "missing",
+              width: Math.round(contextRect?.width || 0),
+              right: Math.round(contextRect?.right || 0),
+              bodyPage: d.body.dataset.desktopPage || ""
+            };
+            assert(desktopContextCheck.display !== "none" && desktopContextCheck.width >= 280, "桌面社区页右侧信息栏未显示");
+          }
           const viewer = { id: "00000000-0000-0000-0000-000000000001" };
           const friend = { id: "00000000-0000-0000-0000-000000000002", user_uid: 2, username: "测试好友", avatar_url: "", display_title: "好友" };
           const friend2 = { id: "00000000-0000-0000-0000-000000000003", user_uid: 3, username: "第二位好友", avatar_url: "", display_title: "成员" };
@@ -138,7 +153,7 @@
             w.__selfCheckNotification?.({ kind: "group_message", actor_id: friend.id, actor_username: friend.username, payload: { group_id: group.group_id, group_name: group.group_name, preview: "其他会话消息" } });
             await wait(30);
             assert(d.querySelector("#incomingMessageBubble")?.hidden === false, "非当前会话没有显示新消息气泡");
-            finish("pass", { mode, baseChecks, listResult, threadResult, shellWidth, groupInfo, bubbleRules: true });
+            finish("pass", { mode, baseChecks, desktopContextCheck, listResult, threadResult, shellWidth, groupInfo, bubbleRules: true });
             return;
           }
 
@@ -170,6 +185,21 @@
           assert(createDialog.open && createDialog.friends === 2, "手机创建群聊或好友选择器异常");
           assert(createDialog.noHorizontalOverflow, "手机创建群聊弹窗横向溢出");
           d.querySelector("#createGroupChatDialog").close();
+          w.blogUI?.navigate?.("home", { history: false });
+          await wait(50);
+          const topbarRect = d.querySelector(".topbar")?.getBoundingClientRect();
+          const heroRect = d.querySelector("#home .social-hero")?.getBoundingClientRect();
+          const visibleHeaderActions = [...d.querySelectorAll(".topbar .actions button")]
+            .filter(button => getComputedStyle(button).display !== "none");
+          const mobileVisual = {
+            visibleHeaderActions: visibleHeaderActions.length,
+            headerFits: visibleHeaderActions.every(button => button.getBoundingClientRect().right <= w.innerWidth),
+            heroTop: Math.round(heroRect?.top || 0),
+            headerBottom: Math.round(topbarRect?.bottom || 0),
+            heroRadius: parseFloat(getComputedStyle(d.querySelector("#home .social-hero")).borderTopLeftRadius) || 0
+          };
+          assert(mobileVisual.visibleHeaderActions === 3 && mobileVisual.headerFits, "手机顶部操作区拥挤或溢出");
+          assert(mobileVisual.heroTop >= mobileVisual.headerBottom && mobileVisual.heroRadius >= 18, "手机首屏标题被遮挡或卡片圆角丢失");
           d.querySelector("#menuBtn").click();
           await wait(50);
           const drawer = d.querySelector(".topbar nav");
@@ -190,7 +220,7 @@
           };
           assert(wallpaperPanel.open && wallpaperPanel.drawerClosed, "从手机侧栏打开壁纸面板失败");
           assert(wallpaperPanel.opacityControl, "壁纸面板缺少透明度控制");
-          finish("pass", { mode, baseChecks, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileDrawer, wallpaperPanel });
+          finish("pass", { mode, baseChecks, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileVisual, mobileDrawer, wallpaperPanel });
         } catch (error) {
           finish("fail", { mode, error: error.stack || error.message || String(error) });
         }
