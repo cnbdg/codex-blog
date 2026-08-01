@@ -1,4 +1,14 @@
 window.LOCAL_UPDATE_POSTS = [{
+  title: "修复认证请求缺少 CAPTCHA 令牌",
+  description: "Turnstile 从仅保护注册升级为覆盖登录、注册、重置密码和重发验证邮件的完整认证流程。",
+  type: "更新日志",
+  tags: ["登录", "Turnstile", "修复"],
+  read_time: "1 分钟",
+  lead: "Supabase CAPTCHA 是认证级保护，所有受保护请求现在都会携带本次浏览器挑战生成的令牌。",
+  body: "## 本次修复\n\n- 登录和注册页共用 Turnstile 验证组件，两个入口都必须先取得有效令牌。\n- `signInWithPassword` 与 `signUp` 现在都会通过官方 `captchaToken` 参数提交令牌。\n- 忘记密码和重发验证邮件同步提交令牌，修复 `captcha protection: request disallowed (no captcha_token found)`。\n- 站长面板的密码复核使用独立验证组件，管理员操作不再被全局 CAPTCHA 意外拦截。\n- 每次认证请求结束都会重置挑战，遵守 Turnstile 令牌只能使用一次的规则。\n- 继续保留四分钟主动过期、服务端失败提示和域名授权错误识别。",
+  status: "published",
+  published_at: "2026-08-01"
+}, {
   title: "修复注册人机验证状态误判",
   description: "区分浏览器挑战通过与 Supabase 服务端校验结果，修复令牌过期、刷新和错误提示混淆。",
   type: "更新日志",

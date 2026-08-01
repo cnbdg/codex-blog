@@ -62,6 +62,7 @@
     adminError();
     if (uid) form.elements.uid.value = uid;
     $("#memberAdminDialog").showModal();
+    window.blogAuth.prepareAdminCaptcha?.();
     loadOwnerHealth();
     if (uid) lookupMember();
     else setTimeout(() => form.elements.uid.focus(), 40);
@@ -80,6 +81,7 @@
       const roleAction = form.elements.role_action.value;
       if (!selectedMember || Number(selectedMember.user_uid) !== uid) { await lookupMember(); if (!selectedMember) return; }
       if (roleAction === "demote" && !confirm(`确认将 ${selectedMember.username} 降为普通用户吗？该用户将立即失去全部管理权限。`)) return;
+      if (!window.blogAuth.adminCaptchaReady) return adminError("请先完成管理员人机验证");
       const button = form.querySelector("button[type=submit]");
       button.disabled = true;
       button.textContent = "正在验证并保存…";
@@ -100,6 +102,7 @@
     $("#governanceCleanupBtn")?.addEventListener("click", async () => {
       const form = $("#memberAdminForm");
       if (!form.elements.password.value) return adminError("执行维护前请输入管理员密码");
+      if (!window.blogAuth.adminCaptchaReady) return adminError("请先完成管理员人机验证");
       if (!confirm("确认关闭所有已经到期的用户限制吗？该操作不会删除历史记录。")) return;
       const button = $("#governanceCleanupBtn");
       button.disabled = true;

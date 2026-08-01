@@ -5,9 +5,9 @@ window.BLOG_CONFIG = {
   supabaseUrl: "https://kwewqbkyrsvvwywhzguy.supabase.co",
   supabasePublishableKey: "sb_publishable_SIa_X98kBnD-dMos6JMTpA_H7LDdjg1",
   // Cloudflare Turnstile 的公开 Site Key。不要把 Secret Key 写进前端或提交到仓库。
-  // 留空时会暂停新用户注册，避免出现“界面有验证、后端却未保护”的假安全状态。
+  // 留空时会暂停登录、注册和密码找回，避免出现“界面有验证、后端却未保护”的假安全状态。
   turnstileSiteKey: "0x4AAAAAAEDjOIKU5uNL9-Ml",
-  captchaRequiredForSignup: true,
+  captchaRequiredForAuth: true,
   // 把壁纸直链填在这里；留空时使用原来的纯色背景。
   backgroundImageUrl: "",
   wallpaperSettings: {

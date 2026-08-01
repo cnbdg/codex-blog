@@ -25,13 +25,17 @@
   let notificationChannel = null;
   let pendingEmail = localStorage.getItem("yu-pending-email") || "";
   const captchaSiteKey = String(config.turnstileSiteKey || "").trim();
-  const captchaRequiredForSignup = config.captchaRequiredForSignup !== false;
+  const captchaRequiredForAuth = config.captchaRequiredForAuth ?? (config.captchaRequiredForSignup !== false);
   let captchaToken = "";
   let captchaWidgetId = null;
   let captchaApiPromise = null;
   let captchaRenderRequest = 0;
   let captchaSolvedAt = 0;
   const captchaMaxAge = 4 * 60 * 1000;
+  let adminCaptchaToken = "";
+  let adminCaptchaSolvedAt = 0;
+  let adminCaptchaWidgetId = null;
+  let adminCaptchaRenderRequest = 0;
 
   const messages = [
     [/invalid login credentials/i, "邮箱或密码不正确"],
@@ -42,7 +46,7 @@
     [/unable to validate email/i, "邮箱格式不正确"],
     [/failed to fetch|network/i, "网络连接失败，请检查网络后重试"],
     [/signup is disabled/i, "网站暂时关闭了新用户注册"],
-    [/captcha verification process failed|captcha.*(?:failed|invalid)|invalid captcha/i, "人机验证未通过，请重新完成验证后再试"],
+    [/captcha protection: request disallowed|no captcha_token found|captcha verification process failed|captcha.*(?:failed|invalid)|invalid captcha/i, "人机验证未通过或未随请求提交，请重新完成验证后再试"],
     [/same password/i, "新密码不能与当前密码相同"],
     [/session.*missing|refresh token/i, "登录状态已过期，请重新登录"]
     ,[/ACCOUNT_RESTRICTED/i, "当前账号暂时不能发言"]
@@ -88,7 +92,25 @@
 
   function isCaptchaVerificationError(error) {
     const raw = error?.message || String(error || "");
-    return /captcha verification process failed|captcha.*(?:failed|invalid)|invalid captcha/i.test(raw);
+    return /captcha protection: request disallowed|no captcha_token found|captcha verification process failed|captcha.*(?:failed|invalid)|invalid captcha/i.test(raw);
+  }
+
+  function freshAuthCaptchaToken(action = "继续") {
+    if (!captchaRequiredForAuth) return undefined;
+    if (!captchaSiteKey) {
+      setMessage($("#authError"), "人机验证尚未配置，请联系站长完成 Turnstile 设置");
+      return null;
+    }
+    if (!captchaToken) {
+      setMessage($("#authError"), `请先完成人机验证，再${action}`);
+      return null;
+    }
+    if (!captchaSolvedAt || Date.now() - captchaSolvedAt > captchaMaxAge) {
+      resetAuthCaptcha("验证令牌已经过期，请重新完成验证。", "error");
+      setMessage($("#authError"), `人机验证已超过有效时间，请重新验证后再${action}`);
+      return null;
+    }
+    return captchaToken;
   }
 
   function isMissingRpc(error) {
@@ -137,7 +159,7 @@
   }
 
   function setCaptchaStatus(message, state = "waiting") {
-    const field = $("#signupCaptchaField");
+    const field = $("#authCaptchaField");
     const status = $("#captchaStatus");
     const badge = $("#captchaStateBadge");
     if (!field || !status || !badge) return;
@@ -150,7 +172,7 @@
   function syncCaptchaSubmitState() {
     const button = $("#authSubmit");
     if (!button || button.getAttribute("aria-busy") === "true") return;
-    const blocked = mode === "signup" && captchaRequiredForSignup && (!captchaSiteKey || !captchaToken);
+    const blocked = captchaRequiredForAuth && (!captchaSiteKey || !captchaToken);
     button.disabled = blocked;
     button.setAttribute("aria-disabled", String(blocked));
   }
@@ -203,7 +225,7 @@
     syncCaptchaSubmitState();
   }
 
-  function resetSignupCaptcha(message = "请完成人机验证", state = "waiting") {
+  function resetAuthCaptcha(message = "请完成人机验证", state = "waiting") {
     captchaToken = "";
     captchaSolvedAt = 0;
     if (captchaWidgetId !== null && window.turnstile?.reset) {
@@ -213,9 +235,9 @@
     syncCaptchaSubmitState();
   }
 
-  async function prepareSignupCaptcha({ force = false } = {}) {
-    if (mode !== "signup" || !captchaRequiredForSignup) return;
-    const field = $("#signupCaptchaField");
+  async function prepareAuthCaptcha({ force = false } = {}) {
+    if (!captchaRequiredForAuth) return;
+    const field = $("#authCaptchaField");
     const retry = $("#captchaRetryBtn");
     field.hidden = false;
     retry.hidden = true;
@@ -223,32 +245,31 @@
     captchaSolvedAt = 0;
     syncCaptchaSubmitState();
     if (!captchaSiteKey) {
-      setCaptchaStatus("站长尚未填写 Turnstile Site Key，新用户注册已安全暂停。", "missing");
+      setCaptchaStatus("站长尚未填写 Turnstile Site Key，登录与注册已安全暂停。", "missing");
       return;
     }
     if (force) clearCaptchaWidget();
     if (captchaWidgetId !== null && window.turnstile?.reset) {
-      resetSignupCaptcha();
+      resetAuthCaptcha();
       return;
     }
     const request = ++captchaRenderRequest;
     setCaptchaStatus("正在载入安全验证…", "loading");
     try {
       const turnstile = await ensureTurnstileApi();
-      if (request !== captchaRenderRequest || mode !== "signup") return;
+      if (request !== captchaRenderRequest) return;
       const container = $("#turnstileWidget");
       container.replaceChildren();
       setCaptchaStatus("请完成下方人机验证。", "waiting");
       captchaWidgetId = turnstile.render(container, {
         sitekey: captchaSiteKey,
-        action: "signup",
+        action: "auth",
         theme: "auto",
         size: "flexible",
         appearance: "always",
         retry: "auto",
         "retry-interval": 8000,
         callback: token => {
-          if (mode !== "signup") return;
           captchaToken = String(token || "");
           captchaSolvedAt = captchaToken ? Date.now() : 0;
           if (!captchaToken) {
@@ -256,12 +277,12 @@
             syncCaptchaSubmitState();
             return;
           }
-          setCaptchaStatus("验证完成，可以创建账户。", "success");
+          setCaptchaStatus("验证完成，可以继续操作。", "success");
           retry.hidden = true;
           syncCaptchaSubmitState();
         },
-        "expired-callback": () => resetSignupCaptcha("验证已过期，请重新完成验证。"),
-        "timeout-callback": () => resetSignupCaptcha("验证等待超时，请重新完成验证。"),
+        "expired-callback": () => resetAuthCaptcha("验证已过期，请重新完成验证。"),
+        "timeout-callback": () => resetAuthCaptcha("验证等待超时，请重新完成验证。"),
         "error-callback": code => {
           captchaToken = "";
           captchaSolvedAt = 0;
@@ -275,11 +296,103 @@
       });
     } catch (error) {
       console.warn("Turnstile unavailable", error);
-      if (request !== captchaRenderRequest || mode !== "signup") return;
+      if (request !== captchaRenderRequest) return;
       setCaptchaStatus("无法连接安全验证服务，请检查网络后重新加载。", "error");
       retry.hidden = false;
       syncCaptchaSubmitState();
     }
+  }
+
+  function setAdminCaptchaStatus(message, state = "waiting") {
+    const field = $("#adminCaptchaField");
+    const status = $("#adminCaptchaStatus");
+    const badge = $("#adminCaptchaStateBadge");
+    if (!field || !status || !badge) return;
+    field.dataset.state = state;
+    status.textContent = message;
+    const labels = { waiting: "等待验证", loading: "正在加载", success: "验证通过", error: "需要处理", missing: "尚未配置" };
+    badge.textContent = labels[state] || labels.waiting;
+  }
+
+  function resetAdminCaptcha(message = "请完成人机验证", state = "waiting") {
+    adminCaptchaToken = "";
+    adminCaptchaSolvedAt = 0;
+    if (adminCaptchaWidgetId !== null && window.turnstile?.reset) {
+      try { window.turnstile.reset(adminCaptchaWidgetId); } catch {}
+    }
+    setAdminCaptchaStatus(message, state);
+  }
+
+  async function prepareAdminCaptcha({ force = false } = {}) {
+    const field = $("#adminCaptchaField");
+    const retry = $("#adminCaptchaRetryBtn");
+    if (!field || !retry) return;
+    field.hidden = !captchaRequiredForAuth;
+    if (!captchaRequiredForAuth) return;
+    retry.hidden = true;
+    adminCaptchaToken = "";
+    adminCaptchaSolvedAt = 0;
+    if (!captchaSiteKey) {
+      setAdminCaptchaStatus("站长尚未填写 Turnstile Site Key。", "missing");
+      return;
+    }
+    if (force && adminCaptchaWidgetId !== null && window.turnstile?.remove) {
+      try { window.turnstile.remove(adminCaptchaWidgetId); } catch {}
+      adminCaptchaWidgetId = null;
+      $("#adminTurnstileWidget")?.replaceChildren();
+    }
+    if (adminCaptchaWidgetId !== null && window.turnstile?.reset) {
+      resetAdminCaptcha();
+      return;
+    }
+    const request = ++adminCaptchaRenderRequest;
+    setAdminCaptchaStatus("正在载入安全验证…", "loading");
+    try {
+      const turnstile = await ensureTurnstileApi();
+      if (request !== adminCaptchaRenderRequest) return;
+      const container = $("#adminTurnstileWidget");
+      container.replaceChildren();
+      setAdminCaptchaStatus("请完成下方人机验证。", "waiting");
+      adminCaptchaWidgetId = turnstile.render(container, {
+        sitekey: captchaSiteKey,
+        action: "admin_reauth",
+        theme: "auto",
+        size: "flexible",
+        appearance: "always",
+        retry: "auto",
+        "retry-interval": 8000,
+        callback: token => {
+          adminCaptchaToken = String(token || "");
+          adminCaptchaSolvedAt = adminCaptchaToken ? Date.now() : 0;
+          setAdminCaptchaStatus(adminCaptchaToken ? "验证完成，可以执行管理员操作。" : "没有取得有效验证令牌，请重试。", adminCaptchaToken ? "success" : "error");
+          retry.hidden = Boolean(adminCaptchaToken);
+        },
+        "expired-callback": () => resetAdminCaptcha("验证已过期，请重新完成验证。"),
+        "timeout-callback": () => resetAdminCaptcha("验证等待超时，请重新完成验证。"),
+        "error-callback": code => {
+          adminCaptchaToken = "";
+          adminCaptchaSolvedAt = 0;
+          setAdminCaptchaStatus(String(code || "").startsWith("1102") ? "当前域名尚未获得 Turnstile 授权。" : "安全验证加载失败，请重新加载。", "error");
+          retry.hidden = false;
+          console.warn("Admin Turnstile client error", code || "unknown");
+          return true;
+        }
+      });
+    } catch (error) {
+      console.warn("Admin Turnstile unavailable", error);
+      if (request !== adminCaptchaRenderRequest) return;
+      setAdminCaptchaStatus("无法连接安全验证服务，请重新加载。", "error");
+      retry.hidden = false;
+    }
+  }
+
+  function freshAdminCaptchaToken() {
+    if (!captchaRequiredForAuth) return undefined;
+    if (!adminCaptchaToken || !adminCaptchaSolvedAt || Date.now() - adminCaptchaSolvedAt > captchaMaxAge) {
+      resetAdminCaptcha("请先完成管理员人机验证。", "error");
+      return null;
+    }
+    return adminCaptchaToken;
   }
 
   function setMode(nextMode) {
@@ -294,7 +407,7 @@
     $("#confirmPasswordField").hidden = !signup;
     $("#confirmPasswordField input").required = signup;
     $("#passwordStrength").hidden = !signup;
-    $("#signupCaptchaField").hidden = !signup || !captchaRequiredForSignup;
+    $("#authCaptchaField").hidden = !captchaRequiredForAuth;
     $("#authTitle").textContent = signup ? "创建账户" : "登录";
     $("#authModeLead").textContent = signup ? "加入统一社区" : "欢迎回来";
     $("#authModeDescription").textContent = signup ? "设置昵称并完成安全验证，即可发帖、关注和私聊。" : "登录后继续参与社区讨论和好友私聊。";
@@ -302,7 +415,7 @@
     $("#authForm input[name=password]").autocomplete = signup ? "new-password" : "current-password";
     $("#resetPasswordBtn").hidden = signup;
     if (!signup) $("#resendEmailBtn").hidden = !pendingEmail;
-    if (signup && captchaRequiredForSignup) prepareSignupCaptcha();
+    if (captchaRequiredForAuth) prepareAuthCaptcha();
     else {
       captchaRenderRequest++;
       clearCaptchaWidget();
@@ -526,7 +639,8 @@
     $("#profilePagePasswordForm")?.addEventListener("submit", updateAccountPassword);
     $("#resetPasswordBtn").addEventListener("click", resetPassword);
     $("#resendEmailBtn").addEventListener("click", resendVerification);
-    $("#captchaRetryBtn").addEventListener("click", () => prepareSignupCaptcha({ force: true }));
+    $("#captchaRetryBtn").addEventListener("click", () => prepareAuthCaptcha({ force: true }));
+    $("#adminCaptchaRetryBtn")?.addEventListener("click", () => prepareAdminCaptcha({ force: true }));
     $("#logoutBtn").addEventListener("click", () => logout("local"));
     $("#logoutAllBtn").addEventListener("click", () => logout("global"));
     $("#profilePageLogoutBtn")?.addEventListener("click", event => logout("local", event.currentTarget));
@@ -568,20 +682,11 @@
     if (mode === "signup" && password !== confirmation) {
       return setMessage($("#authError"), "两次输入的密码不一致");
     }
-    if (mode === "signup" && captchaRequiredForSignup && !captchaSiteKey) {
-      return setMessage($("#authError"), "人机验证尚未配置，请联系站长完成 Turnstile 设置");
-    }
-    if (mode === "signup" && captchaRequiredForSignup && !captchaToken) {
-      return setMessage($("#authError"), "请先完成人机验证");
-    }
-    if (mode === "signup" && captchaRequiredForSignup && (!captchaSolvedAt || Date.now() - captchaSolvedAt > captchaMaxAge)) {
-      resetSignupCaptcha("验证令牌已经过期，请重新完成验证。", "error");
-      return setMessage($("#authError"), "人机验证已超过有效时间，请重新验证后注册");
-    }
+    const submittedCaptchaToken = freshAuthCaptchaToken(mode === "signup" ? "注册" : "登录");
+    if (submittedCaptchaToken === null) return;
 
     const button = $("#authSubmit");
     const submittedMode = mode;
-    const submittedCaptchaToken = captchaToken;
     let captchaResetMessage = "验证已刷新，请重新完成验证。";
     let captchaResetState = "waiting";
     setBusy(button, true, "请稍候…", mode === "signup" ? "注册" : "登录");
@@ -592,13 +697,16 @@
             options: {
               data: { username },
               emailRedirectTo: authRedirectUrl(),
-              captchaToken: captchaRequiredForSignup ? submittedCaptchaToken : undefined
+              captchaToken: submittedCaptchaToken
             }
           }))
-        : await withTimeout(client.auth.signInWithPassword({ email, password }));
+        : await withTimeout(client.auth.signInWithPassword({
+            email, password,
+            options: { captchaToken: submittedCaptchaToken }
+          }));
 
       if (result.error) {
-        if (submittedMode === "signup" && isCaptchaVerificationError(result.error)) {
+        if (isCaptchaVerificationError(result.error)) {
           captchaResetMessage = "服务端未接受此次验证，组件已刷新，请重新验证。";
           captchaResetState = "error";
           console.warn("Supabase CAPTCHA validation failed", result.error.message || result.error);
@@ -627,7 +735,7 @@
       setMessage($("#authError"), friendlyError(error));
     } finally {
       setBusy(button, false, "", mode === "signup" ? "注册" : "登录");
-      if (submittedMode === "signup" && captchaRequiredForSignup) resetSignupCaptcha(captchaResetMessage, captchaResetState);
+      if (captchaRequiredForAuth) resetAuthCaptcha(captchaResetMessage, captchaResetState);
       syncCaptchaSubmitState();
     }
   }
@@ -635,20 +743,30 @@
   async function resendVerification() {
     const email = $("#authForm input[name=email]").value.trim().toLowerCase() || pendingEmail;
     if (!email) return setMessage($("#authError"), "请先填写注册邮箱");
+    const submittedCaptchaToken = freshAuthCaptchaToken("重新发送验证邮件");
+    if (submittedCaptchaToken === null) return;
     const button = $("#resendEmailBtn");
+    let captchaResetMessage = "验证已刷新，请重新完成验证。";
+    let captchaResetState = "waiting";
     setBusy(button, true, "正在发送…", "重新发送验证邮件");
     try {
       const { error } = await withTimeout(client.auth.resend({
         type: "signup",
         email,
-        options: { emailRedirectTo: authRedirectUrl() }
+        options: { emailRedirectTo: authRedirectUrl(), captchaToken: submittedCaptchaToken }
       }));
+      if (isCaptchaVerificationError(error)) {
+        captchaResetMessage = "服务端未接受此次验证，组件已刷新，请重新验证。";
+        captchaResetState = "error";
+        return setMessage($("#authError"), "验证令牌未被服务器接受，请重新完成人机验证后再试");
+      }
       if (error) return setMessage($("#authError"), friendlyError(error));
       setMessage($("#authError"), "验证邮件已重新发送，请检查收件箱和垃圾邮件", "success");
     } catch (error) {
       setMessage($("#authError"), friendlyError(error));
     } finally {
       setBusy(button, false, "", "重新发送验证邮件");
+      if (captchaRequiredForAuth) resetAuthCaptcha(captchaResetMessage, captchaResetState);
     }
   }
 
@@ -660,12 +778,22 @@
       emailInput.reportValidity();
       return setMessage($("#authError"), "请先填写正确的邮箱地址");
     }
+    const submittedCaptchaToken = freshAuthCaptchaToken("发送重置邮件");
+    if (submittedCaptchaToken === null) return;
+    let captchaResetMessage = "验证已刷新，请重新完成验证。";
+    let captchaResetState = "waiting";
     $("#resetPasswordBtn").disabled = true;
     $("#resetPasswordBtn").textContent = "正在发送…";
     try {
       const { error } = await withTimeout(client.auth.resetPasswordForEmail(email, {
-        redirectTo: authRedirectUrl()
+        redirectTo: authRedirectUrl(),
+        captchaToken: submittedCaptchaToken
       }));
+      if (isCaptchaVerificationError(error)) {
+        captchaResetMessage = "服务端未接受此次验证，组件已刷新，请重新验证。";
+        captchaResetState = "error";
+        return setMessage($("#authError"), "验证令牌未被服务器接受，请重新完成人机验证后再试");
+      }
       if (error) return setMessage($("#authError"), friendlyError(error));
       setMessage($("#authError"), "重置邮件已发送，请检查收件箱和垃圾邮件", "success");
     } catch (error) {
@@ -673,6 +801,7 @@
     } finally {
       $("#resetPasswordBtn").disabled = false;
       $("#resetPasswordBtn").textContent = "忘记密码？";
+      if (captchaRequiredForAuth) resetAuthCaptcha(captchaResetMessage, captchaResetState);
     }
   }
 
@@ -1353,10 +1482,26 @@
 
   async function confirmAdminPassword(password) {
     if (!client || !user?.email || !password) return false;
-    const { error } = await client.auth.signInWithPassword({ email: user.email, password });
-    if (error) { notify("管理员密码验证失败"); return false; }
-    await refreshProfile();
-    return Boolean(profile?.is_admin);
+    const submittedCaptchaToken = freshAdminCaptchaToken();
+    if (submittedCaptchaToken === null) {
+      notify("请先完成站长面板中的人机验证");
+      return false;
+    }
+    try {
+      const { error } = await client.auth.signInWithPassword({
+        email: user.email,
+        password,
+        options: { captchaToken: submittedCaptchaToken }
+      });
+      if (error) {
+        notify(isCaptchaVerificationError(error) ? "管理员人机验证未被服务器接受，请重新验证" : "管理员密码验证失败");
+        return false;
+      }
+      await refreshProfile();
+      return Boolean(profile?.is_admin);
+    } finally {
+      if (captchaRequiredForAuth) resetAdminCaptcha("验证已刷新，下一次操作前请重新完成验证。");
+    }
   }
 
   async function listNotifications() {
@@ -1554,13 +1699,14 @@
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     listForumBookmarks, toggleForumBookmark, recordForumView, getForumThreadState, adminSetForumPostStatus,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,
-    searchUsers, getPublicProfile, adminUpdateMember, getAdminMemberByUid, adminManageMember, confirmAdminPassword, listNotifications, markNotificationsRead, markDirectMessagesRead, listFriends,
+    searchUsers, getPublicProfile, adminUpdateMember, getAdminMemberByUid, adminManageMember, prepareAdminCaptcha, confirmAdminPassword, listNotifications, markNotificationsRead, markDirectMessagesRead, listFriends,
     reportContent, getMyModeration, getMyGovernanceStatus, getGovernanceOverview, listModerationUsers, listModerationReports,
     listModerationActions, listModerationAppeals, setUserBan, setUserRestriction, clearUserBan, moderateReport,
     resolveModerationCase, submitModerationAppeal, reviewModerationAppeal, runGovernanceMaintenance,
     get user() { return user; },
     get profile() { return profile; },
     get isAdmin() { return Boolean(profile?.is_admin); },
+    get adminCaptchaReady() { return !captchaRequiredForAuth || Boolean(adminCaptchaToken && adminCaptchaSolvedAt && Date.now() - adminCaptchaSolvedAt <= captchaMaxAge); },
     get initialized() { return initialized; }
   };
   document.addEventListener("DOMContentLoaded", init, { once: true });
