@@ -1,4 +1,14 @@
 window.LOCAL_UPDATE_POSTS = [{
+  title: "账户安全升级：注册人机验证与界面优化",
+  description: "注册流程接入 Cloudflare Turnstile，并重新整理登录注册弹窗和社区筛选区的视觉与移动端布局。",
+  type: "更新日志",
+  tags: ["登录", "安全", "Turnstile", "UI"],
+  read_time: "3 分钟",
+  lead: "新用户注册现在必须先取得 Turnstile 验证令牌，再由 Supabase 在服务端完成校验；前端验证结果不能单独绕过注册保护。",
+  body: "## 注册安全\n\n- 注册页面接入 Cloudflare Turnstile，验证令牌会通过 `captchaToken` 随注册请求提交给 Supabase Auth。\n- 验证过期、超时、网络失败和注册请求结束后会自动清理或重置令牌，避免重复使用失效令牌。\n- 验证服务加载失败时提供明确状态和重新加载按钮；尚未配置 Site Key 时会暂停新账户注册，但不影响已有用户登录。\n- Site Key 只保存在前端配置中；Secret Key 必须只填写在 Supabase 后台，仓库不会保存密钥。\n\n## 界面与自检\n\n- 登录注册弹窗重做信息层级、输入状态、焦点反馈、密码区域、安全验证卡片和按钮状态。\n- 优化手机底部弹窗、安全区、16px 输入字号以及 Turnstile 自适应宽度，减少 iPhone 输入时自动缩放。\n- 提升社区排序、类型、搜索和收藏控件的字号、焦点状态及横向滚动体验。\n- 已检查脚本语法、重复 DOM ID、元素引用、CSS 括号、敏感密钥和注册状态切换。\n\n## 站长需要完成\n\n按照仓库 `CAPTCHA-SETUP.md` 创建 Turnstile Widget，把公开 Site Key 写入 `config.js`，再到 Supabase 开启 CAPTCHA 并填写 Secret Key。完成前注册会保持暂停。",
+  status: "published",
+  published_at: "2026-08-01"
+}, {
   title: "社区热修复：恢复帖子信息流加载",
   description: "修复启用收藏表后，Supabase 无法判断帖子作者关联并误报社区数据库未启用的问题。",
   type: "更新日志",

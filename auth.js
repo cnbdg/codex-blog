@@ -24,6 +24,12 @@
   let directMessageChannel = null;
   let notificationChannel = null;
   let pendingEmail = localStorage.getItem("yu-pending-email") || "";
+  const captchaSiteKey = String(config.turnstileSiteKey || "").trim();
+  const captchaRequiredForSignup = config.captchaRequiredForSignup !== false;
+  let captchaToken = "";
+  let captchaWidgetId = null;
+  let captchaApiPromise = null;
+  let captchaRenderRequest = 0;
 
   const messages = [
     [/invalid login credentials/i, "邮箱或密码不正确"],
@@ -34,6 +40,7 @@
     [/unable to validate email/i, "邮箱格式不正确"],
     [/failed to fetch|network/i, "网络连接失败，请检查网络后重试"],
     [/signup is disabled/i, "网站暂时关闭了新用户注册"],
+    [/captcha verification process failed|captcha.*(?:failed|invalid)|invalid captcha/i, "人机验证未通过，请重新完成验证后再试"],
     [/same password/i, "新密码不能与当前密码相同"],
     [/session.*missing|refresh token/i, "登录状态已过期，请重新登录"]
     ,[/ACCOUNT_RESTRICTED/i, "当前账号暂时不能发言"]
@@ -122,6 +129,139 @@
     button.textContent = busy ? busyText : normalText;
   }
 
+  function setCaptchaStatus(message, state = "waiting") {
+    const field = $("#signupCaptchaField");
+    const status = $("#captchaStatus");
+    const badge = $("#captchaStateBadge");
+    if (!field || !status || !badge) return;
+    field.dataset.state = state;
+    status.textContent = message;
+    const labels = { waiting: "等待验证", loading: "正在加载", success: "验证通过", error: "需要处理", missing: "尚未配置" };
+    badge.textContent = labels[state] || labels.waiting;
+  }
+
+  function syncCaptchaSubmitState() {
+    const button = $("#authSubmit");
+    if (!button || button.getAttribute("aria-busy") === "true") return;
+    const blocked = mode === "signup" && captchaRequiredForSignup && (!captchaSiteKey || !captchaToken);
+    button.disabled = blocked;
+    button.setAttribute("aria-disabled", String(blocked));
+  }
+
+  function ensureTurnstileApi() {
+    if (window.turnstile?.render) return Promise.resolve(window.turnstile);
+    if (captchaApiPromise) return captchaApiPromise;
+    captchaApiPromise = new Promise((resolve, reject) => {
+      document.querySelector('script[data-blog-turnstile]')?.remove();
+      const script = document.createElement("script");
+      let settled = false;
+      let timeout = 0;
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        callback(value);
+      };
+      timeout = setTimeout(() => {
+        script.remove();
+        finish(reject, new Error("Turnstile load timeout"));
+      }, 15000);
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+      script.dataset.blogTurnstile = "true";
+      script.onload = () => window.turnstile?.render
+        ? finish(resolve, window.turnstile)
+        : finish(reject, new Error("Turnstile API unavailable"));
+      script.onerror = () => {
+        script.remove();
+        finish(reject, new Error("Turnstile network error"));
+      };
+      document.head.append(script);
+    }).catch(error => {
+      captchaApiPromise = null;
+      throw error;
+    });
+    return captchaApiPromise;
+  }
+
+  function clearCaptchaWidget() {
+    captchaToken = "";
+    if (captchaWidgetId !== null && window.turnstile?.remove) {
+      try { window.turnstile.remove(captchaWidgetId); } catch {}
+    }
+    captchaWidgetId = null;
+    $("#turnstileWidget")?.replaceChildren();
+    syncCaptchaSubmitState();
+  }
+
+  function resetSignupCaptcha(message = "请完成人机验证") {
+    captchaToken = "";
+    if (captchaWidgetId !== null && window.turnstile?.reset) {
+      try { window.turnstile.reset(captchaWidgetId); } catch { clearCaptchaWidget(); }
+    }
+    setCaptchaStatus(message, "waiting");
+    syncCaptchaSubmitState();
+  }
+
+  async function prepareSignupCaptcha({ force = false } = {}) {
+    if (mode !== "signup" || !captchaRequiredForSignup) return;
+    const field = $("#signupCaptchaField");
+    const retry = $("#captchaRetryBtn");
+    field.hidden = false;
+    retry.hidden = true;
+    captchaToken = "";
+    syncCaptchaSubmitState();
+    if (!captchaSiteKey) {
+      setCaptchaStatus("站长尚未填写 Turnstile Site Key，新用户注册已安全暂停。", "missing");
+      return;
+    }
+    if (force) clearCaptchaWidget();
+    if (captchaWidgetId !== null && window.turnstile?.reset) {
+      resetSignupCaptcha();
+      return;
+    }
+    const request = ++captchaRenderRequest;
+    setCaptchaStatus("正在载入安全验证…", "loading");
+    try {
+      const turnstile = await ensureTurnstileApi();
+      if (request !== captchaRenderRequest || mode !== "signup") return;
+      const container = $("#turnstileWidget");
+      container.replaceChildren();
+      setCaptchaStatus("请完成下方人机验证。", "waiting");
+      captchaWidgetId = turnstile.render(container, {
+        sitekey: captchaSiteKey,
+        action: "signup",
+        theme: "auto",
+        size: "flexible",
+        appearance: "always",
+        retry: "auto",
+        "retry-interval": 8000,
+        callback: token => {
+          if (mode !== "signup") return;
+          captchaToken = String(token || "");
+          setCaptchaStatus("验证完成，可以创建账户。", "success");
+          syncCaptchaSubmitState();
+        },
+        "expired-callback": () => resetSignupCaptcha("验证已过期，请重新完成验证。"),
+        "timeout-callback": () => resetSignupCaptcha("验证等待超时，请重新完成验证。"),
+        "error-callback": () => {
+          captchaToken = "";
+          setCaptchaStatus("安全验证加载失败，请检查网络后重新加载。", "error");
+          retry.hidden = false;
+          syncCaptchaSubmitState();
+          return true;
+        }
+      });
+    } catch (error) {
+      console.warn("Turnstile unavailable", error);
+      if (request !== captchaRenderRequest || mode !== "signup") return;
+      setCaptchaStatus("无法连接安全验证服务，请检查网络后重新加载。", "error");
+      retry.hidden = false;
+      syncCaptchaSubmitState();
+    }
+  }
+
   function setMode(nextMode) {
     mode = nextMode;
     const signup = mode === "signup";
@@ -134,13 +274,22 @@
     $("#confirmPasswordField").hidden = !signup;
     $("#confirmPasswordField input").required = signup;
     $("#passwordStrength").hidden = !signup;
+    $("#signupCaptchaField").hidden = !signup || !captchaRequiredForSignup;
     $("#authTitle").textContent = signup ? "创建账户" : "登录";
+    $("#authModeLead").textContent = signup ? "加入统一社区" : "欢迎回来";
+    $("#authModeDescription").textContent = signup ? "设置昵称并完成安全验证，即可发帖、关注和私聊。" : "登录后继续参与社区讨论和好友私聊。";
     $("#authSubmit").textContent = signup ? "注册" : "登录";
     $("#authForm input[name=password]").autocomplete = signup ? "new-password" : "current-password";
     $("#resetPasswordBtn").hidden = signup;
     if (!signup) $("#resendEmailBtn").hidden = !pendingEmail;
+    if (signup && captchaRequiredForSignup) prepareSignupCaptcha();
+    else {
+      captchaRenderRequest++;
+      clearCaptchaWidget();
+    }
     updatePasswordStrength();
     setMessage($("#authError"));
+    syncCaptchaSubmitState();
   }
 
   function updateAuthUI() {
@@ -357,6 +506,7 @@
     $("#profilePagePasswordForm")?.addEventListener("submit", updateAccountPassword);
     $("#resetPasswordBtn").addEventListener("click", resetPassword);
     $("#resendEmailBtn").addEventListener("click", resendVerification);
+    $("#captchaRetryBtn").addEventListener("click", () => prepareSignupCaptcha({ force: true }));
     $("#logoutBtn").addEventListener("click", () => logout("local"));
     $("#logoutAllBtn").addEventListener("click", () => logout("global"));
     $("#profilePageLogoutBtn")?.addEventListener("click", event => logout("local", event.currentTarget));
@@ -398,16 +548,24 @@
     if (mode === "signup" && password !== confirmation) {
       return setMessage($("#authError"), "两次输入的密码不一致");
     }
+    if (mode === "signup" && captchaRequiredForSignup && !captchaSiteKey) {
+      return setMessage($("#authError"), "人机验证尚未配置，请联系站长完成 Turnstile 设置");
+    }
+    if (mode === "signup" && captchaRequiredForSignup && !captchaToken) {
+      return setMessage($("#authError"), "请先完成人机验证");
+    }
 
     const button = $("#authSubmit");
+    const submittedMode = mode;
     setBusy(button, true, "请稍候…", mode === "signup" ? "注册" : "登录");
     try {
-      const result = mode === "signup"
+      const result = submittedMode === "signup"
         ? await withTimeout(client.auth.signUp({
             email, password,
             options: {
               data: { username },
-              emailRedirectTo: authRedirectUrl()
+              emailRedirectTo: authRedirectUrl(),
+              captchaToken: captchaRequiredForSignup ? captchaToken : undefined
             }
           }))
         : await withTimeout(client.auth.signInWithPassword({ email, password }));
@@ -420,7 +578,7 @@
         }
         return setMessage($("#authError"), friendlyError(result.error));
       }
-      if (mode === "signup" && !result.data.session) {
+      if (submittedMode === "signup" && !result.data.session) {
         pendingEmail = email;
         localStorage.setItem("yu-pending-email", email);
         $("#resendEmailBtn").hidden = false;
@@ -430,12 +588,14 @@
         localStorage.removeItem("yu-pending-email");
         form.reset();
         if (window.closeDialog) window.closeDialog($("#authDialog")); else $("#authDialog").close();
-        notify(mode === "signup" ? "账户创建成功" : "登录成功");
+        notify(submittedMode === "signup" ? "账户创建成功" : "登录成功");
       }
     } catch (error) {
       setMessage($("#authError"), friendlyError(error));
     } finally {
       setBusy(button, false, "", mode === "signup" ? "注册" : "登录");
+      if (submittedMode === "signup" && captchaRequiredForSignup) resetSignupCaptcha();
+      syncCaptchaSubmitState();
     }
   }
 
