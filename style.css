@@ -842,3 +842,92 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
     padding-inline:max(var(--x-page-pad),calc((100vw - var(--x-rail) - 720px) / 2));
   }
 }
+
+/* One desktop workspace frame for activity, private messages and account pages. */
+@media (min-width:1024px) {
+  :root { --desktop-utility-width:760px; }
+  body.desktop-utility-page .standalone-page {
+    --desktop-utility-surface:var(--surface);
+    padding-inline:max(var(--x-page-pad),calc((100vw - var(--x-rail) - var(--desktop-utility-width)) / 2));
+    padding-bottom:0;
+  }
+  body.desktop-utility-page .notifications-page > .standalone-page-header,
+  body.desktop-utility-page .notifications-page > .standalone-section-head,
+  body.desktop-utility-page .notifications-page > .standalone-list,
+  body.desktop-utility-page .messages-page > .messages-page-header,
+  body.desktop-utility-page .messages-page > .messages-shell,
+  body.desktop-utility-page .profile-page > .profile-page-guest,
+  body.desktop-utility-page .profile-page > .profile-page-user {
+    width:min(100%,var(--desktop-utility-width));
+    max-width:var(--desktop-utility-width);
+    margin-inline:0;
+    border-right:1px solid var(--line);
+    border-left:1px solid var(--line);
+    background:var(--desktop-utility-surface);
+    box-shadow:none;
+  }
+
+  body.desktop-utility-page .notifications-page > .standalone-page-header,
+  body.desktop-utility-page .messages-page > .messages-page-header {
+    min-height:64px;
+    padding-inline:20px;
+    border-bottom:1px solid var(--line);
+  }
+  body.desktop-utility-page .notifications-page > .standalone-section-head {
+    min-height:50px;
+    padding-inline:20px;
+    border-bottom:1px solid var(--line);
+  }
+  body.desktop-utility-page .notifications-page > .standalone-list {
+    border-top:0;
+    border-bottom:1px solid var(--line);
+    border-radius:0;
+  }
+  body.desktop-utility-page .messages-page > .messages-shell {
+    min-height:calc(100dvh - 64px);
+    border-top:0;
+    border-bottom:1px solid var(--line);
+    border-radius:0;
+  }
+  body.desktop-utility-page .messages-inbox,
+  body.desktop-utility-page .message-conversation,
+  body.desktop-utility-page .message-composer,
+  body.desktop-utility-page .message-thread-header {
+    background:var(--desktop-utility-surface);
+  }
+
+  body.desktop-utility-page .profile-page-guest,
+  body.desktop-utility-page .profile-page-user { border-bottom:1px solid var(--line); }
+  body.desktop-utility-page .profile-page-guest { min-height:calc(100dvh - 84px); }
+  body.desktop-utility-page .profile-page-guest-head {
+    display:flex;
+    align-items:center;
+    min-height:64px;
+    padding:0 20px;
+  }
+  body.desktop-utility-page .profile-page-guest-head .standalone-eyebrow,
+  body.desktop-utility-page .profile-page-guest-head p { display:none; }
+  body.desktop-utility-page .profile-page-guest-head h1,
+  body.desktop-utility-page .notifications-page .standalone-page-header h1,
+  body.desktop-utility-page .messages-page .messages-page-header h1 {
+    font-size:20px;
+    letter-spacing:-.02em;
+  }
+}
+
+@media (min-width:1024px) {
+  body.has-wallpaper.desktop-utility-page .standalone-page {
+    --desktop-utility-surface:color-mix(in srgb,var(--surface) 72%,transparent);
+  }
+  body.has-wallpaper.desktop-utility-page .notifications-page > .standalone-page-header,
+  body.has-wallpaper.desktop-utility-page .notifications-page > .standalone-section-head,
+  body.has-wallpaper.desktop-utility-page .notifications-page > .standalone-list,
+  body.has-wallpaper.desktop-utility-page .messages-page > .messages-page-header,
+  body.has-wallpaper.desktop-utility-page .messages-page > .messages-shell,
+  body.has-wallpaper.desktop-utility-page .profile-page > .profile-page-guest,
+  body.has-wallpaper.desktop-utility-page .profile-page > .profile-page-user,
+  body.has-wallpaper.desktop-utility-page .messages-inbox,
+  body.has-wallpaper.desktop-utility-page .message-conversation,
+  body.has-wallpaper.desktop-utility-page .message-composer,
+  body.has-wallpaper.desktop-utility-page .message-thread-header { backdrop-filter:blur(14px); }
+}
