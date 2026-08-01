@@ -5,6 +5,26 @@
 alter table public.profiles
   add column if not exists title_locked boolean not null default false;
 
+-- 兼容早期版本可能残留的 1–6 字头衔约束。
+-- NOT VALID 不会因为历史异常数据中断升级，但会立即约束之后的新增和修改。
+alter table public.profiles
+  drop constraint if exists profiles_display_title_check;
+alter table public.profiles
+  add constraint profiles_display_title_check
+  check (char_length(trim(display_title)) between 1 and 30) not valid;
+
+do $$
+begin
+  if not exists (
+    select 1 from public.profiles
+    where display_title is null
+       or char_length(trim(display_title)) not between 1 and 30
+  ) then
+    alter table public.profiles validate constraint profiles_display_title_check;
+  end if;
+end
+$$;
+
 -- 再次收紧资料表列权限：普通用户永远不能直接修改 UID、角色或头衔锁定状态。
 revoke update on table public.profiles from authenticated;
 grant update (username, avatar_url, display_title) on table public.profiles to authenticated;
