@@ -1,0 +1,341 @@
+/*
+ * CNBDG Motion System
+ * Hierarchical, interruptible motion inspired by iOS navigation and sheets.
+ * Only compositor-friendly transform and opacity are animated.
+ */
+:root {
+  --motion-spring: cubic-bezier(.2, .82, .22, 1);
+  --motion-spring-out: cubic-bezier(.16, 1, .3, 1);
+  --motion-accelerate: cubic-bezier(.4, 0, 1, 1);
+  --motion-duration-page: 520ms;
+  --motion-duration-sheet: 540ms;
+}
+
+html.motion-enabled .page.active,
+html.motion-enabled #app.desktop-page-enter .page.active > * {
+  animation: none !important;
+}
+
+html.motion-view-transition,
+html.motion-view-transition body {
+  overflow-x: clip !important;
+}
+
+::view-transition {
+  position: fixed;
+  inset: 0;
+  overflow: clip;
+}
+
+@supports (view-transition-name: page-content) {
+  html.motion-enabled .page.active { view-transition-name: page-content; }
+
+  ::view-transition-group(page-content) {
+    z-index: 4;
+    overflow: clip;
+    animation-duration: var(--motion-duration-page);
+    animation-timing-function: var(--motion-spring-out);
+  }
+
+  ::view-transition-image-pair(page-content) {
+    isolation: isolate;
+    overflow: clip;
+  }
+
+  ::view-transition-old(page-content),
+  ::view-transition-new(page-content) {
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    backface-visibility: hidden;
+    will-change: transform, opacity;
+    animation-duration: var(--motion-duration-page);
+    animation-fill-mode: both;
+  }
+
+  html.motion-forward::view-transition-old(page-content) {
+    z-index: 1;
+    animation-name: ios-page-old-forward;
+    animation-timing-function: cubic-bezier(.4, 0, .7, .2);
+  }
+
+  html.motion-forward::view-transition-new(page-content) {
+    z-index: 2;
+    animation-name: ios-page-new-forward;
+    animation-timing-function: var(--motion-spring-out);
+  }
+
+  html.motion-backward::view-transition-old(page-content) {
+    z-index: 2;
+    animation-name: ios-page-old-backward;
+    animation-timing-function: cubic-bezier(.4, 0, .7, .2);
+  }
+
+  html.motion-backward::view-transition-new(page-content) {
+    z-index: 1;
+    animation-name: ios-page-new-backward;
+    animation-timing-function: var(--motion-spring-out);
+  }
+}
+
+@keyframes ios-page-old-forward {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(-7.5%, 0, 0) scale(.965); }
+}
+
+@keyframes ios-page-new-forward {
+  0% { opacity: 0; transform: translate3d(13%, 0, 0) scale(.982); }
+  72% { opacity: 1; transform: translate3d(-.55%, 0, 0) scale(1.002); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes ios-page-old-backward {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(10%, 0, 0) scale(.978); }
+}
+
+@keyframes ios-page-new-backward {
+  0% { opacity: 0; transform: translate3d(-8%, 0, 0) scale(.966); }
+  72% { opacity: 1; transform: translate3d(.45%, 0, 0) scale(1.002); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Scroll-driven content entrances. JS adds the class only to eligible items. */
+html.motion-enabled .motion-reveal {
+  animation: none !important;
+  opacity: 0;
+  transform: translate3d(0, 24px, 0) scale(.986);
+  transform-origin: center top;
+  transition:
+    opacity 440ms ease-out var(--motion-stagger, 0ms),
+    transform 640ms var(--motion-spring-out) var(--motion-stagger, 0ms);
+  will-change: transform, opacity;
+}
+
+html.motion-enabled .motion-reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+/* A large but restrained depth response for the desktop hero. */
+@media (min-width:1024px) and (hover:hover) and (pointer:fine) {
+  html.motion-enabled .social-hero .hero-visual {
+    transform:
+      perspective(900px)
+      translate3d(var(--motion-hero-x, 0px), var(--motion-hero-y, 0px), 0)
+      rotateX(var(--motion-hero-rx, 0deg))
+      rotateY(var(--motion-hero-ry, 0deg))
+      scale(.9);
+    transition: transform 680ms var(--motion-spring-out);
+    will-change: transform;
+  }
+
+  html.motion-enabled .social-hero.is-pointer-active .hero-visual {
+    transition-duration: 180ms;
+    transition-timing-function: ease-out;
+  }
+}
+
+/* iOS-style modal presentation: centered cards on desktop, sheets on mobile. */
+html.motion-enabled dialog[open]:not(.ios-dialog-closing) {
+  animation: ios-dialog-open var(--motion-duration-sheet) var(--motion-spring-out) both !important;
+  transform-origin: center 58%;
+  will-change: transform, opacity;
+}
+
+html.motion-enabled dialog[open]:not(.ios-dialog-closing)::backdrop {
+  animation: ios-backdrop-open 300ms ease-out both !important;
+}
+
+html.motion-enabled dialog[open].ios-dialog-closing {
+  animation: ios-dialog-close 240ms var(--motion-accelerate) both !important;
+  pointer-events: none;
+}
+
+html.motion-enabled dialog[open].ios-dialog-closing::backdrop {
+  animation: ios-backdrop-close 220ms ease-in both !important;
+}
+
+@keyframes ios-dialog-open {
+  0% { opacity: 0; transform: translate3d(0, 36px, 0) scale(.93); }
+  68% { opacity: 1; transform: translate3d(0, -2px, 0) scale(1.006); }
+  84% { transform: translate3d(0, 1px, 0) scale(.998); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes ios-dialog-close {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(0, 22px, 0) scale(.955); }
+}
+
+@keyframes ios-backdrop-open {
+  from { background-color: rgba(8, 14, 23, 0); }
+  to { background-color: rgba(8, 14, 23, .5); }
+}
+
+@keyframes ios-backdrop-close {
+  from { background-color: rgba(8, 14, 23, .5); }
+  to { background-color: rgba(8, 14, 23, 0); }
+}
+
+/* Direct manipulation: compact compression and spring release. */
+html.motion-enabled :where(
+  button,
+  .topbar nav a,
+  .post-item,
+  .thread-card,
+  .message-friend-item,
+  .message-group-item,
+  .notification-item,
+  .friend-grid > a,
+  .project-grid article
+) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.motion-enabled :where(
+  button:not(:disabled),
+  .topbar nav a,
+  .post-item,
+  .thread-card,
+  .message-friend-item,
+  .message-group-item,
+  .notification-item,
+  .friend-grid > a
+):active {
+  transform: scale(.972);
+  transition-duration: 80ms !important;
+}
+
+html.motion-enabled .logo-mark {
+  transition: transform 560ms var(--motion-spring-out), box-shadow 280ms ease;
+}
+
+html.motion-enabled .logo:active .logo-mark {
+  transform: rotate(-8deg) scale(.9);
+}
+
+html.motion-enabled #toast.show {
+  animation: ios-toast-in 460ms var(--motion-spring-out) both;
+}
+
+@keyframes ios-toast-in {
+  0% { opacity: 0; transform: translate3d(-50%, 18px, 0) scale(.9); }
+  70% { opacity: 1; transform: translate3d(-50%, -2px, 0) scale(1.018); }
+  100% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+}
+
+html.motion-enabled .incoming-message-bubble.show {
+  animation: ios-notification-in 560ms var(--motion-spring-out) both;
+}
+
+@keyframes ios-notification-in {
+  0% { opacity: 0; transform: translate3d(0, 24px, 0) scale(.88); }
+  64% { opacity: 1; transform: translate3d(0, -4px, 0) scale(1.018); }
+  82% { transform: translate3d(0, 2px, 0) scale(.996); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@media (max-width:1023px) {
+  :root {
+    --motion-duration-page: 480ms;
+    --motion-duration-sheet: 620ms;
+  }
+
+  .topbar nav {
+    transition: transform 520ms var(--motion-spring-out) !important;
+    will-change: transform;
+  }
+
+  #navBackdrop {
+    transition: opacity 340ms ease, visibility 340ms step-end !important;
+  }
+
+  body.nav-open #navBackdrop {
+    transition: opacity 340ms ease, visibility 0s step-start !important;
+  }
+
+  html.motion-enabled dialog[open]:not(.ios-dialog-closing) {
+    animation-name: ios-sheet-open !important;
+    transform-origin: center bottom;
+  }
+
+  html.motion-enabled dialog[open].ios-dialog-closing {
+    animation-name: ios-sheet-close !important;
+    animation-duration: 330ms !important;
+  }
+
+  @keyframes ios-sheet-open {
+    0% { opacity: .7; transform: translate3d(0, 102%, 0) scale(.985); }
+    66% { opacity: 1; transform: translate3d(0, -10px, 0) scale(1.002); }
+    82% { transform: translate3d(0, 3px, 0) scale(.999); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  }
+
+  @keyframes ios-sheet-close {
+    from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    to { opacity: .35; transform: translate3d(0, 102%, 0) scale(.985); }
+  }
+
+  #mobileDock button span,
+  #mobileDock button small {
+    transform-origin: center;
+    transition: transform 420ms var(--motion-spring-out), opacity 200ms ease, background-color 220ms ease !important;
+  }
+
+  #mobileDock button.motion-dock-pop span {
+    animation: ios-dock-pop 520ms var(--motion-spring-out) both;
+  }
+
+  #mobileDock button.motion-dock-pop small {
+    animation: ios-dock-label 380ms ease-out both;
+  }
+
+  @keyframes ios-dock-pop {
+    0% { transform: translate3d(0, 5px, 0) scale(.76); }
+    58% { transform: translate3d(0, -3px, 0) scale(1.12); }
+    78% { transform: translate3d(0, 1px, 0) scale(.98); }
+    100% { transform: translate3d(0, 0, 0) scale(1); }
+  }
+
+  @keyframes ios-dock-label {
+    from { opacity: .35; transform: translate3d(0, 3px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  #mobileComposeFab {
+    transition: transform 480ms var(--motion-spring-out), opacity 240ms ease, box-shadow 240ms ease !important;
+  }
+}
+
+/* The system preference wins: hierarchy remains clear through a short dissolve. */
+@media (prefers-reduced-motion:reduce) {
+  :root {
+    --motion-duration-page: 1ms;
+    --motion-duration-sheet: 1ms;
+  }
+
+  html.motion-enabled .motion-reveal,
+  html.motion-enabled .motion-reveal.is-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  html.motion-enabled .social-hero .hero-visual,
+  html.motion-enabled dialog[open],
+  html.motion-enabled #toast.show,
+  html.motion-enabled .incoming-message-bubble.show,
+  html.motion-enabled #mobileDock button.motion-dock-pop span,
+  html.motion-enabled #mobileDock button.motion-dock-pop small {
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  ::view-transition-old(page-content) { animation: motion-dissolve-out 120ms ease both !important; }
+  ::view-transition-new(page-content) { animation: motion-dissolve-in 120ms ease both !important; }
+}
+
+@keyframes motion-dissolve-out { to { opacity: 0; } }
+@keyframes motion-dissolve-in { from { opacity: 0; } }

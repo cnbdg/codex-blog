@@ -39,7 +39,9 @@
           await wait(300);
           const sanitizedMarkdown = w.blogMarkdown?.render('<p>安全测试<script>window.__xss=1<\/script><a href="javascript:alert(1)" onclick="alert(2)">链接</a><img src="x" onerror="alert(3)"></p>') || "";
           const baseChecks = {
-            modulesLoaded: Boolean(w.blogUI && w.blogAuth && w.blogMarkdown),
+            modulesLoaded: Boolean(w.blogUI && w.blogAuth && w.blogMarkdown && w.blogMotion),
+            motionEnabled: d.documentElement.classList.contains("motion-enabled"),
+            motionReduced: d.documentElement.classList.contains("motion-reduced"),
             captchaConfigured: Boolean(w.BLOG_CONFIG?.captchaRequiredForAuth && w.BLOG_CONFIG?.turnstileSiteKey),
             markdownSanitized: !/script|javascript:|onerror|onclick/i.test(sanitizedMarkdown) && !w.__xss,
             unifiedIcons: d.querySelectorAll("#mainNav a .ui-icon").length === d.querySelectorAll("#mainNav a").length,
@@ -50,13 +52,16 @@
             wallpaperDefault: w.BLOG_CONFIG?.wallpaperSettings?.desktopDefault || "",
             wallpaperVariable: d.documentElement.style.getPropertyValue("--wallpaper"),
             bodyBackground: getComputedStyle(d.body).backgroundColor,
-            heroBackground: getComputedStyle(d.querySelector("#home .social-hero")).backgroundColor
+            heroBackground: getComputedStyle(d.querySelector("#home .social-hero")).backgroundColor,
+            newestPostTitle: d.querySelector("#postList .post-item h2")?.textContent?.trim() || ""
           };
           assert(baseChecks.modulesLoaded, "页面核心模块没有完整加载");
           assert(baseChecks.captchaConfigured, "登录人机验证配置缺失");
           assert(baseChecks.markdownSanitized, "Markdown 内容清理未通过安全测试");
           assert(baseChecks.unifiedIcons, "主导航图标没有统一");
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
+          assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
+          assert(baseChecks.newestPostTitle.startsWith("全站动效升级"), "本次更新日志没有显示在首页首位");
           let desktopContextCheck = null;
           if (mode === "desktop") {
             w.blogUI?.navigate?.("forum");
@@ -70,10 +75,27 @@
               right: Math.round(contextRect?.right || 0),
               bodyPage: d.body.dataset.desktopPage || "",
               activeAria: d.querySelector('#mainNav [data-page="forum"]')?.getAttribute("aria-current") || "",
-              navTarget: Math.round(d.querySelector('#mainNav [data-page="forum"]')?.getBoundingClientRect().height || 0)
+              navTarget: Math.round(d.querySelector('#mainNav [data-page="forum"]')?.getBoundingClientRect().height || 0),
+              motionTransitions: w.blogMotion?.state.pageTransitions || 0,
+              motionDirection: w.blogMotion?.state.lastDirection || ""
             };
             assert(desktopContextCheck.display !== "none" && desktopContextCheck.width >= 280, "桌面社区页右侧信息栏未显示");
             assert(desktopContextCheck.activeAria === "page" && desktopContextCheck.navTarget >= 44, "桌面导航状态或点击区域不符合要求");
+            if (baseChecks.motionEnabled) assert(desktopContextCheck.motionTransitions >= 1 && desktopContextCheck.motionDirection === "forward", "桌面层级转场没有启动或方向错误");
+            else assert(desktopContextCheck.motionTransitions === 0, "减少动态效果模式仍启动了大范围页面转场");
+            const transitionsBeforeRapidNavigation = w.blogMotion.state.pageTransitions;
+            w.blogUI.navigate("home", { history: false });
+            w.blogUI.navigate("forum", { history: false });
+            await wait(620);
+            desktopContextCheck.rapidNavigation = {
+              page: w.blogUI.state.page,
+              active: d.querySelector(".page.active")?.id || "",
+              transitions: w.blogMotion.state.pageTransitions - transitionsBeforeRapidNavigation,
+              settled: !d.documentElement.classList.contains("motion-view-transition")
+            };
+            assert(desktopContextCheck.rapidNavigation.page === "forum" && desktopContextCheck.rapidNavigation.active === "forum", "快速连续切页没有停在最后一次目标");
+            if (baseChecks.motionEnabled) assert(desktopContextCheck.rapidNavigation.transitions >= 2 && desktopContextCheck.rapidNavigation.settled, "可中断转场没有正常结束");
+            else assert(desktopContextCheck.rapidNavigation.transitions === 0 && desktopContextCheck.rapidNavigation.settled, "减少动态效果模式仍残留页面转场");
           }
           const viewer = { id: "00000000-0000-0000-0000-000000000001" };
           const friend = { id: "00000000-0000-0000-0000-000000000002", user_uid: 2, username: "测试好友", avatar_url: "", display_title: "好友" };
@@ -159,7 +181,11 @@
             };
             assert(groupInfo.open && groupInfo.members === 3, "群资料或成员列表渲染失败");
             assert(groupInfo.editable && groupInfo.removeButtons === 2, "群主管理控件权限错误");
-            d.querySelector("#groupChatInfoDialog").close();
+            w.blogUI.closeDialog(d.querySelector("#groupChatInfoDialog"));
+            await wait(320);
+            assert(!d.querySelector("#groupChatInfoDialog").open, "弹窗没有成功关闭");
+            if (baseChecks.motionEnabled) assert(w.blogMotion.state.dialogTransitions >= 1, "弹窗退场动画没有完成");
+            else assert(w.blogMotion.state.dialogTransitions === 0, "减少动态效果模式仍启动了弹窗位移动画");
             w.__selfCheckNotification?.({ kind: "group_message", actor_id: friend.id, actor_username: friend.username, payload: { group_id: group.group_id, group_name: group.group_name, preview: "当前会话消息" } });
             await wait(30);
             assert(d.querySelector("#incomingMessageBubble")?.hidden !== false, "当前群聊仍会重复弹出消息气泡");
@@ -194,10 +220,20 @@
           const createDialog = {
             open: d.querySelector("#createGroupChatDialog")?.open,
             friends: d.querySelectorAll("#createGroupFriendPicker .group-friend-option").length,
-            noHorizontalOverflow: d.documentElement.scrollWidth <= d.documentElement.clientWidth
+            scrollWidth: d.documentElement.scrollWidth,
+            clientWidth: d.documentElement.clientWidth,
+            overflowSources: [...d.querySelectorAll("body *")].filter(node => {
+              const rect = node.getBoundingClientRect();
+              return rect.width > 0 && (rect.right > d.documentElement.clientWidth + 1 || rect.left < -1);
+            }).slice(0, 8).map(node => `${node.tagName.toLowerCase()}#${node.id}.${[...node.classList].join(".")}`)
           };
+          const dialogScrollY = w.scrollY;
+          w.scrollTo(100, dialogScrollY);
+          await wait(20);
+          createDialog.horizontalScroll = Math.round(w.scrollX);
+          createDialog.noHorizontalOverflow = createDialog.horizontalScroll === 0;
           assert(createDialog.open && createDialog.friends === 2, "手机创建群聊或好友选择器异常");
-          assert(createDialog.noHorizontalOverflow, "手机创建群聊弹窗横向溢出");
+          assert(createDialog.noHorizontalOverflow, `手机创建群聊弹窗可以横向滚动（${createDialog.scrollWidth}/${createDialog.clientWidth}；${createDialog.overflowSources.join(", ")}）`);
           d.querySelector("#createGroupChatDialog").close();
           w.blogUI?.navigate?.("home", { history: false });
           await wait(50);

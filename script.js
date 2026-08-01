@@ -1,5 +1,6 @@
 const seedPosts=[{title:"社区更新：图片上传与桌面布局优化",description:"本次更新增加社区图片上传、优化桌面三栏布局，并持续完善社区互动体验。",type:"更新日志",tags:["更新","社区","功能"],read_time:"1 分钟",lead:"感谢大家使用 cnbdg 博客。本次更新重点改善社区发布和桌面端浏览体验。",body:"## 本次更新\n\n- 社区发帖支持上传图片。\n- 桌面端右侧区域重新规划。\n- 统一窗口、按钮和内容卡片风格。\n- 持续修复移动端体验。",status:"published",published_at:"2026-07-31"}];
-let posts=[...seedPosts];
+const localUpdatePosts=()=>Array.from(window.LOCAL_UPDATE_POSTS||[],(post,index)=>({...post,id:9000000+index,desc:post.description,date:post.published_at,read:post.read_time}));
+let posts=localUpdatePosts();if(!posts.length)posts=[...seedPosts];
 let filter="全部",page=1;const perPage=4,$=s=>document.querySelector(s);
 const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -14,6 +15,7 @@ setBlogWallpaper(window.BLOG_CONFIG?.backgroundImageUrl);
 
 function closeDialogAnimated(dialog){
  if(!dialog?.open)return;
+ if(window.blogMotion?.closeDialog)return window.blogMotion.closeDialog(dialog);
  if(dialog.classList.contains("dialog-closing"))return;
  if(reduceMotion.matches){dialog.close();return}
  dialog.classList.add("dialog-closing");
@@ -58,18 +60,18 @@ function render(){
 function gridAnimate(){if(reduceMotion.matches)return;$("#postList").classList.remove("is-refreshing");requestAnimationFrame(()=>$("#postList").classList.add("is-refreshing"))}
 render();
 async function refreshRemotePosts(){
- if(!window.blogAuth?.listPublishedPosts)return;
+ const localLogs=localUpdatePosts();
+ if(!window.blogAuth?.listPublishedPosts){posts=localLogs.length?localLogs:[...seedPosts];page=1;render();return}
  const rows=await window.blogAuth.listPublishedPosts();
- if(rows===null)return;
+ if(rows===null){posts=localLogs.length?localLogs:[...seedPosts];page=1;render();return}
  const remote=rows.map(p=>({id:1000000+Number(p.id),dbId:p.id,title:p.title,desc:p.description,date:p.published_at,type:p.type,tags:p.tags||[],read:p.read_time||"5 分钟",lead:p.lead,body:p.body}));
- const localLogs=(window.LOCAL_UPDATE_POSTS||[]).map((p,i)=>({...p,id:9000000+i,desc:p.description,date:p.published_at,read:p.read_time}));
  posts=[...localLogs,...remote];page=1;render();
 }
 window.refreshRemotePosts=refreshRemotePosts;
 window.addEventListener("blog-auth-change",refreshRemotePosts);
 setTimeout(refreshRemotePosts,0);
 document.addEventListener("click",e=>{
- const nav=e.target.closest("[data-page]");if(nav){e.preventDefault();showPage(nav.dataset.page,true)}
+ const nav=e.target.closest("[data-page]");if(nav&&!e.defaultPrevented){e.preventDefault();showPage(nav.dataset.page,true)}
  const post=e.target.closest(".post-item,.search-result");if(post?.dataset.id)openArticle(Number(post.dataset.id));
  const close=e.target.closest("[data-close]");if(close)closeDialogAnimated(document.getElementById(close.dataset.close));
  const p=e.target.closest("[data-page-num]");if(p){page=Number(p.dataset.pageNum);render();scrollTo({top:250,behavior:"smooth"})}
@@ -77,6 +79,7 @@ document.addEventListener("click",e=>{
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.matches(".post-item"))openArticle(Number(e.target.dataset.id))});
 function closeMenu(){document.querySelector("nav").classList.remove("open");document.body.classList.remove("nav-open");$("#menuBtn").textContent="☰";$("#menuBtn").setAttribute("aria-expanded","false")}
 function showPage(id,push=false){
+ if(window.blogUI?.navigate)return window.blogUI.navigate(id,{history:push});
  const target=document.getElementById(id);
  if(!target?.classList.contains("page"))return;
  const current=document.querySelector(".page.active");
@@ -110,6 +113,6 @@ $("#commentForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.t
 $("#commentList").onclick=async e=>{const like=e.target.closest("[data-like]"),del=e.target.closest("[data-delete]");if(del){if(window.blogAuth?.configured&&await window.blogAuth.deleteComment(Number(del.dataset.delete))){await renderComments();toast("评论已删除")}return}if(!like)return;if(window.blogAuth?.configured){if(await window.blogAuth.likeComment(Number(like.dataset.like),Number(like.dataset.likes)))await renderComments()}else{const l=getComments(),c=l.find(x=>x.id===Number(like.dataset.like));c.likes++;saveComments(l);renderComments()}};
 function toast(t){$("#toast").textContent=t;$("#toast").classList.add("show");setTimeout(()=>$("#toast").classList.remove("show"),1800)}window.toast=toast;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()});
-window.addEventListener("popstate",()=>showPage(location.hash.slice(1)||"home"));
+window.addEventListener("popstate",()=>{if(!window.blogUI?.navigate)showPage(location.hash.slice(1)||"home")});
 if(location.hash&&document.querySelector(location.hash+".page"))showPage(location.hash.slice(1));else history.replaceState({page:"home"},"","#home");
 requestAnimationFrame(()=>document.body.classList.add("motion-ready"));

@@ -88,7 +88,7 @@ async function runChrome(url, width, height, scale = 1) {
   const testUrl = new URL(url);
   testUrl.searchParams.set("run", runId);
   const profile = await mkdtemp(join(tmpdir(), "codex-blog-self-check-"));
-  const chrome = spawn(chromePath, [
+  const chromeArgs = [
     "--headless=new",
     "--disable-gpu",
     "--no-sandbox",
@@ -99,7 +99,9 @@ async function runChrome(url, width, height, scale = 1) {
     `--force-device-scale-factor=${scale}`,
     `--user-data-dir=${profile}`,
     testUrl.href
-  ], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+  ];
+  if (process.env.SELF_CHECK_REDUCED_MOTION === "1") chromeArgs.splice(1, 0, "--force-prefers-reduced-motion=reduce");
+  const chrome = spawn(chromePath, chromeArgs, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_CHROME pid=${chrome.pid} url=${testUrl.href}`);
   let errorOutput = "";
   chrome.stdout.resume();
