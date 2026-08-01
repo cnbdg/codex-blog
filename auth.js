@@ -63,6 +63,7 @@
     ,[/USER_NOT_FOUND/i, "找不到该用户，请刷新后重试"]
     ,[/INVALID_CATEGORY/i, "请选择有效的违规类型"]
     ,[/INVALID_DURATION/i, "请选择有效的限制时长"]
+    ,[/INVALID_TOPIC_TYPE/i, "请选择有效的帖子类型"]
   ];
 
   function friendlyError(error, fallback = "操作失败，请稍后重试") {
@@ -742,12 +743,22 @@
 
   async function listForumThreads() {
     if (!client) return null;
-    const { data, error } = await client.from("forum_posts")
-      .select("id,title,content,likes,created_at,updated_at,author_id,profiles(user_uid,username,avatar_url,display_title,created_at,is_admin),forum_replies(count)")
+    let upgraded = true;
+    let { data, error } = await client.from("forum_posts")
+      .select("id,title,content,topic_type,is_pinned,is_featured,view_count,likes,created_at,updated_at,author_id,profiles(user_uid,username,avatar_url,display_title,created_at,is_admin),forum_replies(count)")
       .order("updated_at", { ascending: false })
       .limit(100);
+    if (error && /topic_type|is_pinned|is_featured|view_count|column.*forum_posts/i.test(error.message || "")) {
+      upgraded = false;
+      ({ data, error } = await client.from("forum_posts")
+        .select("id,title,content,likes,created_at,updated_at,author_id,profiles(user_uid,username,avatar_url,display_title,created_at,is_admin),forum_replies(count)")
+        .order("updated_at", { ascending: false })
+        .limit(100));
+    }
     if (error) return { error: friendlyError(error), rows: [] };
-    return { rows: data || [] };
+    return { rows: (data || []).map(row => ({
+      topic_type: "discussion", is_pinned: false, is_featured: false, view_count: 0, ...row
+    })), upgraded };
   }
 
   async function saveForumThread(thread, id = null) {
@@ -758,13 +769,18 @@
     const payload = {
       title: String(thread.title || "").trim(),
       content: String(thread.content || "").trim(),
+      topic_type: String(thread.topic_type || "discussion"),
       updated_at: new Date().toISOString()
     };
     if (!id) payload.author_id = user.id;
-    const query = id
-      ? client.from("forum_posts").update(payload).eq("id", id)
-      : client.from("forum_posts").insert(payload);
-    const { data, error } = await query.select().single();
+    const execute = values => (id
+      ? client.from("forum_posts").update(values).eq("id", id)
+      : client.from("forum_posts").insert(values)).select().single();
+    let { data, error } = await execute(payload);
+    if (error && /topic_type|column.*forum_posts/i.test(error.message || "")) {
+      delete payload.topic_type;
+      ({ data, error } = await execute(payload));
+    }
     if (error) {
       notify("话题保存失败：" + friendlyError(error));
       return null;
@@ -970,6 +986,50 @@
       return null;
     }
     return data?.[0] || null;
+  }
+
+  async function listForumBookmarks() {
+    if (!client || !user) return [];
+    const { data, error } = await client.rpc("list_my_forum_bookmarks");
+    if (error) return [];
+    return data || [];
+  }
+
+  async function toggleForumBookmark(postId) {
+    if (!client || !user) { openAuth("login"); return null; }
+    const { data, error } = await client.rpc("toggle_forum_bookmark", { p_post_id: Number(postId) });
+    if (error) {
+      notify("收藏操作失败：" + (isMissingRpc(error) ? "请先执行 forum-upgrade.sql" : friendlyError(error)));
+      return null;
+    }
+    return Boolean(data);
+  }
+
+  async function recordForumView(postId, viewerKey) {
+    if (!client) return null;
+    const { data, error } = await client.rpc("record_forum_view", {
+      p_post_id: Number(postId), p_viewer_key: String(viewerKey || "")
+    });
+    return error ? null : Number(data || 0);
+  }
+
+  async function getForumThreadState(postId) {
+    if (!client) return null;
+    const { data, error } = await client.rpc("get_forum_thread_state", { p_post_id: Number(postId) });
+    if (error) return null;
+    return data?.[0] || { bookmarked: false, post_liked: false, liked_reply_ids: [] };
+  }
+
+  async function adminSetForumPostStatus(postId, pinned, featured) {
+    if (!client || !profile?.is_admin) return false;
+    const { data, error } = await client.rpc("admin_set_forum_post_status", {
+      p_post_id: Number(postId), p_is_pinned: Boolean(pinned), p_is_featured: Boolean(featured)
+    });
+    if (error) {
+      notify("帖子管理失败：" + (isMissingRpc(error) ? "请先执行 forum-upgrade.sql" : friendlyError(error)));
+      return false;
+    }
+    return Boolean(data);
   }
 
   async function getFollowState(targetUser) {
@@ -1299,6 +1359,7 @@
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
     listForumThreads, saveForumThread, uploadCommunityImage, uploadDirectMessageImage, getDirectMessageImageUrls, deleteDirectMessageImage, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
+    listForumBookmarks, toggleForumBookmark, recordForumView, getForumThreadState, adminSetForumPostStatus,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,
     searchUsers, getPublicProfile, adminUpdateMember, getAdminMemberByUid, adminManageMember, confirmAdminPassword, listNotifications, markNotificationsRead, markDirectMessagesRead, listFriends,
     reportContent, getMyModeration, getMyGovernanceStatus, getGovernanceOverview, listModerationUsers, listModerationReports,

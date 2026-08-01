@@ -21,7 +21,7 @@
     resolve_report: "完成举报复核", restrict_user: "限制用户", ban_user: "限制用户",
     unrestrict_user: "解除限制", unban_user: "解除限制", review_appeal: "复核申诉",
     manage_member: "调整用户身份", governance_maintenance: "执行治理维护",
-    delete_report: "删除举报内容", dismiss_report: "驳回举报"
+    manage_forum_post: "调整帖子推荐状态", delete_report: "删除举报内容", dismiss_report: "驳回举报"
   };
 
   function notice(message = "") {

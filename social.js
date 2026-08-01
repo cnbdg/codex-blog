@@ -146,6 +146,7 @@
 
   function notificationMarkup(row) {
     const direct = row.kind === "direct_message";
+    const forumPost = row.kind === "forum_reply" || (row.kind === "forum_like" && row.target_type === "post");
     const name = nameOf(row);
     const preview = String(row.payload?.preview || "").trim();
     const message = direct
@@ -153,7 +154,9 @@
       : (row.payload?.message || "有一条新的互动");
     const action = direct && row.actor_id
       ? `<button type="button" class="notification-open" data-chat-user="${esc(row.actor_id)}" data-chat-name="${esc(name)}">查看私信 <span aria-hidden="true">›</span></button>`
-      : "";
+      : forumPost && row.target_id
+        ? `<button type="button" class="notification-open" data-open-forum-thread="${Number(row.target_id)}">查看帖子 <span aria-hidden="true">›</span></button>`
+        : "";
     return `<article class="notification-item ${row.read_at ? "read" : "unread"}${direct ? " notification-direct" : ""}">
       ${avatarMarkup(row)}
       <div class="notification-copy"><p><strong>${esc(name)}</strong> ${esc(message)}</p><time>${time(row.created_at)}</time></div>
@@ -253,6 +256,11 @@
     $("#markNotificationsReadBtn")?.addEventListener("click", () => loadNotifications({ markRead: true }));
     $("#refreshMessageFriendsBtn")?.addEventListener("click", renderFriends);
     document.addEventListener("click", event => {
+      const forum = event.target.closest("[data-open-forum-thread]");
+      if (forum) {
+        window.openForumThreadById?.(forum.dataset.openForumThread);
+        return;
+      }
       const quick = event.target.closest("[data-open-social]");
       if (!quick) return;
       if (quick.dataset.openSocial === "friends") openMessages();
