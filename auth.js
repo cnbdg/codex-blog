@@ -44,6 +44,8 @@
     ,[/MUTUAL_FOLLOW_REQUIRED/i, "只有互相关注后才能私聊"]
     ,[/CANNOT_FOLLOW_SELF/i, "不能关注自己"]
     ,[/CANNOT_MESSAGE_SELF/i, "不能给自己发私信"]
+    ,[/INVALID_MESSAGE_IMAGE/i, "私信图片无效或尚未完成上传，请重新选择后发送"]
+    ,[/send_direct_message.*message_image_path/i, "私信图片功能尚未启用：请先执行 direct-message-media.sql"]
   ];
 
   function friendlyError(error, fallback = "操作失败，请稍后重试") {
@@ -146,10 +148,45 @@
         profileForm.elements.display_title.value = profile?.display_title || "社区成员";
       }
     }
+    updateProfilePage(signedIn);
   }
 
   function displayName() {
     return profile?.username || user?.user_metadata?.username || user?.email?.split("@")[0] || "用户";
+  }
+
+  function applyAvatar(target, name, avatarUrl) {
+    if (!target) return;
+    target.textContent = String(name || "用").charAt(0).toUpperCase();
+    target.style.backgroundImage = avatarUrl ? `url("${avatarUrl.replace(/["\\]/g, "")}")` : "";
+    target.classList.toggle("has-image", Boolean(avatarUrl));
+  }
+
+  function fillProfileForm(form) {
+    if (!form || form.contains(document.activeElement)) return;
+    form.elements.username.value = displayName();
+    form.elements.avatar_url.value = profile?.avatar_url || "";
+    form.elements.display_title.value = profile?.display_title || "社区成员";
+  }
+
+  function updateProfilePage(signedIn = Boolean(user)) {
+    const guest = $("#profilePageGuest");
+    const account = $("#profilePageUser");
+    if (!guest || !account) return;
+    guest.hidden = signedIn;
+    account.hidden = !signedIn;
+    if (!signedIn) return;
+
+    const name = displayName();
+    const avatarUrl = profile?.avatar_url || "";
+    $("#profilePageName").textContent = name;
+    $("#profilePageHandle").textContent = `@${name.replace(/\s+/g, "_")}`;
+    $("#profilePageTitle").textContent = profile?.display_title || "社区成员";
+    $("#profilePageUid").textContent = profile?.user_uid || "待分配";
+    $("#profilePageEmail").textContent = user?.email || "";
+    $("#profilePageAdminBadge").hidden = !profile?.is_admin;
+    applyAvatar($("#profilePageAvatar"), name, avatarUrl);
+    fillProfileForm($("#profilePageForm"));
   }
 
   async function refreshProfile() {
@@ -181,6 +218,10 @@
   function openAuth(nextMode = "login") {
     if (!configured) return notify("登录服务尚未配置");
     if (!client) return notify("登录组件加载失败，请刷新页面后重试");
+    if (user && !recovering && window.matchMedia("(min-width: 1024px)").matches && window.blogUI?.navigate) {
+      window.blogUI.navigate("profile", { focus: true });
+      return;
+    }
     if (!user && !recovering) setMode(nextMode);
     updateAuthUI();
     if (!$("#authDialog").open) $("#authDialog").showModal();
@@ -238,9 +279,16 @@
   }
 
   function bindEvents() {
-    $("#authBtn").addEventListener("click", () => openAuth());
+    $("#authBtn").addEventListener("click", () => {
+      if (window.matchMedia("(min-width: 1024px)").matches && window.blogUI?.navigate) {
+        window.blogUI.navigate("profile", { focus: true });
+        return;
+      }
+      openAuth();
+    });
     document.addEventListener("click", event => {
-      if (event.target.closest("[data-open-auth]")) openAuth();
+      const authTrigger = event.target.closest("[data-open-auth]");
+      if (authTrigger) openAuth(authTrigger.dataset.authMode || "login");
       const toggle = event.target.closest("[data-toggle-password]");
       if (toggle) togglePassword(toggle);
     });
@@ -252,10 +300,14 @@
     $("#newPasswordForm").addEventListener("submit", updatePassword);
     $("#profileForm").addEventListener("submit", updateProfile);
     $("#accountPasswordForm").addEventListener("submit", updateAccountPassword);
+    $("#profilePageForm")?.addEventListener("submit", updateProfile);
+    $("#profilePagePasswordForm")?.addEventListener("submit", updateAccountPassword);
     $("#resetPasswordBtn").addEventListener("click", resetPassword);
     $("#resendEmailBtn").addEventListener("click", resendVerification);
     $("#logoutBtn").addEventListener("click", () => logout("local"));
     $("#logoutAllBtn").addEventListener("click", () => logout("global"));
+    $("#profilePageLogoutBtn")?.addEventListener("click", event => logout("local", event.currentTarget));
+    $("#profilePageLogoutAllBtn")?.addEventListener("click", event => logout("global", event.currentTarget));
     $("#authForm input[name=password]").addEventListener("input", updatePasswordStrength);
     $("#authDialog").addEventListener("click", event => {
       if (event.target === $("#authDialog")) {
@@ -406,13 +458,15 @@
     }
   }
 
-  async function logout(scope = "local") {
-    const button = scope === "global" ? $("#logoutAllBtn") : $("#logoutBtn");
+  async function logout(scope = "local", sourceButton = null) {
+    const button = sourceButton || (scope === "global" ? $("#logoutAllBtn") : $("#logoutBtn"));
     button.disabled = true;
     try {
       const { error } = await withTimeout(client.auth.signOut({ scope }));
       if (error) return notify(friendlyError(error, "退出失败"));
-      if (window.closeDialog) window.closeDialog($("#authDialog")); else $("#authDialog").close();
+      if ($("#authDialog").open) {
+        if (window.closeDialog) window.closeDialog($("#authDialog")); else $("#authDialog").close();
+      }
       notify("已退出登录");
     } finally {
       button.disabled = false;
@@ -478,19 +532,20 @@
     const username = String(data.get("username") || "").trim();
     const avatarUrl = String(data.get("avatar_url") || "").trim();
     const displayTitle = String(data.get("display_title") || "社区成员");
-    setMessage($("#profileError"));
+    const message = form.id === "profilePageForm" ? $("#profilePageError") : $("#profileError");
+    setMessage(message);
     if (!form.checkValidity()) return form.reportValidity();
     if (username.length < 2 || username.length > 20) {
-      return setMessage($("#profileError"), "昵称需要包含 2–20 个字符");
+      return setMessage(message, "昵称需要包含 2–20 个字符");
     }
     if (displayTitle.length < 1 || displayTitle.length > 30) {
-      return setMessage($("#profileError"), "社区称号长度需为 1–30 个字符");
+      return setMessage(message, "社区称号长度需为 1–30 个字符");
     }
     if (avatarUrl) {
       try {
         if (!/^https?:$/.test(new URL(avatarUrl).protocol)) throw new Error();
       } catch {
-        return setMessage($("#profileError"), "头像地址必须是有效的 HTTP 或 HTTPS 图片链接");
+        return setMessage(message, "头像地址必须是有效的 HTTP 或 HTTPS 图片链接");
       }
     }
     const button = form.querySelector(".primary-btn");
@@ -499,12 +554,12 @@
       const { error } = await client.from("profiles")
         .update({ username, avatar_url: avatarUrl || null, display_title: displayTitle })
         .eq("id", user.id);
-      if (error) return setMessage($("#profileError"), friendlyError(error));
+      if (error) return setMessage(message, friendlyError(error));
       await client.auth.updateUser({ data: { username } });
       await refreshProfile();
-      setMessage($("#profileError"), "个人资料已保存", "success");
+      setMessage(message, "个人资料已保存", "success");
     } catch (error) {
-      setMessage($("#profileError"), friendlyError(error));
+      setMessage(message, friendlyError(error));
     } finally {
       setBusy(button, false, "", "保存个人资料");
     }
@@ -517,20 +572,21 @@
     const data = new FormData(form);
     const password = String(data.get("password") || "");
     const confirmation = String(data.get("confirmPassword") || "");
-    setMessage($("#accountPasswordError"));
+    const message = form.id === "profilePagePasswordForm" ? $("#profilePagePasswordError") : $("#accountPasswordError");
+    setMessage(message);
     if (!form.checkValidity()) return form.reportValidity();
     if (password !== confirmation) {
-      return setMessage($("#accountPasswordError"), "两次输入的密码不一致");
+      return setMessage(message, "两次输入的密码不一致");
     }
     const button = form.querySelector(".primary-btn");
     setBusy(button, true, "正在更新…", "更新密码");
     try {
       const { error } = await withTimeout(client.auth.updateUser({ password }));
-      if (error) return setMessage($("#accountPasswordError"), friendlyError(error));
+      if (error) return setMessage(message, friendlyError(error));
       form.reset();
-      setMessage($("#accountPasswordError"), "密码已更新，请使用新密码登录", "success");
+      setMessage(message, "密码已更新，请使用新密码登录", "success");
     } catch (error) {
-      setMessage($("#accountPasswordError"), friendlyError(error));
+      setMessage(message, friendlyError(error));
     } finally {
       setBusy(button, false, "", "更新密码");
     }
@@ -729,6 +785,83 @@
     }
   }
 
+  const directMessageImageTypes = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "image/avif": "avif"
+  };
+
+  function directMessageImageUploadError(error) {
+    const raw = String(error?.message || error?.error || error || "");
+    if (/bucket not found|nosuchbucket/i.test(raw)) {
+      return "私信图片服务尚未启用：请先在 Supabase SQL Editor 执行 direct-message-media.sql。";
+    }
+    if (/row-level security|new row violates|permission denied|not authorized/i.test(raw)) {
+      return "私信图片权限尚未配置：请重新执行 direct-message-media.sql 后重试。";
+    }
+    if (/failed to fetch|network|timeout/i.test(raw)) {
+      return "私信图片上传网络连接失败，请检查网络后重试。";
+    }
+    return `私信图片上传失败：${friendlyError(error)}`;
+  }
+
+  async function uploadDirectMessageImage(recipient, file) {
+    if (!client || !user || !recipient || !file) {
+      notify("请先登录并选择一位朋友后再上传图片。");
+      return null;
+    }
+    const extension = directMessageImageTypes[file.type];
+    if (!extension || file.size > 5 * 1024 * 1024) {
+      notify("私信图片需为 JPG、PNG、GIF、WebP 或 AVIF，且不超过 5MB。");
+      return null;
+    }
+
+    const path = `${user.id}/${recipient}/${Date.now()}-${makeStorageObjectId()}.${extension}`;
+    try {
+      const { error } = await client.storage.from("direct-message-media").upload(path, file, {
+        cacheControl: "31536000",
+        upsert: false,
+        contentType: file.type
+      });
+      if (error) {
+        notify(directMessageImageUploadError(error));
+        return null;
+      }
+      return path;
+    } catch (error) {
+      notify(directMessageImageUploadError(error));
+      return null;
+    }
+  }
+
+  async function getDirectMessageImageUrls(paths, expiresIn = 3600) {
+    if (!client || !user || !Array.isArray(paths)) return new Map();
+    const uniquePaths = [...new Set(paths.map(path => String(path || "").trim()).filter(Boolean))];
+    if (!uniquePaths.length) return new Map();
+    try {
+      const { data, error } = await client.storage.from("direct-message-media")
+        .createSignedUrls(uniquePaths, expiresIn);
+      if (error) return new Map();
+      return new Map((data || [])
+        .filter(item => item?.path && item?.signedUrl)
+        .map(item => [item.path, item.signedUrl]));
+    } catch {
+      return new Map();
+    }
+  }
+
+  async function deleteDirectMessageImage(path) {
+    if (!client || !user || !path) return false;
+    try {
+      const { error } = await client.storage.from("direct-message-media").remove([path]);
+      return !error;
+    } catch {
+      return false;
+    }
+  }
+
   async function deleteForumThread(id) {
     if (!client || !user) return false;
     const { error } = await client.from("forum_posts").delete().eq("id", id);
@@ -806,14 +939,18 @@
     return data || [];
   }
 
-  async function sendDirectMessage(recipient, content) {
+  async function sendDirectMessage(recipient, content, imagePath = null) {
     if (!client || !user) { openAuth(); return false; }
     const cleanContent = String(content || "").trim();
-    if (!cleanContent || cleanContent.length > 2000) return false;
-    const { error } = await client.rpc("send_direct_message", {
+    const cleanImagePath = String(imagePath || "").trim() || null;
+    if ((!cleanContent && !cleanImagePath) || cleanContent.length > 2000) return false;
+    const payload = {
       recipient_user: recipient,
       message_content: cleanContent
-    });
+    };
+    // 仅在真的携带图片时传第三个 RPC 参数，未执行迁移时文字私信仍可继续使用。
+    if (cleanImagePath) payload.message_image_path = cleanImagePath;
+    const { error } = await client.rpc("send_direct_message", payload);
     if (error) { notify("私信发送失败：" + friendlyError(error)); return false; }
     return true;
   }
@@ -990,7 +1127,7 @@
   window.blogAuth = {
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
-    listForumThreads, saveForumThread, uploadCommunityImage, deleteForumThread,
+    listForumThreads, saveForumThread, uploadCommunityImage, uploadDirectMessageImage, getDirectMessageImageUrls, deleteDirectMessageImage, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,
     searchUsers, getPublicProfile, adminUpdateMember, confirmAdminPassword, listNotifications, markNotificationsRead, markDirectMessagesRead, listFriends,

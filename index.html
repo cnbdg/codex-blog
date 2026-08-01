@@ -6,7 +6,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=20260731-27">
-  <link rel="stylesheet" href="style.css?v=20260801-1">
+  <link rel="stylesheet" href="style.css?v=20260801-4">
 </head>
 <body>
   <header class="topbar">
@@ -15,6 +15,9 @@
       <nav id="mainNav">
         <a class="active" href="#home" data-page="home">交友</a>
         <a href="#forum" data-page="forum">社区</a>
+        <a href="#notifications" data-page="notifications">消息</a>
+        <a href="#messages" data-page="messages">私信</a>
+        <a href="#profile" data-page="profile">我的</a>
         <a href="#projects" data-page="projects">站点</a>
         <a href="#about" data-page="about">关于</a>
         <a href="#friends" data-page="friends">链接</a><a href="#" data-open-wallpaper>壁纸与显示</a>
@@ -25,7 +28,7 @@
 
   <main id="app">
     <section id="home" class="page active">
-      <div class="page-title social-hero"><div><p class="hello">CNBDG FRIENDS 👋</p><h1>来认识更多朋友</h1><p>在这里分享生活、认识同好，找到愿意认真交流的人。</p><p id="typewriterLine" class="typewriter-line" aria-live="polite"></p><div class="social-hero-actions"><button type="button" class="primary-btn" data-page="forum">进入社区</button><button type="button" class="secondary-btn" data-open-auth>个人资料</button></div></div><span class="planet">◌</span></div>
+      <div class="page-title social-hero"><div><p class="hello">CNBDG FRIENDS 👋</p><h1>来认识更多朋友</h1><p>在这里分享生活、认识同好，找到愿意认真交流的人。</p><p id="typewriterLine" class="typewriter-line" aria-live="polite"></p><div class="social-hero-actions"><button type="button" class="primary-btn" data-page="forum">进入社区</button><button type="button" class="secondary-btn" data-page="profile">个人资料</button></div></div><span class="planet">◌</span></div>
       <section class="friendship-card"><div><small>MAKE CONNECTIONS</small><h2>友善、真诚、慢慢认识</h2><p>发布你的想法，回复别人的故事。互相关注后，还可以开启只有你们看得见的私聊。</p></div><div class="friendship-points"><span>① 发现同好</span><span>② 互相关注</span><span>③ 开始私聊</span></div></section>
       <div class="layout">
         <div>
@@ -136,8 +139,77 @@
             </header>
             <div class="message-privacy-label">今天 <span>消息仅对你们双方可见</span></div>
             <div id="messageList" class="dm-list message-list"><p class="forum-empty">正在加载消息…</p></div>
-            <form id="messageForm" class="dm-composer message-composer"><textarea name="content" required maxlength="2000" placeholder="输入消息，按 Enter 发送…"></textarea><div class="dm-composer-foot"><small>Enter 发送 · Shift + Enter 换行</small><button type="submit" aria-label="发送消息">➤</button></div></form>
+            <form id="messageForm" class="dm-composer message-composer">
+              <div id="messageImagePreview" class="message-image-preview" hidden><img alt="待发送的私信图片"><span id="messageImagePreviewName"></span><button id="removeMessageImageBtn" type="button" aria-label="移除待发送图片">×</button></div>
+              <textarea name="content" maxlength="2000" placeholder="输入消息，按 Enter 发送…"></textarea>
+              <div class="dm-composer-foot"><label class="message-image-picker" title="添加图片"><input id="messageImageInput" name="image" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif"><span aria-hidden="true">▧</span><em>图片</em></label><small>Enter 发送 · Shift + Enter 换行 · 图片 ≤ 5MB</small><button type="submit" data-send-message aria-label="发送消息">➤</button></div>
+            </form>
           </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="profile" class="page standalone-page profile-page" tabindex="-1">
+      <div id="profilePageGuest" class="profile-page-guest">
+        <header class="profile-page-guest-head">
+          <small class="standalone-eyebrow">YOUR ACCOUNT</small>
+          <h1>我的</h1>
+          <p>登录后可管理个人资料、安全设置，以及在社区中的身份信息。</p>
+        </header>
+        <section class="profile-page-guest-card">
+          <div class="profile-page-guest-avatar">C</div>
+          <div>
+            <h2>登录后查看你的主页</h2>
+            <p>在这里维护昵称、头像与社区称号；私信和互动入口会一直保持独立。</p>
+            <div class="profile-page-guest-actions">
+              <button type="button" class="primary-btn" data-open-auth>登录</button>
+              <button type="button" class="secondary-btn" data-open-auth data-auth-mode="signup">创建账户</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="profilePageUser" class="profile-page-user" hidden>
+        <header class="profile-page-hero">
+          <div class="profile-page-cover" aria-hidden="true"></div>
+          <div class="profile-page-identity">
+            <div id="profilePageAvatar" class="profile-page-avatar">U</div>
+            <div class="profile-page-identity-copy">
+              <div class="profile-page-name-row"><h1 id="profilePageName">用户</h1><span id="profilePageAdminBadge" class="profile-page-admin" hidden>管理员</span></div>
+              <p id="profilePageHandle" class="profile-page-handle">@user</p>
+              <p id="profilePageTitle" class="profile-page-title">社区成员</p>
+            </div>
+          </div>
+          <div class="profile-page-meta"><span>UID <strong id="profilePageUid">加载中…</strong></span><span id="profilePageEmail"></span></div>
+        </header>
+
+        <div class="profile-page-grid">
+          <section class="profile-page-panel">
+            <header><small>PROFILE</small><h2>编辑个人资料</h2><p>这些信息会显示在社区帖子、回复和个人资料卡中。</p></header>
+            <form id="profilePageForm">
+              <label>昵称<input name="username" required minlength="2" maxlength="20" autocomplete="nickname"></label>
+              <label>社区称号<input name="display_title" required minlength="1" maxlength="30" placeholder="例如：游戏玩家、摄影师"></label>
+              <label>头像 URL（可选）<input name="avatar_url" type="url" maxlength="500" placeholder="https://…"></label>
+              <p id="profilePageError" class="form-message error" role="alert" hidden></p>
+              <button class="primary-btn">保存个人资料</button>
+            </form>
+          </section>
+
+          <aside class="profile-page-side">
+            <section class="profile-page-side-card"><small>ACCOUNT</small><strong>账号状态</strong><p>邮箱已验证后，可以参与社区、关注和私信。</p><span class="profile-page-status"><i></i>已登录</span></section>
+            <section class="profile-page-side-card"><small>PRIVACY</small><strong>你的私信</strong><p>只有互相关注的朋友可以向你发送私信。</p><button type="button" class="text-button" data-page="messages">前往私信 →</button></section>
+          </aside>
+        </div>
+
+        <section class="profile-page-panel profile-page-security">
+          <header><small>SECURITY</small><h2>修改密码</h2><p>设置新密码后，其他设备上的旧会话可选择一并退出。</p></header>
+          <form id="profilePagePasswordForm">
+            <label>新密码<div class="password-input"><input name="password" type="password" required minlength="8" maxlength="72" autocomplete="new-password"><button type="button" data-toggle-password>显示</button></div></label>
+            <label>确认新密码<input name="confirmPassword" type="password" required minlength="8" maxlength="72" autocomplete="new-password"></label>
+            <p id="profilePagePasswordError" class="form-message error" role="alert" hidden></p>
+            <button class="primary-btn">更新密码</button>
+          </form>
+          <div class="profile-page-signout"><div><strong>退出登录</strong><p>可以只退出这台设备，或让全部设备重新登录。</p></div><div><button id="profilePageLogoutBtn" type="button" class="secondary-btn">退出当前设备</button><button id="profilePageLogoutAllBtn" type="button" class="danger-button">退出所有设备</button></div></div>
         </section>
       </div>
     </section>
@@ -172,5 +244,5 @@
   <dialog id="banDialog" class="report-dialog"><div class="dialog-title"><div><small>MODERATION</small><h2>限制用户发言</h2></div><button type="button" data-close="banDialog" aria-label="关闭">×</button></div><form id="banForm"><input name="user_id" type="hidden"><label>限制时长<select name="duration"><option value="1h">1 小时</option><option value="1d" selected>1 天</option><option value="7d">7 天</option><option value="30d">30 天</option><option value="permanent">永久限制</option></select></label><label>处理原因<textarea name="reason" required minlength="2" maxlength="300" placeholder="请填写审核原因，便于后续审计……"></textarea></label><p id="banError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="banDialog">取消</button><button class="danger-button">确认限制</button></div></form></dialog>
   <dialog id="publicProfileDialog" class="public-profile-dialog"><button type="button" class="profile-dialog-close" data-close="publicProfileDialog" aria-label="关闭">×</button><div id="publicProfileContent" class="public-profile-content"><div class="profile-loading"><span></span><p>正在加载用户资料…</p></div></div></dialog>
   <dialog id="memberAdminDialog" class="member-admin-dialog"><div class="dialog-title"><div><small>OWNER CONTROL</small><h2>站长面板</h2></div><button type="button" data-close="memberAdminDialog">×</button></div><p class="admin-panel-note">仅管理员可用。每次打开都需要重新验证管理员密码。</p><form id="memberAdminForm"><label>管理员密码<input name="password" type="password" required autocomplete="current-password" placeholder="输入当前账号密码"></label><label>用户 UID<input name="uid" type="number" min="1" required placeholder="例如 12"></label><label>自定义头衔<input name="title" maxlength="30" placeholder="例如：摄影师、版主、开发者"></label><label class="admin-check"><input name="promote" type="checkbox"> 提拔为管理员</label><p id="memberAdminError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="memberAdminDialog">取消</button><button class="primary-btn">保存设置</button></div></form></dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260731-18"></script><script src="auth.js?v=20260801-2"></script><script src="script.js?v=20260731-18"></script><script src="wallpaper.js?v=20260731-18"></script><script src="forum.js?v=20260801-2"></script><script src="messaging.js?v=20260801-1"></script><script src="social.js?v=20260801-1"></script><script src="moderation.js?v=20260731-18"></script><script src="admin.js?v=20260731-18"></script>
-<script src="update-log.js?v=20260801-2"></script><script src="interaction.js?v=20260731-20"></script><script src="mobile-shell.js?v=20260801-1"></script><script src="desktop-shell.js?v=20260731-25"></script></body></html>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260731-18"></script><script src="auth.js?v=20260801-4"></script><script src="script.js?v=20260731-18"></script><script src="wallpaper.js?v=20260731-18"></script><script src="forum.js?v=20260801-2"></script><script src="messaging.js?v=20260801-2"></script><script src="social.js?v=20260801-1"></script><script src="moderation.js?v=20260731-18"></script><script src="admin.js?v=20260731-18"></script>
+<script src="update-log.js?v=20260801-4"></script><script src="interaction.js?v=20260731-20"></script><script src="mobile-shell.js?v=20260801-1"></script><script src="desktop-shell.js?v=20260731-25"></script></body></html>

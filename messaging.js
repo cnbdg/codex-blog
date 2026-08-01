@@ -9,12 +9,50 @@
   let messagePoll = null;
   let renderedMessageKey = null;
   let hasRenderedMessages = false;
+  let selectedImageFile = null;
+  let selectedImagePreviewUrl = "";
+  let signedImageRefreshAt = 0;
+
+  const messageImageTypes = new Set([
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"
+  ]);
 
   const escapeText = value => String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   })[char]);
   const isMessagesPage = () => document.getElementById("messages")?.classList.contains("active");
   const isChatVisible = () => Boolean(targetUser && isMessagesPage() && !$("#messageThread")?.hidden);
+
+  function clearImageSelection() {
+    if (selectedImagePreviewUrl) URL.revokeObjectURL(selectedImagePreviewUrl);
+    selectedImageFile = null;
+    selectedImagePreviewUrl = "";
+    const input = $("#messageImageInput");
+    const preview = $("#messageImagePreview");
+    const previewImage = $("#messageImagePreview img");
+    if (input) input.value = "";
+    if (previewImage) previewImage.removeAttribute("src");
+    if (preview) preview.hidden = true;
+  }
+
+  function selectMessageImage(event) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    if (!messageImageTypes.has(file.type) || file.size > 5 * 1024 * 1024) {
+      event.currentTarget.value = "";
+      window.toast?.("私信图片需为 JPG、PNG、GIF、WebP 或 AVIF，且不超过 5MB。");
+      return;
+    }
+    if (selectedImagePreviewUrl) URL.revokeObjectURL(selectedImagePreviewUrl);
+    selectedImageFile = file;
+    selectedImagePreviewUrl = URL.createObjectURL(file);
+    const preview = $("#messageImagePreview");
+    const previewImage = $("#messageImagePreview img");
+    const previewName = $("#messageImagePreviewName");
+    if (previewImage) previewImage.src = selectedImagePreviewUrl;
+    if (previewName) previewName.textContent = file.name;
+    if (preview) preview.hidden = false;
+  }
 
   function setFollowButton(button, state) {
     button.classList.toggle("following", Boolean(state?.following));
@@ -200,6 +238,9 @@
     targetName = name || "社区用户";
     renderedMessageKey = null;
     hasRenderedMessages = false;
+    signedImageRefreshAt = 0;
+    $("#messageForm")?.reset();
+    clearImageSelection();
     $("#messageTitle").textContent = targetName;
     $("#messagePeerAvatar").textContent = targetName.slice(0, 1).toUpperCase();
     $("#messageList").innerHTML = `<p class="forum-empty">正在加载消息…</p>`;
@@ -220,6 +261,9 @@
     targetUser = null;
     renderedMessageKey = null;
     hasRenderedMessages = false;
+    signedImageRefreshAt = 0;
+    $("#messageForm")?.reset();
+    clearImageSelection();
     showMessageThread(false);
     $("#messageList").replaceChildren();
   }
@@ -236,36 +280,80 @@
     const peer = targetUser;
     const messages = await window.blogAuth.listDirectMessages(peer);
     if (!messages || peer !== targetUser || !isChatVisible()) return;
-    const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}`).join("|") : "empty";
-    if (hasRenderedMessages && key === renderedMessageKey) return;
+    const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}:${message.image_path || ""}`).join("|") : "empty";
+    const imagePaths = messages.map(message => message.image_path).filter(Boolean);
+    const shouldRefreshImages = imagePaths.length && Date.now() >= signedImageRefreshAt;
+    if (hasRenderedMessages && key === renderedMessageKey && !shouldRefreshImages) return;
     const list = $("#messageList");
     const isNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
+    const imageUrls = imagePaths.length
+      ? (await window.blogAuth?.getDirectMessageImageUrls?.(imagePaths)) || new Map()
+      : new Map();
+    if (peer !== targetUser || !isChatVisible()) return;
     list.innerHTML = messages.length ? messages.map(message => {
       const own = message.sender_id === window.blogAuth.user?.id;
-      return `<article class="dm-message ${own ? "own" : "other"}"><p>${escapeText(message.content)}</p><time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time></article>`;
+      const content = String(message.content || "").trim();
+      const imageUrl = message.image_path ? imageUrls.get(message.image_path) : "";
+      const image = message.image_path
+        ? (imageUrl
+          ? `<a class="dm-image-link" href="${escapeText(imageUrl)}" target="_blank" rel="noopener"><img src="${escapeText(imageUrl)}" alt="私信图片" loading="lazy"></a>`
+          : `<p class="dm-image-unavailable">图片暂时无法加载</p>`)
+        : "";
+      return `<article class="dm-message ${own ? "own" : "other"}">${image}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time></article>`;
     }).join("") : `<p class="forum-empty">还没有消息，打个招呼吧。</p>`;
     renderedMessageKey = key;
     hasRenderedMessages = true;
+    signedImageRefreshAt = imagePaths.length
+      ? Date.now() + (imagePaths.every(path => imageUrls.has(path)) ? 45 * 60 * 1000 : 60 * 1000)
+      : 0;
     if (forceScroll || isNearBottom) list.scrollTop = list.scrollHeight;
   }
 
   async function sendMessage(event) {
     event.preventDefault();
     if (!targetUser) return;
+    const recipient = targetUser;
     const form = event.currentTarget;
     const content = form.elements.content.value.trim();
-    if (!content) return;
-    const button = form.querySelector("button");
+    const image = selectedImageFile;
+    if (!content && !image) return;
+    const button = form.querySelector("[data-send-message]");
+    if (!button) return;
+    const normalText = button.textContent;
+    let imagePath = null;
     button.disabled = true;
-    const ok = await window.blogAuth.sendDirectMessage(targetUser, content);
-    button.disabled = false;
-    if (!ok) return;
-    form.reset();
-    await renderMessages({ forceScroll: true });
+    form.classList.add("is-uploading");
+    try {
+      if (image) {
+        button.textContent = "…";
+        imagePath = await window.blogAuth.uploadDirectMessageImage(recipient, image);
+        if (!imagePath) return;
+      }
+      if (targetUser !== recipient) {
+        if (imagePath) await window.blogAuth.deleteDirectMessageImage(imagePath);
+        return;
+      }
+      button.textContent = "…";
+      const ok = await window.blogAuth.sendDirectMessage(recipient, content, imagePath);
+      if (!ok) {
+        if (imagePath) await window.blogAuth.deleteDirectMessageImage(imagePath);
+        return;
+      }
+      form.reset();
+      clearImageSelection();
+      signedImageRefreshAt = 0;
+      await renderMessages({ forceScroll: true });
+    } finally {
+      button.disabled = false;
+      button.textContent = normalText;
+      form.classList.remove("is-uploading");
+    }
   }
 
   function init() {
     $("#messageForm")?.addEventListener("submit", sendMessage);
+    $("#messageImageInput")?.addEventListener("change", selectMessageImage);
+    $("#removeMessageImageBtn")?.addEventListener("click", clearImageSelection);
     $("#messageForm textarea")?.addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
         event.preventDefault();
