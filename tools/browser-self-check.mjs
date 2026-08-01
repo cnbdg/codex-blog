@@ -43,10 +43,13 @@ function startStaticServer() {
         .replace(/^[/\\]+/, "");
       if (relative === "__self-check-index.html") {
         const source = await readFile(resolve(root, "index.html"), "utf8");
-        const body = source
+        let body = source
           .replace(/<link\b[^>]*href="https:\/\/fonts\.[^"]+"[^>]*>/g, "")
           .replace(/<script\s+src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/, "")
           .replace(/(<script src="config\.js[^>]*><\/script>)/, `$1<script>if(window.BLOG_CONFIG?.wallpaperSettings){BLOG_CONFIG.wallpaperSettings.desktop=[];BLOG_CONFIG.wallpaperSettings.mobile=[];BLOG_CONFIG.wallpaperSettings.desktopDefault="";BLOG_CONFIG.wallpaperSettings.mobileDefault=""}</script>`);
+        if (process.env.SELF_CHECK_THEME === "dark") {
+          body = body.replace("</head>", `<script>localStorage.setItem("yu-theme","dark")</script></head>`);
+        }
         response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         response.end(body);
         return;

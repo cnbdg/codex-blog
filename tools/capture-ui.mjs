@@ -24,6 +24,12 @@ function startServer() {
   const server = createServer(async (request, response) => {
     try {
       const url = new URL(request.url || "/", "http://127.0.0.1");
+      if (url.pathname === "/__wallpaper.svg") {
+        const body = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#18355f"/><stop offset=".48" stop-color="#6d55a8"/><stop offset="1" stop-color="#e7809b"/></linearGradient><radialGradient id="r"><stop stop-color="#7fe5ef" stop-opacity=".8"/><stop offset="1" stop-color="#7fe5ef" stop-opacity="0"/></radialGradient></defs><rect width="1600" height="1000" fill="url(#g)"/><circle cx="1250" cy="160" r="430" fill="url(#r)"/><circle cx="280" cy="840" r="520" fill="url(#r)" opacity=".42"/><path d="M0 720 Q400 520 800 760 T1600 650 V1000 H0Z" fill="#091b36" opacity=".42"/></svg>`;
+        response.writeHead(200, { "cache-control": "no-store", "content-type": "image/svg+xml" });
+        response.end(body);
+        return;
+      }
       if (url.pathname === "/__capture.html") {
         const width = Math.max(320, Math.min(480, Number(url.searchParams.get("width")) || 390));
         const height = Math.max(640, Math.min(1000, Number(url.searchParams.get("height")) || 844));
@@ -45,7 +51,12 @@ function startServer() {
         let body = source
           .replace(/<link\b[^>]*href="https:\/\/fonts\.[^"]+"[^>]*>/g, "")
           .replace(/<script\s+src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/, "");
-        if (process.env.UI_CAPTURE_WALLPAPER !== "1") {
+        if (process.env.UI_CAPTURE_THEME === "dark") {
+          body = body.replace("</head>", `<script>localStorage.setItem("yu-theme","dark")</script></head>`);
+        }
+        if (process.env.UI_CAPTURE_WALLPAPER === "mock") {
+          body = body.replace(/(<script src="config\.js[^>]*><\/script>)/, `$1<script>if(window.BLOG_CONFIG?.wallpaperSettings){BLOG_CONFIG.wallpaperSettings.desktop=[];BLOG_CONFIG.wallpaperSettings.mobile=[];BLOG_CONFIG.wallpaperSettings.desktopDefault="/__wallpaper.svg";BLOG_CONFIG.wallpaperSettings.mobileDefault="/__wallpaper.svg"}</script>`);
+        } else if (process.env.UI_CAPTURE_WALLPAPER !== "1") {
           body = body.replace(/(<script src="config\.js[^>]*><\/script>)/, `$1<script>if(window.BLOG_CONFIG?.wallpaperSettings){BLOG_CONFIG.wallpaperSettings.desktop=[];BLOG_CONFIG.wallpaperSettings.mobile=[];BLOG_CONFIG.wallpaperSettings.desktopDefault="";BLOG_CONFIG.wallpaperSettings.mobileDefault=""}</script>`);
         }
         response.writeHead(200, {
@@ -84,7 +95,12 @@ function terminateTree(pid) {
 
 async function capture(origin, page, viewport) {
   const profile = await mkdtemp(join(tmpdir(), "codex-blog-ui-"));
-  const screenshot = join(output, `${viewport.name}-${page}.png`);
+  const variants = [
+    process.env.UI_CAPTURE_THEME === "dark" ? "dark" : "",
+    ["1", "mock"].includes(process.env.UI_CAPTURE_WALLPAPER || "") ? "wallpaper" : ""
+  ].filter(Boolean);
+  const suffix = variants.length ? `-${variants.join("-")}` : "";
+  const screenshot = join(output, `${viewport.name}-${page}${suffix}.png`);
   await rm(screenshot, { force: true });
   const framedMobile = viewport.name === "mobile";
   const browserWidth = framedMobile ? 540 : viewport.width;
@@ -150,7 +166,7 @@ async function capture(origin, page, viewport) {
 
   try {
     await waitForScreenshot;
-    return `${viewport.name}-${page}.png`;
+    return `${viewport.name}-${page}${suffix}.png`;
   } catch (error) {
     throw new Error(`${error.message}\n${errorOutput.slice(-500)}`);
   } finally {

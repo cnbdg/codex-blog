@@ -59,13 +59,18 @@
     rail.className = "desktop-context";
     rail.setAttribute("aria-label", "桌面端快捷信息栏");
     rail.innerHTML = `
-      <button type="button" class="desktop-context-search" data-desktop-search><span>⌕</span><span>搜索博客、用户和 UID</span></button>
+      <button type="button" class="desktop-context-search" data-desktop-search><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"/></svg><span>搜索博客、用户和 UID</span><kbd>Ctrl K</kbd></button>
       <section id="desktopProfileContext" class="desktop-context-card desktop-context-profile" hidden></section>
       <section class="desktop-context-card desktop-context-trends">
         <h2>快捷入口</h2>
-        <button type="button" data-page="forum"><small>社区</small><strong>看看大家正在讨论什么</strong><span>›</span></button>
-        <button type="button" data-desktop-compose><small>发布</small><strong>写下你的新想法</strong><span>›</span></button>
-        <button type="button" data-page="profile"><small>个人</small><strong>管理资料与账号</strong><span>›</span></button>
+        <button type="button" data-page="forum"><svg class="ui-icon" aria-hidden="true"><use href="#icon-community"/></svg><small>社区</small><strong>看看大家正在讨论什么</strong><span>›</span></button>
+        <button type="button" data-desktop-compose><svg class="ui-icon" aria-hidden="true"><use href="#icon-pen"/></svg><small>发布</small><strong>写下你的新想法</strong><span>›</span></button>
+        <button type="button" data-page="profile"><svg class="ui-icon" aria-hidden="true"><use href="#icon-user"/></svg><small>个人</small><strong>管理资料与账号</strong><span>›</span></button>
+      </section>
+      <section class="desktop-context-card desktop-context-about">
+        <div><span class="status-dot"></span><strong>社区开放中</strong></div>
+        <p>尊重他人、保护隐私，让每一次交流都有意义。</p>
+        <div class="desktop-shortcuts"><span>快速搜索</span><kbd>/</kbd><span>发布话题</span><kbd>N</kbd><span>页面跳转</span><kbd>G</kbd></div>
       </section>`;
     document.body.append(rail);
     rail.addEventListener("click", event => {

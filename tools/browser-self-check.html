@@ -41,11 +41,22 @@
           const baseChecks = {
             modulesLoaded: Boolean(w.blogUI && w.blogAuth && w.blogMarkdown),
             captchaConfigured: Boolean(w.BLOG_CONFIG?.captchaRequiredForAuth && w.BLOG_CONFIG?.turnstileSiteKey),
-            markdownSanitized: !/script|javascript:|onerror|onclick/i.test(sanitizedMarkdown) && !w.__xss
+            markdownSanitized: !/script|javascript:|onerror|onclick/i.test(sanitizedMarkdown) && !w.__xss,
+            unifiedIcons: d.querySelectorAll("#mainNav a .ui-icon").length === d.querySelectorAll("#mainNav a").length,
+            noGoogleFontDependency: ![...d.querySelectorAll('link[href]')].some(link => /fonts\.(googleapis|gstatic)\.com/.test(link.href)),
+            darkTheme: d.body.classList.contains("dark"),
+            wallpaperMode: d.body.classList.contains("has-wallpaper"),
+            wallpaperChoice: d.body.dataset.wallpaperMode || "",
+            wallpaperDefault: w.BLOG_CONFIG?.wallpaperSettings?.desktopDefault || "",
+            wallpaperVariable: d.documentElement.style.getPropertyValue("--wallpaper"),
+            bodyBackground: getComputedStyle(d.body).backgroundColor,
+            heroBackground: getComputedStyle(d.querySelector("#home .social-hero")).backgroundColor
           };
           assert(baseChecks.modulesLoaded, "页面核心模块没有完整加载");
           assert(baseChecks.captchaConfigured, "登录人机验证配置缺失");
           assert(baseChecks.markdownSanitized, "Markdown 内容清理未通过安全测试");
+          assert(baseChecks.unifiedIcons, "主导航图标没有统一");
+          assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           let desktopContextCheck = null;
           if (mode === "desktop") {
             w.blogUI?.navigate?.("forum");
@@ -57,9 +68,12 @@
               display: context ? getComputedStyle(context).display : "missing",
               width: Math.round(contextRect?.width || 0),
               right: Math.round(contextRect?.right || 0),
-              bodyPage: d.body.dataset.desktopPage || ""
+              bodyPage: d.body.dataset.desktopPage || "",
+              activeAria: d.querySelector('#mainNav [data-page="forum"]')?.getAttribute("aria-current") || "",
+              navTarget: Math.round(d.querySelector('#mainNav [data-page="forum"]')?.getBoundingClientRect().height || 0)
             };
             assert(desktopContextCheck.display !== "none" && desktopContextCheck.width >= 280, "桌面社区页右侧信息栏未显示");
+            assert(desktopContextCheck.activeAria === "page" && desktopContextCheck.navTarget >= 44, "桌面导航状态或点击区域不符合要求");
           }
           const viewer = { id: "00000000-0000-0000-0000-000000000001" };
           const friend = { id: "00000000-0000-0000-0000-000000000002", user_uid: 2, username: "测试好友", avatar_url: "", display_title: "好友" };
@@ -194,11 +208,15 @@
           const mobileVisual = {
             visibleHeaderActions: visibleHeaderActions.length,
             headerFits: visibleHeaderActions.every(button => button.getBoundingClientRect().right <= w.innerWidth),
+            minHeaderTarget: Math.min(...visibleHeaderActions.map(button => button.getBoundingClientRect().height)),
+            dockTarget: Math.min(...[...d.querySelectorAll("#mobileDock button")].map(button => button.getBoundingClientRect().height)),
+            dockRadius: parseFloat(getComputedStyle(d.querySelector("#mobileDock")).borderTopLeftRadius) || 0,
             heroTop: Math.round(heroRect?.top || 0),
             headerBottom: Math.round(topbarRect?.bottom || 0),
             heroRadius: parseFloat(getComputedStyle(d.querySelector("#home .social-hero")).borderTopLeftRadius) || 0
           };
           assert(mobileVisual.visibleHeaderActions === 3 && mobileVisual.headerFits, "手机顶部操作区拥挤或溢出");
+          assert(mobileVisual.minHeaderTarget >= 44 && mobileVisual.dockTarget >= 44 && mobileVisual.dockRadius >= 18, "手机触控区域或底栏圆角不符合要求");
           assert(mobileVisual.heroTop >= mobileVisual.headerBottom && mobileVisual.heroRadius >= 18, "手机首屏标题被遮挡或卡片圆角丢失");
           d.querySelector("#menuBtn").click();
           await wait(50);

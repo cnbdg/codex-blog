@@ -16,7 +16,9 @@
 
   function safeUrl(value) {
     try {
-      const parsed = new URL(String(value || "").trim(), location.href);
+      const input = String(value || "").trim();
+      if (!input) return "";
+      const parsed = new URL(input, location.href);
       return /^https?:$/.test(parsed.protocol) ? parsed.href : "";
     } catch {
       return "";

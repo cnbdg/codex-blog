@@ -22,7 +22,12 @@
     const changed = state.page !== page;
     state.page = page;
     document.querySelectorAll(".page").forEach(node => node.classList.toggle("active", node.id === page));
-    document.querySelectorAll("#mainNav [data-page]").forEach(node => node.classList.toggle("active", node.dataset.page === page));
+    document.querySelectorAll("#mainNav [data-page]").forEach(node => {
+      const active = node.dataset.page === page;
+      node.classList.toggle("active", active);
+      if (active) node.setAttribute("aria-current", "page");
+      else node.removeAttribute("aria-current");
+    });
     closeMenu();
     if (history && location.hash !== `#${page}`) window.history.pushState({ page }, "", `#${page}`);
     if (changed) emit("blog-page-change", { page });

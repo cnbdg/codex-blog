@@ -2,32 +2,50 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="cnbdg的博客，记录生活的点点滴滴。"><meta name="author" content="cnbdg"><meta property="og:title" content="cnbdg的博客"><meta property="og:description" content="记录生活的点点滴滴"><meta property="og:type" content="website"><meta name="theme-color" content="#f7f8fa"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>cnbdg的博客</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta name="description" content="cnbdg的博客，记录生活的点点滴滴。"><meta name="author" content="cnbdg"><meta property="og:title" content="cnbdg的博客"><meta property="og:description" content="记录生活的点点滴滴"><meta property="og:type" content="website"><meta name="theme-color" content="#f4f7fa"><meta name="color-scheme" content="light dark"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>cnbdg的博客</title>
   <link rel="stylesheet" href="style.css?v=20260801-17">
+  <link rel="stylesheet" href="design-system.css?v=20260801-1">
 </head>
 <body>
+  <svg class="icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3.5 10.8 12 3.7l8.5 7.1v9a1.2 1.2 0 0 1-1.2 1.2h-5.1v-6.2H9.8V21H4.7a1.2 1.2 0 0 1-1.2-1.2Z"/></symbol>
+    <symbol id="icon-community" viewBox="0 0 24 24"><path d="M8.2 11.4a3.7 3.7 0 1 0 0-7.4 3.7 3.7 0 0 0 0 7.4Zm7.8-.8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.8 20c0-3.5 2.3-6 5.4-6s5.4 2.5 5.4 6m.2-6.7c.7-.4 1.4-.6 2.2-.6 2.9 0 5.2 2.4 5.2 5.3"/></symbol>
+    <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18.2 9.6c0-3.5-2.3-6-6.2-6s-6.2 2.5-6.2 6c0 6-2.3 7-2.3 7h17s-2.3-1-2.3-7ZM9.4 20h5.2"/></symbol>
+    <symbol id="icon-message" viewBox="0 0 24 24"><path d="M4.5 5.2h15a1.8 1.8 0 0 1 1.8 1.8v9.5a1.8 1.8 0 0 1-1.8 1.8H9l-5.3 3v-4.1a1.8 1.8 0 0 1-1-1.6V7a1.8 1.8 0 0 1 1.8-1.8Z"/><path d="M7.2 9.2h9.6M7.2 13h6.2"/></symbol>
+    <symbol id="icon-user" viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4"/><path d="M4.5 21c.5-4.4 3-7 7.5-7s7 2.6 7.5 7"/></symbol>
+    <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.4"/><rect x="14" y="3.5" width="6.5" height="6.5" rx="1.4"/><rect x="3.5" y="14" width="6.5" height="6.5" rx="1.4"/><rect x="14" y="14" width="6.5" height="6.5" rx="1.4"/></symbol>
+    <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10.6v6M12 7.2h.01"/></symbol>
+    <symbol id="icon-link" viewBox="0 0 24 24"><path d="m9.6 14.4 4.8-4.8M8 17.8l-1.3 1.3a3.6 3.6 0 0 1-5.1-5.1l3.2-3.2a3.6 3.6 0 0 1 5.1 0M16 6.2l1.3-1.3a3.6 3.6 0 0 1 5.1 5.1l-3.2 3.2a3.6 3.6 0 0 1-5.1 0"/></symbol>
+    <symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.3" cy="9" r="1.5"/><path d="m4 17 4.7-4.3 3.5 3 2.8-2.4 5 4.2"/></symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.7" cy="10.7" r="6.7"/><path d="m15.6 15.6 4.4 4.4"/></symbol>
+    <symbol id="icon-theme" viewBox="0 0 24 24"><path d="M20.5 15.2A8.8 8.8 0 0 1 8.8 3.5 8.8 8.8 0 1 0 20.5 15.2Z"/></symbol>
+    <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+    <symbol id="icon-arrow-up" viewBox="0 0 24 24"><path d="m5 11 7-7 7 7M12 4v16"/></symbol>
+    <symbol id="icon-spark" viewBox="0 0 24 24"><path d="M12 2.8c.7 4.8 3.4 7.5 8.2 8.2-4.8.7-7.5 3.4-8.2 8.2-.7-4.8-3.4-7.5-8.2-8.2 4.8-.7 7.5-3.4 8.2-8.2Z"/></symbol>
+    <symbol id="icon-pen" viewBox="0 0 24 24"><path d="m4 20 4.3-1 10.8-10.8a2.4 2.4 0 0 0-3.4-3.4L5 15.7 4 20Z"/><path d="m13.9 6.7 3.4 3.4M4.8 15.5l3.7 3.7"/></symbol>
+  </svg>
   <header class="topbar">
     <div class="nav-wrap">
       <a class="logo" href="#" data-page="home"><span class="logo-mark">C</span><strong>cnbdg的博客</strong></a>
       <nav id="mainNav">
-        <a class="active" href="#home" data-page="home">交友</a>
-        <a href="#forum" data-page="forum">社区</a>
-        <a href="#notifications" data-page="notifications">消息</a>
-        <a href="#messages" data-page="messages">消息</a>
-        <a href="#profile" data-page="profile">我的</a>
-        <a href="#projects" data-page="projects">站点</a>
-        <a href="#about" data-page="about">关于</a>
-        <a href="#friends" data-page="friends">链接</a><a href="#" data-open-wallpaper>壁纸与显示</a>
+        <a class="active" href="#home" data-page="home"><svg class="ui-icon"><use href="#icon-home"/></svg><span>交友</span></a>
+        <a href="#forum" data-page="forum"><svg class="ui-icon"><use href="#icon-community"/></svg><span>社区</span></a>
+        <a href="#notifications" data-page="notifications"><svg class="ui-icon"><use href="#icon-bell"/></svg><span>通知</span></a>
+        <a href="#messages" data-page="messages"><svg class="ui-icon"><use href="#icon-message"/></svg><span>私信</span></a>
+        <a href="#profile" data-page="profile"><svg class="ui-icon"><use href="#icon-user"/></svg><span>我的</span></a>
+        <a href="#projects" data-page="projects"><svg class="ui-icon"><use href="#icon-grid"/></svg><span>站点</span></a>
+        <a href="#about" data-page="about"><svg class="ui-icon"><use href="#icon-info"/></svg><span>关于</span></a>
+        <a href="#friends" data-page="friends"><svg class="ui-icon"><use href="#icon-link"/></svg><span>链接</span></a>
+        <a href="#" data-open-wallpaper><svg class="ui-icon"><use href="#icon-image"/></svg><span>壁纸与显示</span></a>
       </nav>
-      <div class="actions"><button id="searchBtn" aria-label="搜索"><span>⌕</span><em>搜索</em></button><button id="notificationBtn" aria-label="通知"><span>✉</span><em>通知</em></button><button id="friendsBtn" aria-label="好友"><span>♧</span><em>好友</em></button><button id="authBtn" class="auth-btn" aria-label="登录"><span>♙</span><em>登录</em></button><button id="wallpaperBtn" aria-label="更换壁纸"><span>▧</span><em>壁纸</em></button><button id="themeBtn" aria-label="切换深色模式">◐</button><button id="menuBtn" aria-label="菜单">☰</button></div>
+      <div class="actions"><button id="searchBtn" aria-label="搜索"><svg class="ui-icon"><use href="#icon-search"/></svg><em>搜索</em></button><button id="notificationBtn" aria-label="通知"><svg class="ui-icon"><use href="#icon-bell"/></svg><em>通知</em></button><button id="friendsBtn" aria-label="好友"><svg class="ui-icon"><use href="#icon-community"/></svg><em>好友</em></button><button id="authBtn" class="auth-btn" aria-label="登录"><svg class="ui-icon"><use href="#icon-user"/></svg><em>登录</em></button><button id="wallpaperBtn" aria-label="更换壁纸"><svg class="ui-icon"><use href="#icon-image"/></svg><em>壁纸</em></button><button id="themeBtn" aria-label="切换深色模式"><svg class="ui-icon"><use href="#icon-theme"/></svg><em>外观</em></button><button id="menuBtn" aria-label="菜单"><svg class="ui-icon"><use href="#icon-menu"/></svg></button></div>
     </div>
   </header>
 
   <main id="app">
     <section id="home" class="page active">
-      <div class="page-title social-hero"><div><p class="hello">CNBDG FRIENDS 👋</p><h1>来认识更多朋友</h1><p>在这里分享生活、认识同好，找到愿意认真交流的人。</p><div class="social-hero-actions"><button type="button" class="primary-btn" data-page="forum">进入社区</button><button type="button" class="secondary-btn" data-page="profile">个人资料</button></div></div><span class="planet">◌</span></div>
+      <div class="page-title social-hero"><div class="hero-copy"><p class="hello"><span></span> CNBDG FRIENDS</p><h1>让每一次相遇<br>都值得被记住</h1><p>分享生活、认识同好，在一个真诚、友善的社区里找到愿意认真交流的人。</p><div class="social-hero-actions"><button type="button" class="primary-btn" data-page="forum">进入社区 <span aria-hidden="true">→</span></button><button type="button" class="secondary-btn" data-page="profile">完善个人资料</button></div></div><div class="hero-visual" aria-hidden="true"><span class="hero-orbit orbit-one"></span><span class="hero-orbit orbit-two"></span><i class="hero-node node-one">C</i><i class="hero-node node-two">Hi</i><i class="hero-node node-three">✦</i><b></b></div></div>
       <section class="friendship-card"><div><small>MAKE CONNECTIONS</small><h2>友善、真诚、慢慢认识</h2><p>发布你的想法，回复别人的故事。互相关注后，还可以开启只有你们看得见的私聊。</p></div><div class="friendship-points"><span>① 发现同好</span><span>② 互相关注</span><span>③ 开始私聊</span></div></section>
       <div class="layout">
         <div>
@@ -45,7 +63,7 @@
 
     <section id="forum" class="page forum-page">
       <div class="forum-hero">
-        <div class="forum-hero-copy"><span class="forum-hero-icon">✦</span><div><small>CNBDG COMMUNITY</small><h1>发现同好，自由交流</h1><p>分享近况、提出问题，也可以认真写下一段想法。</p></div></div>
+        <div class="forum-hero-copy"><span class="forum-hero-icon"><svg class="ui-icon"><use href="#icon-spark"/></svg></span><div><small>CNBDG COMMUNITY</small><h1>发现同好，自由交流</h1><p>分享近况、提出问题，也可以认真写下一段想法。</p></div></div>
         <button id="newThreadBtn" type="button" class="primary-btn">＋ 发布话题</button>
       </div>
       <div class="forum-layout">
@@ -66,9 +84,9 @@
     </section>
 
     <section id="projects" class="page narrow"><div class="inner-title"><small>MY SITES</small><h1>我的网络空间</h1><p>博客、导航页和代码仓库，都在这里。</p></div><div class="project-grid">
-      <article><span>01</span><div class="project-icon blue">✎</div><h2>旧博客</h2><p>过去发布的文章与生活记录，保留着一路走来的内容。</p><div><i>Blog</i><i>Archive</i></div><a href="https://xsf.indevs.in/" target="_blank" rel="noopener">访问旧博客 ↗</a></article>
-      <article><span>02</span><div class="project-icon orange">⌂</div><h2>个人导航页</h2><p>常用服务、个人入口与收藏站点的聚合主页。</p><div><i>Home</i><i>Navigation</i></div><a href="https://home.cnbdg0826.dpdns.org/" target="_blank" rel="noopener">打开导航页 ↗</a></article>
-      <article><span>03</span><div class="project-icon green">⌘</div><h2>GitHub</h2><p>查看我的代码仓库，以及这个博客的持续更新。</p><div><i>Code</i><i>Open Source</i></div><a href="https://github.com/cnbdg" target="_blank" rel="noopener">前往 GitHub ↗</a></article>
+      <article><span>01</span><div class="project-icon blue"><svg class="ui-icon"><use href="#icon-pen"/></svg></div><h2>旧博客</h2><p>过去发布的文章与生活记录，保留着一路走来的内容。</p><div><i>Blog</i><i>Archive</i></div><a href="https://xsf.indevs.in/" target="_blank" rel="noopener">访问旧博客 ↗</a></article>
+      <article><span>02</span><div class="project-icon orange"><svg class="ui-icon"><use href="#icon-home"/></svg></div><h2>个人导航页</h2><p>常用服务、个人入口与收藏站点的聚合主页。</p><div><i>Home</i><i>Navigation</i></div><a href="https://home.cnbdg0826.dpdns.org/" target="_blank" rel="noopener">打开导航页 ↗</a></article>
+      <article><span>03</span><div class="project-icon green"><svg class="ui-icon"><use href="#icon-grid"/></svg></div><h2>GitHub</h2><p>查看我的代码仓库，以及这个博客的持续更新。</p><div><i>Code</i><i>Open Source</i></div><a href="https://github.com/cnbdg" target="_blank" rel="noopener">前往 GitHub ↗</a></article>
     </div></section>
 
     <section id="about" class="page narrow"><div class="inner-title"><small>ABOUT</small><h1>你好，我是 cnbdg</h1><p>欢迎来到 cnbdg 的奇妙世界！</p></div><div class="about-box"><div class="big-avatar">CN</div><div><h2>关于我</h2><p>这里是我的个人博客，用来记录生活的点点滴滴，也整理学习、游戏和日常中的有趣内容。</p><p>随和亲切、冷静沉着、风趣幽默——希望这片小小的网络空间，可以真实地留下每一段经历。</p><h3>你可以在这里找到</h3><ul><li>日常生活与学习记录</li><li>游戏内容和实用备忘</li><li>偶尔出现的新想法与新尝试</li></ul><p class="about-contact"><a href="mailto:3606604482@qq.com">联系邮箱：3606604482@qq.com</a></p></div></div></section>
@@ -246,7 +264,7 @@
   </main>
 
   <footer><div><strong>cnbdg的博客</strong><p>记录生活的点点滴滴。</p></div><div class="footer-links"><a href="https://home.cnbdg0826.dpdns.org/" target="_blank" rel="noopener">导航页</a><a href="https://xsf.indevs.in/" target="_blank" rel="noopener">旧博客</a><a href="https://github.com/cnbdg" target="_blank" rel="noopener">GitHub</a><a href="mailto:3606604482@qq.com">联系</a></div><small>© 2026 cnbdg. All rights reserved.</small></footer>
-  <button id="toTop" aria-label="返回顶部">↑</button>
+  <button id="toTop" aria-label="返回顶部"><svg class="ui-icon"><use href="#icon-arrow-up"/></svg></button>
 
   <dialog id="searchDialog"><div class="dialog-title"><b>搜索</b><button data-close="searchDialog">×</button></div><div class="search-box">⌕<input id="searchInput" placeholder="搜索文章、用户名或 UID…" autocomplete="off"></div><div id="userSearchResults" class="user-search-results"></div><div id="searchResults"></div><small class="search-hint">支持搜索文章、社区用户和 UID</small></dialog>
   <dialog id="articleDialog" class="article-dialog"><button class="article-close" data-close="articleDialog">×</button><article id="articleContent"></article>
@@ -279,5 +297,5 @@
   <dialog id="appealReviewDialog" class="report-dialog governance-dialog"><div class="dialog-title"><div><small>APPEAL REVIEW</small><h2>复核申诉</h2></div><button type="button" data-close="appealReviewDialog" aria-label="关闭">×</button></div><div id="appealReviewSummary" class="case-review-summary"></div><form id="appealReviewForm"><input name="appeal_id" type="hidden"><label>复核结论<select name="decision"><option value="approved">通过并解除限制</option><option value="rejected">驳回申诉</option></select></label><label>复核备注<textarea name="note" required minlength="2" maxlength="500" placeholder="说明复核依据与最终结论……"></textarea></label><p id="appealReviewError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="appealReviewDialog">取消</button><button class="primary-btn">完成复核</button></div></form></dialog>
   <dialog id="publicProfileDialog" class="public-profile-dialog"><button type="button" class="profile-dialog-close" data-close="publicProfileDialog" aria-label="关闭">×</button><div id="publicProfileContent" class="public-profile-content"><div class="profile-loading"><span></span><p>正在加载用户资料…</p></div></div></dialog>
   <dialog id="memberAdminDialog" class="member-admin-dialog owner-console-dialog"><div class="dialog-title"><div><small>OWNER CONTROL</small><h2>站长面板</h2></div><button type="button" data-close="memberAdminDialog" aria-label="关闭">×</button></div><p class="admin-panel-note">身份、头衔和维护操作都由数据库再次校验管理员权限；保存或执行维护前需要重新验证密码。</p><form id="memberAdminForm" class="owner-console-grid"><section class="owner-member-editor"><label>管理员密码<input name="password" type="password" required autocomplete="current-password" placeholder="执行操作前输入当前密码"></label><div class="owner-lookup"><label>用户 UID<input name="uid" type="number" min="1" required placeholder="例如 12"></label><button id="memberLookupBtn" type="button" class="secondary-btn">读取用户</button></div><div id="adminMemberPreview" class="owner-member-preview" hidden></div><label>自定义头衔<input name="title" required minlength="1" maxlength="30" placeholder="例如：摄影师、版主、开发者"></label><label>管理员角色<select name="role_action"><option value="keep" selected>保持当前角色</option><option value="promote">提拔为管理员</option><option value="demote">降为普通用户</option></select></label><p class="owner-safety-note">为避免误操作，“未选择提拔”不再等于降级；降级必须主动选择，并且不能移除最后一名管理员。</p><section id="adminCaptchaField" class="signup-captcha" aria-labelledby="adminCaptchaTitle" hidden><div class="captcha-heading"><span aria-hidden="true">◇</span><div><strong id="adminCaptchaTitle">管理员安全验证</strong><small>验证密码前需完成独立挑战</small></div><b id="adminCaptchaStateBadge">等待验证</b></div><div id="adminTurnstileWidget" class="turnstile-widget"></div><p id="adminCaptchaStatus" role="status" aria-live="polite">正在准备人机验证…</p><button id="adminCaptchaRetryBtn" type="button" class="captcha-retry" hidden>重新加载安全验证</button></section><p id="memberAdminError" class="form-message error" hidden></p><div class="dialog-actions"><button type="button" class="secondary-btn" data-close="memberAdminDialog">取消</button><button class="primary-btn">保存身份设置</button></div></section><aside class="owner-maintenance"><small>SYSTEM MAINTENANCE</small><h3>治理系统维护</h3><div id="ownerHealthSummary" class="owner-health-summary"><p>打开面板后会读取治理系统状态。</p></div><button id="ownerOpenModerationBtn" type="button" class="secondary-btn">打开治理中心</button><button id="governanceCleanupBtn" type="button" class="secondary-btn">清理过期限制</button><p>清理只会关闭已经到期的用户限制，不删除处罚记录、举报或操作日志。</p></aside></form></dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260801-4"></script><script src="auth.js?v=20260801-11"></script><script src="script.js?v=20260731-18"></script><script src="wallpaper.js?v=20260801-1"></script><script src="forum.js?v=20260801-4"></script><script src="messaging.js?v=20260801-5"></script><script src="social.js?v=20260801-7"></script><script src="moderation.js?v=20260801-2"></script><script src="admin.js?v=20260801-2"></script>
-<script src="update-log.js?v=20260801-22"></script><script src="interaction.js?v=20260731-20"></script><script src="mobile-shell.js?v=20260801-5"></script><script src="desktop-shell.js?v=20260801-29"></script></body></html>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="markdown.js?v=20260731-18"></script><script src="legacy-posts.js?v=20260731-18"></script><script src="config.js?v=20260801-4"></script><script src="auth.js?v=20260801-11"></script><script src="script.js?v=20260801-6"></script><script src="wallpaper.js?v=20260801-2"></script><script src="forum.js?v=20260801-4"></script><script src="messaging.js?v=20260801-5"></script><script src="social.js?v=20260801-7"></script><script src="moderation.js?v=20260801-2"></script><script src="admin.js?v=20260801-2"></script>
+<script src="update-log.js?v=20260801-23"></script><script src="interaction.js?v=20260801-1"></script><script src="mobile-shell.js?v=20260801-6"></script><script src="desktop-shell.js?v=20260801-30"></script></body></html>

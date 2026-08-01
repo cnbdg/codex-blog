@@ -39,11 +39,11 @@
     dock.id = "mobileDock";
     dock.setAttribute("aria-label", "移动端快捷导航");
     dock.innerHTML = `
-      <button type="button" data-mobile-action="home" aria-label="首页"><span>⌂</span><small>首页</small></button>
-      <button type="button" data-mobile-action="forum" aria-label="社区"><span>◌</span><small>社区</small></button>
-      <button type="button" data-mobile-action="messages" aria-label="消息"><span>✉</span><small>消息</small></button>
-      <button type="button" data-mobile-action="notifications" aria-label="通知"><span>✦</span><small>通知</small></button>
-      <button type="button" data-mobile-action="account" aria-label="我的"><span>◉</span><small>我的</small></button>`;
+      <button type="button" data-mobile-action="home" aria-label="首页"><span><svg class="ui-icon"><use href="#icon-home"/></svg></span><small>首页</small></button>
+      <button type="button" data-mobile-action="forum" aria-label="社区"><span><svg class="ui-icon"><use href="#icon-community"/></svg></span><small>社区</small></button>
+      <button type="button" data-mobile-action="messages" aria-label="私信"><span><svg class="ui-icon"><use href="#icon-message"/></svg></span><small>私信</small></button>
+      <button type="button" data-mobile-action="notifications" aria-label="通知"><span><svg class="ui-icon"><use href="#icon-bell"/></svg></span><small>通知</small></button>
+      <button type="button" data-mobile-action="account" aria-label="我的"><span><svg class="ui-icon"><use href="#icon-user"/></svg></span><small>我的</small></button>`;
     document.body.append(dock);
   }
 
@@ -59,7 +59,7 @@
     button.id = "mobileComposeFab";
     button.type = "button";
     button.setAttribute("aria-label", "发布社区话题");
-    button.textContent = "＋";
+    button.innerHTML = `<svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"/></svg>`;
     button.addEventListener("click", openComposer);
     document.body.append(button);
   }
