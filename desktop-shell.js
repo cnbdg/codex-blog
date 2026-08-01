@@ -66,11 +66,6 @@
         <button type="button" data-page="forum"><small>社区</small><strong>看看大家正在讨论什么</strong><span>›</span></button>
         <button type="button" data-desktop-compose><small>发布</small><strong>写下你的新想法</strong><span>›</span></button>
         <button type="button" data-page="profile"><small>个人</small><strong>管理资料与账号</strong><span>›</span></button>
-      </section>
-      <section class="desktop-context-card desktop-context-tips">
-        <h2>使用技巧</h2>
-        <p><kbd>/</kbd> 搜索　<kbd>N</kbd> 发布话题</p>
-        <p><kbd>G</kbd> + <kbd>H / C / N / M / P</kbd> 快速导航</p>
       </section>`;
     document.body.append(rail);
     rail.addEventListener("click", event => {
@@ -83,6 +78,7 @@
   function syncContext(detail = {}) {
     const page = detail.page || window.blogUI?.state?.page || "home";
     document.body.dataset.desktopPage = page;
+    document.body.classList.toggle("desktop-utility-page", enabled() && ["notifications", "messages", "profile"].includes(page));
   }
 
   function onKeydown(event) {

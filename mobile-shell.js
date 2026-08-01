@@ -51,8 +51,10 @@
 
   function syncDock() {
     const dock = $("#mobileDock");
-    if (!dock) return;
     const page = window.blogUI?.state?.page || location.hash.slice(1) || "home";
+    if (isMobile()) document.body.dataset.mobilePage = page;
+    else delete document.body.dataset.mobilePage;
+    if (!dock) return;
     const activeAction = page === "profile" ? "account" : page;
     dock.querySelectorAll("button").forEach(button => {
       const active = button.dataset.mobileAction === activeAction;

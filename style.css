@@ -810,3 +810,35 @@ dialog[open]{transform-origin:center;animation:dialogPolishIn .28s var(--ease-ou
 @media (max-width:1023px) {
   .message-friend-item.active { box-shadow:inset 3px 0 0 var(--blue); }
 }
+
+/* Keep mobile social screens focused on the current task instead of helper copy. */
+@media (max-width:1023px) {
+  #mobileComposeFab { display:none; }
+  body[data-mobile-page="forum"] #mobileComposeFab { display:grid; }
+
+  #home .social-hero { padding:16px; }
+  #home .social-hero-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  #home .social-hero-actions button { width:100%; min-width:0; padding-inline:10px; }
+  #home .friendship-card { display:none; }
+
+  .notifications-page .standalone-page-header,
+  .messages-page .messages-page-header { align-items:center; min-height:58px; padding:0 16px; }
+  .notifications-page .standalone-page-header .standalone-eyebrow,
+  .notifications-page .standalone-page-header p,
+  .messages-page .messages-page-header .standalone-eyebrow,
+  .messages-page .messages-page-header p,
+  .messages-page .messages-inbox-head small,
+  .message-empty p,
+  .message-privacy-label span { display:none; }
+  .messages-page .messages-inbox-head { min-height:52px; }
+  .message-empty { min-height:220px; padding:26px 18px; }
+  .message-empty h2 { margin-bottom:0; }
+}
+
+/* Dedicated desktop pages should not inherit the generic shortcut/tips side rail. */
+@media (min-width:1024px) {
+  body.desktop-utility-page .desktop-context { display:none!important; }
+  body.desktop-utility-page .standalone-page {
+    padding-inline:max(var(--x-page-pad),calc((100vw - var(--x-rail) - 720px) / 2));
+  }
+}
