@@ -1,4 +1,14 @@
 window.LOCAL_UPDATE_POSTS = [{
+  title: "启用全新独立域名 cnbdg.co",
+  description: "博客正式迁移到独立域名 cnbdg.co，并同步更新登录回跳与人机验证配置说明。",
+  type: "更新日志",
+  tags: ["域名", "部署", "GitHub Pages"],
+  read_time: "1 分钟",
+  lead: "站点入口将从旧地址迁移到更简洁的 cnbdg.co，网站内容、账号和社区数据不受影响。",
+  body: "## 本次更新\n\n- GitHub Pages 自定义域名已改为 `cnbdg.co`。\n- 站点登录与注册回跳基准地址同步改为 `https://cnbdg.co/`。\n- Turnstile 配置说明新增 `cnbdg.co` 与 `www.cnbdg.co`。\n- 完成 Dynadot DNS、GitHub Pages、Supabase 和 Turnstile 后台设置后，新域名即可正式使用。",
+  status: "published",
+  published_at: "2026-08-01"
+}, {
   title: "账户安全升级：注册人机验证与界面优化",
   description: "注册流程接入 Cloudflare Turnstile，并重新整理登录注册弹窗和社区筛选区的视觉与移动端布局。",
   type: "更新日志",

@@ -6,7 +6,7 @@
 
 1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)，进入 **Turnstile**。
 2. 点击 **Add widget**，名称可填写 `cnbdg-blog-signup`。
-3. Hostname 添加 `blog.hh2z.ndjp.net`。如果还会直接使用 GitHub Pages 地址，再添加 `cnbdg.github.io`。
+3. Hostname 添加 `cnbdg.co` 和 `www.cnbdg.co`。如果还会直接使用 GitHub Pages 地址，再添加 `cnbdg.github.io`。
 4. Widget Mode 推荐选择 **Managed**，保存后复制 **Site Key** 和 **Secret Key**。
 
 ## 2. 填写前端 Site Key
@@ -31,7 +31,7 @@ Supabase 开启保护后，没有有效 Turnstile 令牌的注册请求会被服
 
 ## 4. 验证效果
 
-1. 等待 GitHub Pages 部署完成，使用无痕窗口打开 `https://blog.hh2z.ndjp.net/`。
+1. 等待 GitHub Pages 部署完成，使用无痕窗口打开 `https://cnbdg.co/`。
 2. 进入注册页，确认“安全验证”可以正常加载。
 3. 未完成验证时注册按钮应保持禁用；验证完成后按钮会启用。
 4. 尝试注册一个测试账号，确认 Supabase Authentication 的 Users 列表出现该用户。
