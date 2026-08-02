@@ -3,6 +3,17 @@
 -- 在 Supabase Dashboard → SQL Editor 中完整执行本文件一次，然后刷新网站。
 -- 图片/GIF 上限由前端限制为 10MB，视频上限为 30MB；Storage 统一使用 30MB 硬限制。
 
+-- 整个升级作为一个原子事务运行。先按网站实际访问顺序统一取得锁，
+-- 避免“消息表 → Storage”与发送请求的“Storage → 消息表”形成死锁。
+begin;
+set local lock_timeout = '30s';
+set local statement_timeout = '180s';
+select pg_advisory_xact_lock(hashtextextended('cnbdg-media-upgrade-v1', 0));
+lock table storage.buckets in access exclusive mode;
+lock table storage.objects in access exclusive mode;
+lock table public.direct_messages in access exclusive mode;
+lock table public.group_chat_messages in access exclusive mode;
+
 -- 1. 扩展社区与私信媒体桶的格式和容量。
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
@@ -295,3 +306,4 @@ grant execute on function public.can_send_direct_media_path(text), public.is_gro
   public.list_my_group_chats() to authenticated;
 
 notify pgrst, 'reload schema';
+commit;
