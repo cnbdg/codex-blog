@@ -3,13 +3,45 @@
 
   const config = window.BLOG_CONFIG || {};
   const configured = Boolean(config.supabaseUrl && config.supabasePublishableKey);
+  const memoryStorage = new Map();
+  let storagePersistent = true;
+  const authStorage = {
+    getItem(key) {
+      try {
+        const value = window.localStorage.getItem(key);
+        if (value !== null) memoryStorage.set(key, value);
+        return value;
+      } catch {
+        storagePersistent = false;
+        return memoryStorage.get(key) ?? null;
+      }
+    },
+    setItem(key, value) {
+      const normalized = String(value);
+      memoryStorage.set(key, normalized);
+      try {
+        window.localStorage.setItem(key, normalized);
+      } catch {
+        storagePersistent = false;
+      }
+    },
+    removeItem(key) {
+      memoryStorage.delete(key);
+      try {
+        window.localStorage.removeItem(key);
+      } catch {
+        storagePersistent = false;
+      }
+    }
+  };
   const client = configured && window.supabase
     ? window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
         auth: {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: true,
-          flowType: "pkce"
+          flowType: "pkce",
+          storage: authStorage
         }
       })
     : null;
@@ -19,12 +51,14 @@
   let mode = "login";
   let recovering = false;
   let initialized = false;
+  let authEventSequence = 0;
+  let lastAuthEvent = "BOOTSTRAP";
   let profileRequest = 0;
   let governanceRequest = 0;
   let directMessageChannel = null;
   let groupMessageChannel = null;
   let notificationChannel = null;
-  let pendingEmail = localStorage.getItem("yu-pending-email") || "";
+  let pendingEmail = authStorage.getItem("yu-pending-email") || "";
   const captchaSiteKey = String(config.turnstileSiteKey || "").trim();
   const captchaRequiredForAuth = config.captchaRequiredForAuth ?? (config.captchaRequiredForSignup !== false);
   let captchaToken = "";
@@ -437,24 +471,35 @@
 
   function updateAuthUI() {
     const signedIn = Boolean(user);
-    $("#authGuest").hidden = signedIn || recovering;
-    $("#authRecovery").hidden = !recovering;
-    $("#authUser").hidden = !signedIn || recovering;
-    $("#authBtn").classList.toggle("logged-in", signedIn);
-    $("#authBtn").querySelector("em").textContent =
-      signedIn ? (profile?.username || user.user_metadata?.username || "账户") : "登录";
-    $("#authBtn").querySelector("span").textContent =
-      signedIn ? displayName()[0].toUpperCase() : "♙";
+    const authGuest = $("#authGuest");
+    const authRecovery = $("#authRecovery");
+    const authUser = $("#authUser");
+    const authButton = $("#authBtn");
+    if (authGuest) authGuest.hidden = signedIn || recovering;
+    if (authRecovery) authRecovery.hidden = !recovering;
+    if (authUser) authUser.hidden = !signedIn || recovering;
+    authButton?.classList.toggle("logged-in", signedIn);
+    const buttonLabel = signedIn ? (profile?.username || user?.user_metadata?.username || "账户") : "登录";
+    const buttonText = authButton?.querySelector("em");
+    const legacyAvatar = authButton?.querySelector(":scope > span");
+    if (buttonText) buttonText.textContent = buttonLabel;
+    if (legacyAvatar) legacyAvatar.textContent = signedIn ? displayName().charAt(0).toUpperCase() : "♙";
+    authButton?.setAttribute("aria-label", signedIn ? `打开 ${buttonLabel} 的账户` : "登录或注册");
+    authButton?.setAttribute("title", signedIn ? `账户：${buttonLabel}` : "登录或注册");
+    document.documentElement.dataset.authState = !initialized && client ? "restoring" : signedIn ? "signed-in" : "guest";
     $(".comments")?.classList.toggle("login-required", configured && !signedIn);
     if ($("#commentLoginTip")) $("#commentLoginTip").hidden = !configured || signedIn;
     if (signedIn) {
-      $("#userName").textContent = displayName();
-      $("#userEmail").textContent = user.email || "";
-      $("#userUid").textContent = profile?.user_uid || "待分配";
-      $("#userAvatar").textContent = displayName()[0].toUpperCase();
-      $("#userAvatar").style.backgroundImage = profile?.avatar_url ? `url("${profile.avatar_url.replace(/["\\]/g, "")}")` : "";
-      $("#userAvatar").classList.toggle("has-image", Boolean(profile?.avatar_url));
-      $("#userRole").textContent = profile?.is_admin ? "管理员 · 邮箱已验证" : "邮箱已验证";
+      const userAvatar = $("#userAvatar");
+      if ($("#userName")) $("#userName").textContent = displayName();
+      if ($("#userEmail")) $("#userEmail").textContent = user.email || "";
+      if ($("#userUid")) $("#userUid").textContent = profile?.user_uid || "待分配";
+      if (userAvatar) {
+        userAvatar.textContent = displayName().charAt(0).toUpperCase();
+        userAvatar.style.backgroundImage = profile?.avatar_url ? `url("${profile.avatar_url.replace(/["\\]/g, "")}")` : "";
+        userAvatar.classList.toggle("has-image", Boolean(profile?.avatar_url));
+      }
+      if ($("#userRole")) $("#userRole").textContent = profile?.is_admin ? "管理员 · 邮箱已验证" : "邮箱已验证";
       fillProfileForm($("#profileForm"));
     }
     updateProfilePage(signedIn);
@@ -473,8 +518,9 @@
 
   function fillProfileForm(form) {
     if (!form || form.contains(document.activeElement)) return;
-    form.elements.username.value = displayName();
-    form.elements.avatar_url.value = profile?.avatar_url || "";
+    if (form.elements.username) form.elements.username.value = displayName();
+    if (form.elements.avatar_url) form.elements.avatar_url.value = profile?.avatar_url || "";
+    if (!form.elements.display_title) return;
     form.elements.display_title.value = profile?.display_title || "社区成员";
     const locked = Boolean(profile?.title_locked && !profile?.is_admin);
     form.elements.display_title.readOnly = locked;
@@ -492,12 +538,12 @@
 
     const name = displayName();
     const avatarUrl = profile?.avatar_url || "";
-    $("#profilePageName").textContent = name;
-    $("#profilePageHandle").textContent = `@${name.replace(/\s+/g, "_")}`;
-    $("#profilePageTitle").textContent = profile?.display_title || "社区成员";
-    $("#profilePageUid").textContent = profile?.user_uid || "待分配";
-    $("#profilePageEmail").textContent = user?.email || "";
-    $("#profilePageAdminBadge").hidden = !profile?.is_admin;
+    if ($("#profilePageName")) $("#profilePageName").textContent = name;
+    if ($("#profilePageHandle")) $("#profilePageHandle").textContent = `@${name.replace(/\s+/g, "_")}`;
+    if ($("#profilePageTitle")) $("#profilePageTitle").textContent = profile?.display_title || "社区成员";
+    if ($("#profilePageUid")) $("#profilePageUid").textContent = profile?.user_uid || "待分配";
+    if ($("#profilePageEmail")) $("#profilePageEmail").textContent = user?.email || "";
+    if ($("#profilePageAdminBadge")) $("#profilePageAdminBadge").hidden = !profile?.is_admin;
     applyAvatar($("#profilePageAvatar"), name, avatarUrl);
     fillProfileForm($("#profilePageForm"));
     syncOwnGovernanceStatus();
@@ -569,7 +615,26 @@
     }
     if (!user && !recovering) setMode(nextMode);
     updateAuthUI();
-    if (!$("#authDialog").open) $("#authDialog").showModal();
+    const dialog = $("#authDialog");
+    if (!dialog?.open) {
+      if (window.blogUI?.openDialog) window.blogUI.openDialog(dialog);
+      else dialog?.showModal();
+    }
+  }
+
+  function applySession(session, event = "SESSION_RESTORED") {
+    lastAuthEvent = event;
+    user = session?.user || null;
+    if (session?.access_token) client?.realtime?.setAuth?.(session.access_token);
+    if (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY") clearAuthTokensFromUrl();
+    if (event === "PASSWORD_RECOVERY") {
+      recovering = true;
+      if ($("#authTitle")) $("#authTitle").textContent = "设置新密码";
+      openAuth();
+    } else if (event === "SIGNED_OUT") {
+      recovering = false;
+    }
+    updateAuthUI();
   }
 
   async function init() {
@@ -589,42 +654,35 @@
     }
 
     client.auth.onAuthStateChange((event, session) => {
-      user = session?.user || null;
-      // Realtime channels need the current JWT as well. Without this, a channel
-      // created immediately after restoring a session can be authorised as anon.
-      if (session?.access_token) client.realtime?.setAuth?.(session.access_token);
-      if (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY") {
-        clearAuthTokensFromUrl();
-      }
-      if (event === "PASSWORD_RECOVERY") {
-        recovering = true;
-        $("#authTitle").textContent = "设置新密码";
-        openAuth();
-      } else if (event === "SIGNED_OUT") {
-        recovering = false;
-      }
-      updateAuthUI();
+      authEventSequence++;
+      if (event === "INITIAL_SESSION") initialized = true;
+      applySession(session, event);
       setTimeout(async () => {
         await refreshProfile();
         if (window.renderComments && window.currentPost) window.renderComments();
       }, 0);
     });
 
+    const sequenceBeforeRestore = authEventSequence;
     try {
       const { data, error } = await withTimeout(client.auth.getSession());
       if (error) notify(friendlyError(error, "登录状态读取失败"));
-      user = data?.session?.user || null;
-      if (data?.session?.access_token) client.realtime?.setAuth?.(data.session.access_token);
+      if (authEventSequence === sequenceBeforeRestore) applySession(data?.session || null);
     } catch (error) {
-      user = null;
       notify(friendlyError(error, "登录状态读取超时，请检查网络"));
     }
     initialized = true;
+    updateAuthUI();
+    if (!storagePersistent) notify("浏览器阻止了本地存储，刷新页面后可能需要重新登录");
     await refreshProfile();
   }
 
   function bindEvents() {
-    $("#authBtn").addEventListener("click", () => {
+    $("#authBtn")?.addEventListener("click", () => {
+      if (!user || recovering) {
+        openAuth("login");
+        return;
+      }
       if (window.matchMedia("(min-width: 1024px)").matches && window.blogUI?.navigate) {
         window.blogUI.navigate("profile", { focus: true });
         return;
@@ -724,19 +782,19 @@
         }
         if (/email not confirmed/i.test(result.error.message || "")) {
           pendingEmail = email;
-          localStorage.setItem("yu-pending-email", email);
+          authStorage.setItem("yu-pending-email", email);
           $("#resendEmailBtn").hidden = false;
         }
         return setMessage($("#authError"), friendlyError(result.error));
       }
       if (submittedMode === "signup" && !result.data.session) {
         pendingEmail = email;
-        localStorage.setItem("yu-pending-email", email);
+        authStorage.setItem("yu-pending-email", email);
         $("#resendEmailBtn").hidden = false;
         setMessage($("#authError"), "验证邮件已发送，请打开邮箱完成验证后再登录", "success");
       } else {
         pendingEmail = "";
-        localStorage.removeItem("yu-pending-email");
+        authStorage.removeItem("yu-pending-email");
         form.reset();
         if (window.closeDialog) window.closeDialog($("#authDialog")); else $("#authDialog").close();
         notify(submittedMode === "signup" ? "账户创建成功" : "登录成功");
@@ -1840,7 +1898,9 @@
     get profile() { return profile; },
     get isAdmin() { return Boolean(profile?.is_admin); },
     get adminCaptchaReady() { return !captchaRequiredForAuth || Boolean(adminCaptchaToken && adminCaptchaSolvedAt && Date.now() - adminCaptchaSolvedAt <= captchaMaxAge); },
-    get initialized() { return initialized; }
+    get initialized() { return initialized; },
+    get sessionPersistent() { return storagePersistent; },
+    get lastAuthEvent() { return lastAuthEvent; }
   };
   document.addEventListener("DOMContentLoaded", init, { once: true });
 })();

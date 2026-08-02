@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>认证流程自检</title>
+  <script>
+    (() => {
+      const sessionKey = "__codex_auth_session";
+      window.__authErrors = [];
+      addEventListener("error", event => __authErrors.push(event.error?.stack || event.message));
+      addEventListener("unhandledrejection", event => __authErrors.push(event.reason?.stack || String(event.reason)));
+      window.BLOG_CONFIG = {
+        siteUrl: location.origin + "/",
+        supabaseUrl: "https://test-project.supabase.co",
+        supabasePublishableKey: "test-publishable-key",
+        turnstileSiteKey: "1x00000000000000000000AA",
+        captchaRequiredForAuth: true
+      };
+      window.__authCalls = [];
+      window.__authNavigations = [];
+      window.toast = message => window.__authCalls.push({ method: "toast", message });
+      window.blogUI = {
+        navigate(page) { window.__authNavigations.push(page); },
+        openDialog(dialog) { if (dialog && !dialog.open) dialog.showModal(); },
+        closeDialog(dialog) { if (dialog?.open) dialog.close(); }
+      };
+      window.closeDialog = dialog => window.blogUI.closeDialog(dialog);
+
+      const captchaWidgets = new Map();
+      let captchaId = 0;
+      let captchaSequence = 0;
+      window.turnstile = {
+        render(container, options) {
+          const id = ++captchaId;
+          captchaWidgets.set(id, options);
+          container.textContent = "Turnstile mock";
+          setTimeout(() => options.callback(`captcha-${++captchaSequence}`), 0);
+          return id;
+        },
+        reset(id) {
+          const options = captchaWidgets.get(id);
+          if (options) setTimeout(() => options.callback(`captcha-${++captchaSequence}`), 0);
+        },
+        remove(id) { captchaWidgets.delete(id); }
+      };
+
+      function makeUser(email, username = "测试用户") {
+        return {
+          id: "00000000-0000-0000-0000-000000000008",
+          email,
+          user_metadata: { username }
+        };
+      }
+
+      window.supabase = {
+        createClient(_url, _key, options = {}) {
+          window.__authClientOptions = options.auth || {};
+          const storage = options.auth?.storage;
+          const listeners = new Set();
+          const readSession = () => {
+            const raw = storage?.getItem(sessionKey);
+            try { return raw ? JSON.parse(raw) : null; } catch { return null; }
+          };
+          const writeSession = session => session
+            ? storage?.setItem(sessionKey, JSON.stringify(session))
+            : storage?.removeItem(sessionKey);
+          const emit = (event, session) => listeners.forEach(listener => listener(event, session));
+          const saveAuthSession = (email, username) => {
+            const session = { access_token: "mock-access-token", refresh_token: "mock-refresh-token", user: makeUser(email, username) };
+            writeSession(session);
+            emit("SIGNED_IN", session);
+            return session;
+          };
+          const auth = {
+            onAuthStateChange(callback) {
+              listeners.add(callback);
+              queueMicrotask(() => callback("INITIAL_SESSION", readSession()));
+              return { data: { subscription: { unsubscribe: () => listeners.delete(callback) } } };
+            },
+            async getSession() { return { data: { session: readSession() }, error: null }; },
+            async signInWithPassword(payload) {
+              window.__authCalls.push({ method: "signInWithPassword", payload });
+              if (!payload.options?.captchaToken) return { data: {}, error: new Error("no captcha_token found") };
+              const session = saveAuthSession(payload.email, "登录测试用户");
+              return { data: { session, user: session.user }, error: null };
+            },
+            async signUp(payload) {
+              window.__authCalls.push({ method: "signUp", payload });
+              if (!payload.options?.captchaToken) return { data: {}, error: new Error("no captcha_token found") };
+              const session = saveAuthSession(payload.email, payload.options?.data?.username);
+              return { data: { session, user: session.user }, error: null };
+            },
+            async signOut(payload) {
+              window.__authCalls.push({ method: "signOut", payload });
+              writeSession(null);
+              emit("SIGNED_OUT", null);
+              return { error: null };
+            },
+            async updateUser() { return { data: {}, error: null }; },
+            async resend() { return { data: {}, error: null }; },
+            async resetPasswordForEmail() { return { data: {}, error: null }; }
+          };
+          const profileQuery = {
+            select() { return this; },
+            eq() { return this; },
+            async maybeSingle() {
+              const active = readSession()?.user;
+              return {
+                data: active ? { user_uid: 8, username: active.user_metadata?.username, avatar_url: null, display_title: "测试成员", title_locked: false, is_admin: false } : null,
+                error: null
+              };
+            }
+          };
+          return {
+            auth,
+            realtime: { setAuth(token) { window.__lastRealtimeToken = token; } },
+            from() { return Object.create(profileQuery); },
+            async rpc() { return { data: null, error: null }; }
+          };
+        }
+      };
+
+      if (!localStorage.getItem("__codex_auth_stage")) localStorage.removeItem(sessionKey);
+    })();
+  </script>
+</head>
+<body>
+  <button id="authBtn" type="button" aria-label="登录"><svg aria-hidden="true"></svg><em>登录</em></button>
+  <section id="profilePageGuest"><button type="button" data-open-auth>登录</button><button type="button" data-open-auth data-auth-mode="signup">注册</button></section>
+  <section id="profilePageUser" hidden>
+    <span id="profilePageName"></span><span id="profilePageHandle"></span><span id="profilePageTitle"></span><span id="profilePageUid"></span><span id="profilePageEmail"></span><span id="profilePageAvatar"></span><span id="profilePageAdminBadge"></span>
+  </section>
+  <dialog id="authDialog">
+    <h2 id="authTitle">登录</h2>
+    <div id="authGuest">
+      <div class="auth-tabs"><button type="button" data-auth-tab="login">登录</button><button type="button" data-auth-tab="signup">注册</button></div>
+      <strong id="authModeLead"></strong><p id="authModeDescription"></p>
+      <form id="authForm" novalidate>
+        <label>邮箱<input name="email" type="email" required></label>
+        <label>密码<input name="password" type="password" required minlength="8"></label>
+        <label id="confirmPasswordField" hidden>确认密码<input name="confirmPassword" type="password" minlength="8"></label>
+        <label id="usernameField" hidden>昵称<input name="username" minlength="2" maxlength="20"></label>
+        <span id="passwordStrength" hidden><i></i><em></em></span>
+        <section id="authCaptchaField" hidden><b id="captchaStateBadge"></b><div id="turnstileWidget"></div><p id="captchaStatus"></p><button id="captchaRetryBtn" type="button" hidden>重试</button></section>
+        <p id="authError" hidden></p><button id="authSubmit">登录</button>
+      </form>
+      <button id="resetPasswordBtn" type="button">忘记密码</button><button id="resendEmailBtn" type="button" hidden>重发邮件</button>
+    </div>
+    <div id="authRecovery" hidden><form id="newPasswordForm"><input name="password" type="password" required minlength="8"><input name="confirmPassword" type="password" required minlength="8"><p id="recoveryError" hidden></p><button class="primary-btn">更新密码</button></form></div>
+    <div id="authUser" hidden>
+      <span id="userAvatar"></span><strong id="userName"></strong><small id="userEmail"></small><span id="userUid"></span><span id="userRole"></span>
+      <form id="profileForm"><input name="username" required><input name="avatar_url"><input name="display_title" required><p id="profileError"></p><button class="primary-btn">保存</button></form>
+      <form id="accountPasswordForm"><input name="password" type="password" required minlength="8"><input name="confirmPassword" type="password" required minlength="8"><p id="accountPasswordError"></p><button class="primary-btn">更新密码</button></form>
+      <button id="logoutBtn" type="button">退出当前设备</button><button id="logoutAllBtn" type="button">退出所有设备</button>
+    </div>
+  </dialog>
+  <section class="comments"></section><div id="commentLoginTip"></div>
+  <script src="../auth.js"></script>
+  <script>
+    (() => {
+      const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+      const until = async (predicate, message, timeout = 4000) => {
+        const started = performance.now();
+        while (!predicate()) {
+          if (performance.now() - started > timeout) throw new Error(message);
+          await wait(20);
+        }
+      };
+      const assert = (condition, message) => { if (!condition) throw new Error(message); };
+      const runId = new URLSearchParams(location.search).get("run") || "";
+      const finish = (status, detail) => fetch(`/__self-check-report?run=${encodeURIComponent(runId)}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status, detail }),
+        keepalive: true
+      }).catch(() => {});
+
+      addEventListener("DOMContentLoaded", async () => {
+        try {
+          await until(() => window.blogAuth?.initialized, "认证模块没有完成初始化");
+          const stage = localStorage.getItem("__codex_auth_stage") || "login";
+          if (stage === "login") {
+            assert(blogAuth.configured, "认证配置未启用");
+            assert(__authClientOptions.persistSession === true && __authClientOptions.autoRefreshToken === true, "会话持久化或自动刷新没有启用");
+            assert(typeof __authClientOptions.storage?.getItem === "function", "Supabase 没有使用持久存储适配器");
+            document.querySelector("#authBtn").click();
+            assert(document.querySelector("#authDialog").open, "未登录时顶部按钮没有打开登录框");
+            document.querySelector('[data-auth-tab="signup"]').click();
+            assert(!document.querySelector("#usernameField").hidden && document.querySelector("#authSubmit").textContent === "注册", "注册标签无法切换");
+            document.querySelector('[data-auth-tab="login"]').click();
+            await until(() => document.querySelector("#captchaStateBadge").textContent === "验证通过", "登录人机验证没有就绪");
+            const form = document.querySelector("#authForm");
+            form.elements.email.value = "login@example.com";
+            form.elements.password.value = "Password123!";
+            form.requestSubmit();
+            await until(() => blogAuth.user?.email === "login@example.com", "登录没有成功更新用户状态");
+            const loginCall = __authCalls.find(call => call.method === "signInWithPassword");
+            assert(loginCall?.payload?.options?.captchaToken, "登录请求没有携带 CAPTCHA 令牌");
+            assert(localStorage.getItem("__codex_auth_session"), "登录会话没有写入 localStorage");
+            localStorage.setItem("__codex_auth_evidence", JSON.stringify({
+              loginDialog: true,
+              signupTab: true,
+              loginCaptcha: true,
+              storageAdapter: true
+            }));
+            localStorage.setItem("__codex_auth_stage", "restore");
+            location.reload();
+            return;
+          }
+
+          const evidence = JSON.parse(localStorage.getItem("__codex_auth_evidence") || "{}");
+          assert(blogAuth.user?.email === "login@example.com", "刷新页面后没有恢复登录会话");
+          assert(document.documentElement.dataset.authState === "signed-in", "刷新后界面仍显示为游客状态");
+          assert(["INITIAL_SESSION", "SESSION_RESTORED"].includes(blogAuth.lastAuthEvent), "初始化没有收到持久会话");
+          document.querySelector("#authBtn").click();
+          assert(__authNavigations.at(-1) === "profile" && !document.querySelector("#authDialog").open, "已登录时顶部按钮没有进入个人页");
+          document.querySelector("#logoutBtn").click();
+          await until(() => !blogAuth.user, "退出登录没有清除当前用户");
+          assert(!localStorage.getItem("__codex_auth_session"), "退出登录没有清除持久会话");
+          document.querySelector("#authBtn").click();
+          document.querySelector('[data-auth-tab="signup"]').click();
+          await until(() => document.querySelector("#captchaStateBadge").textContent === "验证通过", "注册人机验证没有就绪");
+          const form = document.querySelector("#authForm");
+          form.elements.email.value = "signup@example.com";
+          form.elements.password.value = "Password123!";
+          form.elements.confirmPassword.value = "Password123!";
+          form.elements.username.value = "注册测试用户";
+          form.requestSubmit();
+          await until(() => blogAuth.user?.email === "signup@example.com", "注册没有创建并登录用户");
+          const signupCall = __authCalls.find(call => call.method === "signUp");
+          assert(signupCall?.payload?.options?.captchaToken && signupCall.payload.options.data.username === "注册测试用户", "注册请求缺少 CAPTCHA 或昵称数据");
+          await wait(30);
+          assert(__authErrors.length === 0, `认证流程出现运行时异常：${__authErrors.join(" | ")}`);
+          localStorage.removeItem("__codex_auth_stage");
+          localStorage.removeItem("__codex_auth_evidence");
+          localStorage.removeItem("__codex_auth_session");
+          finish("pass", {
+            ...evidence,
+            refreshRestored: true,
+            signedInState: true,
+            logoutCleared: true,
+            signupCompleted: true,
+            signupCaptcha: true,
+            runtimeErrors: 0,
+            lastAuthEvent: blogAuth.lastAuthEvent,
+            sessionPersistent: blogAuth.sessionPersistent
+          });
+        } catch (error) {
+          finish("fail", { error: error.stack || error.message || String(error), runtimeErrors: __authErrors });
+        }
+      }, { once: true });
+    })();
+  </script>
+</body>
+</html>

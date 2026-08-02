@@ -66,7 +66,7 @@
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
           assert(baseChecks.motionPlatform === (mode === "mobile" ? "ios" : "macos") && baseChecks.motionPlatformClass, "电脑与手机动效平台没有正确隔离");
-          assert(baseChecks.newestPostTitle.startsWith("桌面切页重影修复"), "本次更新日志没有显示在首页首位");
+          assert(baseChecks.newestPostTitle.startsWith("账户系统修复"), "本次更新日志没有显示在首页首位");
           assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(baseChecks.newestPostTime) && /T\d{2}:\d{2}:\d{2}/.test(baseChecks.newestPostDateTime), "博客发布时间没有精确显示到秒");
           const firstPageTitle = baseChecks.newestPostTitle;
           const pagination = d.querySelector("#pagination");

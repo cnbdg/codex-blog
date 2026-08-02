@@ -138,7 +138,8 @@ async function main() {
   try {
     const desktop = await runChrome(`${origin}/tools/browser-self-check.html?mode=desktop`, 1440, 900);
     const mobile = await runChrome(`${origin}/tools/browser-self-check.html?mode=mobile`, 500, 980);
-    console.log(JSON.stringify({ status: "PASS", desktop, mobile }, null, 2));
+    const authentication = await runChrome(`${origin}/tools/auth-self-check.html`, 1100, 800);
+    console.log(JSON.stringify({ status: "PASS", desktop, mobile, authentication }, null, 2));
   } finally {
     await new Promise(resolveClose => {
       server.close(resolveClose);
