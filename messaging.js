@@ -17,9 +17,16 @@
   let selectedImagePreviewUrl = "";
   let signedImageRefreshAt = 0;
 
-  const messageImageTypes = new Set([
-    "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"
+  const messageMediaTypes = new Set([
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif",
+    "video/mp4", "video/webm", "video/quicktime"
   ]);
+  const mediaLimit = file => file?.type?.startsWith("video/") ? 30 * 1024 * 1024 : 10 * 1024 * 1024;
+  const mediaKind = (path = "", fileType = "") => {
+    if (fileType.startsWith("video/") || /\.(?:mp4|webm|mov)(?:$|\?)/i.test(path)) return "video";
+    if (fileType === "image/gif" || /\.gif(?:$|\?)/i.test(path)) return "gif";
+    return "image";
+  };
 
   const escapeText = value => String(value ?? "").replace(/[&<>"']/g, char => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -45,18 +52,18 @@
     selectedImagePreviewUrl = "";
     const input = $("#messageImageInput");
     const preview = $("#messageImagePreview");
-    const previewImage = $("#messageImagePreview img");
+    const previewVisual = $("#messageMediaPreviewVisual");
     if (input) input.value = "";
-    if (previewImage) previewImage.removeAttribute("src");
+    if (previewVisual) previewVisual.replaceChildren();
     if (preview) preview.hidden = true;
   }
 
   function selectMessageImage(event) {
     const file = event.currentTarget.files?.[0];
     if (!file) return;
-    if (!messageImageTypes.has(file.type) || file.size > 5 * 1024 * 1024) {
+    if (!messageMediaTypes.has(file.type) || file.size > mediaLimit(file)) {
       clearImageSelection();
-      window.toast?.("私信图片需为 JPG、PNG、GIF、WebP 或 AVIF，且不超过 5MB。");
+      window.toast?.("请选择 JPG、PNG、GIF、WebP、AVIF、MP4、WebM 或 MOV；图片/GIF 不超过 10MB，视频不超过 30MB。");
       return;
     }
     if (selectedImagePreviewUrl && globalThis.URL?.revokeObjectURL) {
@@ -65,9 +72,18 @@
     selectedImageFile = file;
     selectedImagePreviewUrl = globalThis.URL?.createObjectURL?.(file) || "";
     const preview = $("#messageImagePreview");
-    const previewImage = $("#messageImagePreview img");
+    const previewVisual = $("#messageMediaPreviewVisual");
     const previewName = $("#messageImagePreviewName");
-    if (previewImage) previewImage.src = selectedImagePreviewUrl;
+    if (previewVisual) {
+      const visual = document.createElement(file.type.startsWith("video/") ? "video" : "img");
+      visual.src = selectedImagePreviewUrl;
+      if (visual.tagName === "VIDEO") {
+        visual.muted = true;
+        visual.playsInline = true;
+        visual.preload = "metadata";
+      } else visual.alt = "待发送媒体预览";
+      previewVisual.replaceChildren(visual);
+    }
     if (previewName) previewName.textContent = file.name;
     if (preview) preview.hidden = false;
   }
@@ -107,9 +123,17 @@
       ? `群组 <span>消息仅对当前群成员可见</span>`
       : `今天 <span>消息仅对你们双方可见</span>`;
     const hint = $("#messageComposerHint");
-    if (hint) hint.textContent = group
-      ? "Enter 发送 · Shift + Enter 换行"
-      : "Enter 发送 · Shift + Enter 换行 · 图片 ≤ 5MB";
+    if (hint) hint.textContent = "Enter 发送 · 图片/GIF ≤ 10MB · 视频 ≤ 30MB";
+  }
+
+  function renderMessageMedia(path, url, label = "聊天媒体") {
+    if (!path) return "";
+    if (!url) return `<p class="dm-image-unavailable">媒体暂时无法加载</p>`;
+    const safeUrl = escapeText(url);
+    if (mediaKind(path) === "video") {
+      return `<div class="dm-media-card"><video src="${safeUrl}" controls preload="metadata" playsinline aria-label="${escapeText(label)}">你的浏览器不支持视频播放。</video><a href="${safeUrl}" target="_blank" rel="noopener">在新窗口打开视频</a></div>`;
+    }
+    return `<a class="dm-image-link" href="${safeUrl}" target="_blank" rel="noopener"><img src="${safeUrl}" alt="${escapeText(mediaKind(path) === "gif" ? "聊天 GIF" : label)}" loading="lazy" decoding="async"></a>`;
   }
 
   function formatJoinDate(value) {
@@ -398,14 +422,16 @@
       ? await window.blogAuth.listGroupChatMessages(group)
       : await window.blogAuth.listDirectMessages(peer);
     if (!messages || conversationKey !== currentChatKey() || viewer !== window.blogAuth?.user?.id || !isChatVisible()) return;
-    const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}:${message.image_path || ""}`).join("|") : "empty";
-    const imagePaths = group ? [] : messages.map(message => message.image_path).filter(Boolean);
+    const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}:${message.media_path || message.image_path || ""}`).join("|") : "empty";
+    const imagePaths = messages.map(message => group ? message.media_path : message.image_path).filter(Boolean);
     const shouldRefreshImages = imagePaths.length && Date.now() >= signedImageRefreshAt;
     if (hasRenderedMessages && key === renderedMessageKey && !shouldRefreshImages) return;
     const list = $("#messageList");
     const isNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
     const imageUrls = imagePaths.length
-      ? (await window.blogAuth?.getDirectMessageImageUrls?.(imagePaths)) || new Map()
+      ? (group
+        ? (await window.blogAuth?.getGroupChatMediaUrls?.(imagePaths)) || new Map()
+        : (await window.blogAuth?.getDirectMessageImageUrls?.(imagePaths)) || new Map())
       : new Map();
     if (conversationKey !== currentChatKey() || viewer !== window.blogAuth?.user?.id || !isChatVisible()) return;
     const wasRendered = hasRenderedMessages;
@@ -418,18 +444,15 @@
         const senderAvatar = safeAvatarUrl(message.sender_avatar_url);
         const avatarStyle = senderAvatar ? ` style="background-image:url(&quot;${escapeText(senderAvatar)}&quot;)"` : "";
         const time = new Date(message.created_at).toLocaleString("zh-CN", { hour12: false });
-        if (own) return `<article class="dm-message own group-message"><p>${escapeText(content)}</p><time>${escapeText(time)}</time></article>`;
+        const media = renderMessageMedia(message.media_path, imageUrls.get(message.media_path), "群聊媒体");
+        if (own) return `<article class="dm-message own group-message">${media}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${escapeText(time)}</time></article>`;
         return `<article class="group-message-row">
           <button type="button" class="group-message-avatar ${senderAvatar ? "has-image" : ""}" data-user-profile="${escapeText(message.sender_id)}" aria-label="查看 ${escapeText(senderName)} 的资料"${avatarStyle}>${escapeText(senderName[0]?.toUpperCase() || "U")}</button>
-          <div class="dm-message other group-message"><button type="button" class="group-message-sender" data-user-profile="${escapeText(message.sender_id)}">${escapeText(senderName)} <small>UID ${escapeText(message.sender_uid || "—")}</small></button><p>${escapeText(content)}</p><time>${escapeText(time)}</time></div>
+          <div class="dm-message other group-message"><button type="button" class="group-message-sender" data-user-profile="${escapeText(message.sender_id)}">${escapeText(senderName)} <small>UID ${escapeText(message.sender_uid || "—")}</small></button>${media}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${escapeText(time)}</time></div>
         </article>`;
       }
       const imageUrl = message.image_path ? imageUrls.get(message.image_path) : "";
-      const image = message.image_path
-        ? (imageUrl
-          ? `<a class="dm-image-link" href="${escapeText(imageUrl)}" target="_blank" rel="noopener"><img src="${escapeText(imageUrl)}" alt="私信图片" loading="lazy"></a>`
-          : `<p class="dm-image-unavailable">图片暂时无法加载</p>`)
-        : "";
+      const image = renderMessageMedia(message.image_path, imageUrl, "私信媒体");
       return `<article class="dm-message ${own ? "own" : "other"}">${image}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time></article>`;
     }).join("") : `<p class="forum-empty">还没有消息，打个招呼吧。</p>`;
     renderedMessageKey = key;
@@ -462,7 +485,7 @@
     if (!sender || sender !== window.blogAuth?.user?.id) return;
     const form = event.currentTarget;
     const content = form.elements.content.value.trim();
-    const image = group ? null : selectedImageFile;
+    const image = selectedImageFile;
     if (!content && !image) return;
     const button = form.querySelector("[data-send-message]");
     if (!button) return;
@@ -482,17 +505,25 @@
         button.textContent = "…";
         imagePath = await window.blogAuth.uploadDirectMessageImage(recipient, image);
         if (!imagePath) return;
+      } else if (image && group) {
+        button.textContent = "…";
+        imagePath = await window.blogAuth.uploadGroupChatMedia(group, image);
+        if (!imagePath) return;
       }
       if (currentChatKey() !== conversationKey || sender !== window.blogAuth?.user?.id) {
-        if (imagePath) await window.blogAuth.deleteDirectMessageImage(imagePath);
+        if (imagePath) await (group
+          ? window.blogAuth.deleteGroupChatMedia(imagePath)
+          : window.blogAuth.deleteDirectMessageImage(imagePath));
         return;
       }
       button.textContent = "…";
       const ok = group
-        ? await window.blogAuth.sendGroupChatMessage(group, content)
+        ? await window.blogAuth.sendGroupChatMessage(group, content, imagePath)
         : await window.blogAuth.sendDirectMessage(recipient, content, imagePath);
       if (!ok) {
-        if (imagePath) await window.blogAuth.deleteDirectMessageImage(imagePath);
+        if (imagePath) await (group
+          ? window.blogAuth.deleteGroupChatMedia(imagePath)
+          : window.blogAuth.deleteDirectMessageImage(imagePath));
         return;
       }
       form.reset();

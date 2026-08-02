@@ -37,7 +37,8 @@
           const w = frame.contentWindow;
           const d = frame.contentDocument;
           await wait(900);
-          const sanitizedMarkdown = w.blogMarkdown?.render('<p>安全测试<script>window.__xss=1<\/script><a href="javascript:alert(1)" onclick="alert(2)">链接</a><img src="x" onerror="alert(3)"></p>') || "";
+          const sanitizedMarkdown = w.blogMarkdown?.render('<p>安全测试<script>window.__xss=1<\/script><a href="javascript:alert(1)" onclick="alert(2)">链接</a><img src="x" onerror="alert(3)"><video src="https://example.test/clip.mp4" onerror="alert(4)" autoplay></video></p>') || "";
+          const renderedVideoMarkdown = w.blogMarkdown?.render('@[视频](https://example.test/clip.mp4)') || "";
           const baseChecks = {
             modulesLoaded: Boolean(w.blogUI && w.blogAuth && w.blogMarkdown && w.blogMotion),
             motionEnabled: d.documentElement.classList.contains("motion-enabled"),
@@ -45,7 +46,9 @@
             motionPlatform: w.blogMotion?.state.platform || "",
             motionPlatformClass: d.documentElement.classList.contains(mode === "mobile" ? "motion-platform-ios" : "motion-platform-macos"),
             captchaConfigured: Boolean(w.BLOG_CONFIG?.captchaRequiredForAuth && w.BLOG_CONFIG?.turnstileSiteKey),
-            markdownSanitized: !/script|javascript:|onerror|onclick/i.test(sanitizedMarkdown) && !w.__xss,
+            markdownSanitized: !/script|javascript:|onerror|onclick|autoplay/i.test(sanitizedMarkdown) && !w.__xss,
+            markdownVideo: /<video[^>]+controls[^>]+playsinline/i.test(renderedVideoMarkdown),
+            mediaInputs: /image\/gif/.test(d.querySelector("#messageImageInput")?.accept || "") && /video\/mp4/.test(d.querySelector("#messageImageInput")?.accept || "") && /video\/mp4/.test(d.querySelector('#threadForm input[type="file"]')?.accept || ""),
             unifiedIcons: d.querySelectorAll("#mainNav a .ui-icon").length === d.querySelectorAll("#mainNav a").length,
             noGoogleFontDependency: ![...d.querySelectorAll('link[href]')].some(link => /fonts\.(googleapis|gstatic)\.com/.test(link.href)),
             darkTheme: d.body.classList.contains("dark"),
@@ -61,12 +64,13 @@
           };
           assert(baseChecks.modulesLoaded, "页面核心模块没有完整加载");
           assert(baseChecks.captchaConfigured, "登录人机验证配置缺失");
-          assert(baseChecks.markdownSanitized, "Markdown 内容清理未通过安全测试");
+          assert(baseChecks.markdownSanitized && baseChecks.markdownVideo, "Markdown 视频渲染或安全清理未通过测试");
+          assert(baseChecks.mediaInputs, "社区或聊天媒体选择器没有接受 GIF/视频");
           assert(baseChecks.unifiedIcons, "主导航图标没有统一");
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
           assert(baseChecks.motionPlatform === (mode === "mobile" ? "ios" : "macos") && baseChecks.motionPlatformClass, "电脑与手机动效平台没有正确隔离");
-          assert(baseChecks.newestPostTitle.startsWith("全站自检完成"), "本次更新日志没有显示在首页首位");
+          assert(baseChecks.newestPostTitle.startsWith("全站媒体升级"), "本次更新日志没有显示在首页首位");
           assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(baseChecks.newestPostTime) && /T\d{2}:\d{2}:\d{2}/.test(baseChecks.newestPostDateTime), "博客发布时间没有精确显示到秒");
           const restingLayers = [...d.querySelectorAll("body *")].filter(node => {
             if (node.closest("dialog:not([open])")) return false;
@@ -238,8 +242,8 @@
             subscribeNotifications(callback) { w.__selfCheckNotification = callback; return () => {}; },
             listGroupChats: async () => [group],
             listGroupChatMessages: async () => [
-              { id: 1, group_id: group.group_id, sender_id: friend.id, content: "欢迎来到群聊", created_at: new Date(Date.now() - 60000).toISOString(), sender_username: friend.username, sender_avatar_url: "", sender_uid: 2, sender_title: "好友" },
-              { id: 2, group_id: group.group_id, sender_id: viewer.id, content: "群聊自检开始", created_at: new Date().toISOString(), sender_username: "站长", sender_avatar_url: "", sender_uid: 1, sender_title: "站长" }
+              { id: 1, group_id: group.group_id, sender_id: friend.id, content: "欢迎来到群聊", media_path: `${group.group_id}/${friend.id}/welcome.gif`, created_at: new Date(Date.now() - 60000).toISOString(), sender_username: friend.username, sender_avatar_url: "", sender_uid: 2, sender_title: "好友" },
+              { id: 2, group_id: group.group_id, sender_id: viewer.id, content: "群聊自检开始", media_path: `${group.group_id}/${viewer.id}/demo.mp4`, created_at: new Date().toISOString(), sender_username: "站长", sender_avatar_url: "", sender_uid: 1, sender_title: "站长" }
             ],
             listDirectMessages: async () => [],
             listGroupChatMembers: async () => [
@@ -257,6 +261,9 @@
             leaveGroupChat: async () => true,
             sendGroupChatMessage: async () => true,
             sendDirectMessage: async () => true,
+            getGroupChatMediaUrls: async paths => new Map(paths.map(path => [path, `https://example.test/${path.endsWith(".gif") ? "media.gif" : "media.mp4"}`])),
+            uploadGroupChatMedia: async () => `${group.group_id}/${viewer.id}/upload.mp4`,
+            deleteGroupChatMedia: async () => true,
             getPublicProfile: async id => ({ id, username: id === viewer.id ? "站长" : "测试好友", user_uid: id === viewer.id ? 1 : 2, display_title: "社区成员", follower_count: 1, following_count: 1 })
           };
           w.blogUI?.navigate?.("messages");
@@ -287,10 +294,14 @@
             title: d.querySelector("#messageTitle")?.textContent,
             messages: d.querySelectorAll("#messageList .dm-message").length,
             senders: d.querySelectorAll(".group-message-sender").length,
-            infoVisible: !d.querySelector("#messageInfoBtn")?.hidden
+            infoVisible: !d.querySelector("#messageInfoBtn")?.hidden,
+            gifImages: d.querySelectorAll("#messageList .dm-image-link img").length,
+            videos: d.querySelectorAll("#messageList .dm-media-card video[playsinline]").length,
+            mediaPickerVisible: getComputedStyle(d.querySelector(".message-image-picker")).display !== "none"
           };
           assert(threadResult.title === "自检交流群", "群聊标题错误");
           assert(threadResult.messages === 2 && threadResult.senders === 1, "群消息或发送者信息渲染错误");
+          assert(threadResult.gifImages === 1 && threadResult.videos === 1 && threadResult.mediaPickerVisible, "群聊 GIF、视频或媒体入口没有正确渲染");
           assert(threadResult.infoVisible, "群资料入口没有显示");
 
           if (mode === "desktop") {

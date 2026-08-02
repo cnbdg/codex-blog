@@ -3,7 +3,7 @@
 
   const allowedTags = new Set([
     "P", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "UL", "OL", "LI",
-    "STRONG", "EM", "DEL", "A", "IMG", "CODE", "PRE", "BR", "HR", "TABLE",
+    "STRONG", "EM", "DEL", "A", "IMG", "VIDEO", "CODE", "PRE", "BR", "HR", "TABLE",
     "THEAD", "TBODY", "TR", "TH", "TD", "DIV", "SPAN"
   ]);
 
@@ -19,6 +19,11 @@
     if (/^(https?:|mailto:)/i.test(url) || /^(\/|\.\/|\.\.\/|#)/.test(url)) return url;
     if (image && /^data:image\/(?:png|gif|jpe?g|webp);base64,/i.test(url)) return url;
     return "";
+  }
+
+  function safeMediaUrl(value) {
+    const url = safeUrl(value);
+    return /^(?:https?:|\/|\.\/|\.\.\/)/i.test(url) ? url : "";
   }
 
   function sanitize(html) {
@@ -51,6 +56,14 @@
         node.setAttribute("loading", "lazy");
         node.setAttribute("decoding", "async");
       }
+      if (node.tagName === "VIDEO") {
+        const src = safeMediaUrl(srcValue);
+        if (!src) return node.remove();
+        node.setAttribute("src", src);
+        node.setAttribute("controls", "");
+        node.setAttribute("preload", "metadata");
+        node.setAttribute("playsinline", "");
+      }
       if (legacyCode) node.className = "code";
     });
     return template.innerHTML;
@@ -63,6 +76,10 @@
       return `\u0000${tokens.length - 1}\u0000`;
     });
     text = escapeHtml(text)
+      .replace(/@\[(?:视频|video)\]\((\S+?)(?:\s+["'].*?["'])?\)/gi, (_, url) => {
+        const src = safeMediaUrl(url);
+        return src ? `<video src="${escapeHtml(src)}" controls preload="metadata" playsinline>你的浏览器不支持视频播放。</video>` : "[视频地址无效]";
+      })
       .replace(/!\[([^\]]*)\]\((\S+?)(?:\s+["'].*?["'])?\)/g, (_, alt, url) => {
         const src = safeUrl(url, true);
         return src ? `<img src="${escapeHtml(src)}" alt="${alt}" loading="lazy" decoding="async">` : alt;

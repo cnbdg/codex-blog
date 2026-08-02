@@ -93,8 +93,8 @@
     ,[/MUTUAL_FOLLOW_REQUIRED/i, "只有互相关注后才能私聊"]
     ,[/CANNOT_FOLLOW_SELF/i, "不能关注自己"]
     ,[/CANNOT_MESSAGE_SELF/i, "不能给自己发私信"]
-    ,[/INVALID_MESSAGE_IMAGE/i, "私信图片无效或尚未完成上传，请重新选择后发送"]
-    ,[/send_direct_message.*message_image_path/i, "私信图片功能尚未启用：请先执行 direct-message-media.sql"]
+    ,[/INVALID_MESSAGE_IMAGE|INVALID_MESSAGE_MEDIA/i, "聊天媒体无效或尚未完成上传，请重新选择后发送"]
+    ,[/send_direct_message.*message_image_path|send_group_chat_message.*p_media_path/i, "聊天媒体功能尚未启用：请先执行 media-upgrade.sql"]
     ,[/CANNOT_DEMOTE_LAST_ADMIN/i, "不能移除最后一名管理员"]
     ,[/CANNOT_CHANGE_SELF_ROLE/i, "不能在这里修改自己的管理员身份"]
     ,[/OWNER_PROTECTED|OWNER_FIELD_LOCKED/i, "永久站长账号受数据库保护，不能降级、删除或由其他管理员修改"]
@@ -1204,20 +1204,20 @@
   function communityUploadError(error) {
     const raw = String(error?.message || error?.error || error || "");
     if (/bucket not found|nosuchbucket/i.test(raw)) {
-      return "图片上传尚未启用：请先在 Supabase SQL Editor 执行仓库中的 community-media.sql。";
+      return "媒体上传尚未启用：请先在 Supabase SQL Editor 执行仓库中的 media-upgrade.sql。";
     }
     if (/row-level security|new row violates|permission denied|not authorized/i.test(raw)) {
-      return "图片上传权限尚未配置：请重新执行 community-media.sql 后重试。";
+      return "媒体上传权限尚未配置：请重新执行 media-upgrade.sql 后重试。";
     }
     if (/failed to fetch|network|timeout/i.test(raw)) {
-      return "图片上传网络连接失败，请检查网络后重试。";
+      return "媒体上传网络连接失败，请检查网络后重试。";
     }
-    return `图片上传失败：${friendlyError(error)}`;
+    return `媒体上传失败：${friendlyError(error)}`;
   }
 
   async function uploadCommunityImage(file) {
     if (!client || !user || !file) {
-      notify("请先登录后再上传图片。");
+      notify("请先登录后再上传媒体。");
       return null;
     }
     const extensions = {
@@ -1225,11 +1225,15 @@
       "image/png": "png",
       "image/gif": "gif",
       "image/webp": "webp",
-      "image/avif": "avif"
+      "image/avif": "avif",
+      "video/mp4": "mp4",
+      "video/webm": "webm",
+      "video/quicktime": "mov"
     };
     const extension = extensions[file.type];
-    if (!extension || file.size > 5 * 1024 * 1024) {
-      notify("图片需为 JPG、PNG、GIF、WebP 或 AVIF，且不超过 5MB。");
+    const sizeLimit = file.type.startsWith("video/") ? 30 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (!extension || file.size > sizeLimit) {
+      notify("请选择 JPG、PNG、GIF、WebP、AVIF、MP4、WebM 或 MOV；图片/GIF 不超过 10MB，视频不超过 30MB。");
       return null;
     }
 
@@ -1246,7 +1250,7 @@
       }
       const publicUrl = client.storage.from("community-media").getPublicUrl(path).data.publicUrl;
       if (!publicUrl) {
-        notify("图片已上传，但公开地址未生成；请确认 community-media 桶设为公开。");
+        notify("媒体已上传，但公开地址未生成；请确认 community-media 桶设为公开。");
         return null;
       }
       return publicUrl;
@@ -1261,31 +1265,35 @@
     "image/png": "png",
     "image/gif": "gif",
     "image/webp": "webp",
-    "image/avif": "avif"
+    "image/avif": "avif",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+    "video/quicktime": "mov"
   };
 
   function directMessageImageUploadError(error) {
     const raw = String(error?.message || error?.error || error || "");
     if (/bucket not found|nosuchbucket/i.test(raw)) {
-      return "私信图片服务尚未启用：请先在 Supabase SQL Editor 执行 direct-message-media.sql。";
+      return "聊天媒体服务尚未启用：请先在 Supabase SQL Editor 执行 media-upgrade.sql。";
     }
     if (/row-level security|new row violates|permission denied|not authorized/i.test(raw)) {
-      return "私信图片权限尚未配置：请重新执行 direct-message-media.sql 后重试。";
+      return "聊天媒体权限尚未配置：请重新执行 media-upgrade.sql 后重试。";
     }
     if (/failed to fetch|network|timeout/i.test(raw)) {
-      return "私信图片上传网络连接失败，请检查网络后重试。";
+      return "聊天媒体上传网络连接失败，请检查网络后重试。";
     }
-    return `私信图片上传失败：${friendlyError(error)}`;
+    return `聊天媒体上传失败：${friendlyError(error)}`;
   }
 
   async function uploadDirectMessageImage(recipient, file) {
     if (!client || !user || !recipient || !file) {
-      notify("请先登录并选择一位朋友后再上传图片。");
+      notify("请先登录并选择一位朋友后再上传媒体。");
       return null;
     }
     const extension = directMessageImageTypes[file.type];
-    if (!extension || file.size > 5 * 1024 * 1024) {
-      notify("私信图片需为 JPG、PNG、GIF、WebP 或 AVIF，且不超过 5MB。");
+    const sizeLimit = file.type.startsWith("video/") ? 30 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (!extension || file.size > sizeLimit) {
+      notify("请选择 JPG、PNG、GIF、WebP、AVIF、MP4、WebM 或 MOV；图片/GIF 不超过 10MB，视频不超过 30MB。");
       return null;
     }
 
@@ -1331,6 +1339,49 @@
     } catch {
       return false;
     }
+  }
+
+  async function uploadGroupChatMedia(groupId, file) {
+    if (!client || !user || !groupId || !file) {
+      notify("请先登录并进入群聊后再上传媒体。");
+      return null;
+    }
+    const extension = directMessageImageTypes[file.type];
+    const sizeLimit = file.type.startsWith("video/") ? 30 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (!extension || file.size > sizeLimit) {
+      notify("请选择 JPG、PNG、GIF、WebP、AVIF、MP4、WebM 或 MOV；图片/GIF 不超过 10MB，视频不超过 30MB。");
+      return null;
+    }
+    const path = `${groupId}/${user.id}/${Date.now()}-${makeStorageObjectId()}.${extension}`;
+    try {
+      const { error } = await client.storage.from("group-chat-media").upload(path, file, {
+        cacheControl: "31536000", upsert: false, contentType: file.type
+      });
+      if (error) { notify(directMessageImageUploadError(error)); return null; }
+      return path;
+    } catch (error) {
+      notify(directMessageImageUploadError(error));
+      return null;
+    }
+  }
+
+  async function getGroupChatMediaUrls(paths, expiresIn = 3600) {
+    if (!client || !user || !Array.isArray(paths)) return new Map();
+    const uniquePaths = [...new Set(paths.map(path => String(path || "").trim()).filter(Boolean))];
+    if (!uniquePaths.length) return new Map();
+    try {
+      const { data, error } = await client.storage.from("group-chat-media").createSignedUrls(uniquePaths, expiresIn);
+      if (error) return new Map();
+      return new Map((data || []).filter(item => item?.path && item?.signedUrl).map(item => [item.path, item.signedUrl]));
+    } catch { return new Map(); }
+  }
+
+  async function deleteGroupChatMedia(path) {
+    if (!client || !user || !path) return false;
+    try {
+      const { error } = await client.storage.from("group-chat-media").remove([path]);
+      return !error;
+    } catch { return false; }
   }
 
   async function deleteForumThread(id) {
@@ -1521,15 +1572,18 @@
     return data || [];
   }
 
-  async function sendGroupChatMessage(groupId, content) {
+  async function sendGroupChatMessage(groupId, content, mediaPath = null) {
     if (!client || !user) { openAuth("login"); return false; }
     const cleanContent = String(content || "").trim();
-    if (!groupId || !cleanContent || cleanContent.length > 2000) return false;
-    const { error } = await client.rpc("send_group_chat_message", {
+    const cleanMediaPath = String(mediaPath || "").trim() || null;
+    if (!groupId || (!cleanContent && !cleanMediaPath) || cleanContent.length > 2000) return false;
+    const payload = {
       p_group_id: groupId,
       p_content: cleanContent
-    });
-    if (error) notify("群消息发送失败：" + (isMissingRpc(error) ? "请先执行 group-chat.sql" : friendlyError(error)));
+    };
+    if (cleanMediaPath) payload.p_media_path = cleanMediaPath;
+    const { error } = await client.rpc("send_group_chat_message", payload);
+    if (error) notify("群消息发送失败：" + (isMissingRpc(error) ? (cleanMediaPath ? "请先执行 media-upgrade.sql" : "请先执行 group-chat.sql") : friendlyError(error)));
     return !error;
   }
 
@@ -1896,7 +1950,8 @@
   window.blogAuth = {
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
     listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
-    listForumThreads, saveForumThread, uploadCommunityImage, uploadDirectMessageImage, getDirectMessageImageUrls, deleteDirectMessageImage, deleteForumThread,
+    listForumThreads, saveForumThread, uploadCommunityImage, uploadDirectMessageImage, getDirectMessageImageUrls, deleteDirectMessageImage,
+    uploadGroupChatMedia, getGroupChatMediaUrls, deleteGroupChatMedia, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     listForumBookmarks, toggleForumBookmark, recordForumView, getForumThreadState, adminSetForumPostStatus,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,

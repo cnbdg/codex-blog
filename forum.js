@@ -15,6 +15,10 @@
   let previewUrl = "";
   let deepLinkHandled = false;
   let searchTimer = 0;
+  const communityMediaTypes = new Set([
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif",
+    "video/mp4", "video/webm", "video/quicktime"
+  ]);
   const feed = { sort: "activity", type: "all", search: "", bookmarksOnly: false, bookmarkIds: new Set(), upgraded: true, onlyOwner: false };
 
   const escapeText = value => String(value ?? "").replace(/[&<>"']/g, character => ({
@@ -49,12 +53,23 @@
 
   function showImagePreview(file) {
     clearImagePreview();
-    if (!file?.size || !file.type.startsWith("image/")) return;
+    if (!file?.size) return;
+    const sizeLimit = file.type.startsWith("video/") ? 30 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (!communityMediaTypes.has(file.type) || file.size > sizeLimit) {
+      const input = $("#threadForm")?.elements.image;
+      if (input) input.value = "";
+      setThreadFormError("请选择 JPG、PNG、GIF、WebP、AVIF、MP4、WebM 或 MOV；图片/GIF 不超过 10MB，视频不超过 30MB。");
+      return;
+    }
+    setThreadFormError();
     previewUrl = URL.createObjectURL(file);
     const holder = $("#threadImagePreview");
     if (!holder) return;
     holder.hidden = false;
-    holder.innerHTML = `<img src="${previewUrl}" alt="待上传图片预览"><span>${escapeText(file.name)}</span><button type="button" data-clear-thread-image aria-label="移除图片">×</button>`;
+    const visual = file.type.startsWith("video/")
+      ? `<video src="${previewUrl}" muted playsinline preload="metadata" aria-label="待上传视频预览"></video>`
+      : `<img src="${previewUrl}" alt="待上传媒体预览">`;
+    holder.innerHTML = `${visual}<span>${escapeText(file.name)}</span><button type="button" data-clear-thread-image aria-label="移除媒体">×</button>`;
   }
 
   function saveDraft() {
@@ -302,10 +317,12 @@
     setThreadFormError();
     try {
       if (image?.size) {
-        button.textContent = "正在上传图片…";
+        button.textContent = "正在上传媒体…";
         const url = await window.blogAuth.uploadCommunityImage?.(image);
-        if (!url) return setThreadFormError("图片未能上传。首次启用图片功能时，请在 Supabase SQL Editor 执行 community-media.sql 后重试。");
-        content += `\n\n![社区图片](${url})`;
+        if (!url) return setThreadFormError("媒体未能上传。请在 Supabase SQL Editor 执行 media-upgrade.sql 后重试。");
+        content += image.type.startsWith("video/")
+          ? `\n\n@[视频](${url})`
+          : `\n\n![社区图片](${url})`;
       }
       const saved = await window.blogAuth.saveForumThread({
         title: data.get("title"), content, topic_type: data.get("topic_type")
@@ -320,8 +337,8 @@
       const fresh = threads.find(thread => Number(thread.id) === Number(saved.id));
       if (fresh) openThread(fresh);
     } catch (error) {
-      console.error("Forum image or post save failed", error);
-      setThreadFormError("发布失败，请检查网络或图片存储配置后重试。");
+      console.error("Forum media or post save failed", error);
+      setThreadFormError("发布失败，请检查网络或媒体存储配置后重试。");
     } finally {
       button.disabled = false;
       button.textContent = id ? "保存修改" : "发布帖子";
