@@ -42,6 +42,8 @@
             modulesLoaded: Boolean(w.blogUI && w.blogAuth && w.blogMarkdown && w.blogMotion),
             motionEnabled: d.documentElement.classList.contains("motion-enabled"),
             motionReduced: d.documentElement.classList.contains("motion-reduced"),
+            motionPlatform: w.blogMotion?.state.platform || "",
+            motionPlatformClass: d.documentElement.classList.contains(mode === "mobile" ? "motion-platform-ios" : "motion-platform-macos"),
             captchaConfigured: Boolean(w.BLOG_CONFIG?.captchaRequiredForAuth && w.BLOG_CONFIG?.turnstileSiteKey),
             markdownSanitized: !/script|javascript:|onerror|onclick/i.test(sanitizedMarkdown) && !w.__xss,
             unifiedIcons: d.querySelectorAll("#mainNav a .ui-icon").length === d.querySelectorAll("#mainNav a").length,
@@ -63,7 +65,8 @@
           assert(baseChecks.unifiedIcons, "主导航图标没有统一");
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
-          assert(baseChecks.newestPostTitle.startsWith("博客时间与分页升级"), "本次更新日志没有显示在首页首位");
+          assert(baseChecks.motionPlatform === (mode === "mobile" ? "ios" : "macos") && baseChecks.motionPlatformClass, "电脑与手机动效平台没有正确隔离");
+          assert(baseChecks.newestPostTitle.startsWith("双平台动效系统"), "本次更新日志没有显示在首页首位");
           assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(baseChecks.newestPostTime) && /T\d{2}:\d{2}:\d{2}/.test(baseChecks.newestPostDateTime), "博客发布时间没有精确显示到秒");
           const firstPageTitle = baseChecks.newestPostTitle;
           const pagination = d.querySelector("#pagination");
@@ -106,7 +109,13 @@
               activeAria: d.querySelector('#mainNav [data-page="forum"]')?.getAttribute("aria-current") || "",
               navTarget: Math.round(d.querySelector('#mainNav [data-page="forum"]')?.getBoundingClientRect().height || 0),
               motionTransitions: w.blogMotion?.state.pageTransitions || 0,
-              motionDirection: w.blogMotion?.state.lastDirection || ""
+              desktopTransitions: w.blogMotion?.state.desktopTransitions || 0,
+              motionDirection: w.blogMotion?.state.lastDirection || "",
+              motionStrategy: w.blogMotion?.state.lastStrategy || "",
+              platform: w.blogMotion?.state.platform || "",
+              sidebarSelection: Boolean(d.querySelector(".macos-sidebar-selection")),
+              sidebarReady: d.querySelector("#mainNav")?.classList.contains("macos-selection-ready") || false,
+              sidebarMoves: w.blogDesktop?.state.sidebarMoves || 0
             };
             w.scrollTo(100, 0);
             await wait(20);
@@ -115,7 +124,19 @@
             assert(desktopContextCheck.display !== "none" && desktopContextCheck.width >= 280, "桌面社区页右侧信息栏未显示");
             assert(desktopContextCheck.activeAria === "page" && desktopContextCheck.navTarget >= 44, "桌面导航状态或点击区域不符合要求");
             assert(desktopContextCheck.horizontalScroll === 0, `桌面社区页可以横向滚动（${desktopContextCheck.horizontalScroll}px）`);
-            if (baseChecks.motionEnabled) assert(desktopContextCheck.motionTransitions >= 1 && desktopContextCheck.motionDirection === "forward", "桌面层级转场没有启动或方向错误");
+            assert(desktopContextCheck.platform === "macos" && desktopContextCheck.sidebarSelection && desktopContextCheck.sidebarReady, "macOS 桌面动效或侧栏选中层没有初始化");
+            if (baseChecks.motionEnabled) {
+              assert(desktopContextCheck.motionTransitions >= 1 && desktopContextCheck.desktopTransitions >= 1 && desktopContextCheck.motionDirection === "forward" && /^macos-/.test(desktopContextCheck.motionStrategy), "macOS 桌面层级转场没有启动或方向错误");
+              assert(desktopContextCheck.sidebarMoves >= 1, "macOS 侧栏选中胶囊没有随页面移动");
+              const pointerTarget = d.querySelector('#mainNav [data-page="forum"]');
+              const pointerRect = pointerTarget.getBoundingClientRect();
+              desktopContextCheck.finePointer = w.matchMedia("(hover: hover) and (pointer: fine)").matches;
+              pointerTarget.dispatchEvent(new w.PointerEvent("pointermove", { bubbles: true, clientX: pointerRect.left + pointerRect.width * .7, clientY: pointerRect.top + pointerRect.height * .4 }));
+              await wait(120);
+              desktopContextCheck.pointerResponse = pointerTarget.classList.contains("mac-pointer-active") && w.blogMotion.state.desktopPointerResponses >= 1;
+              if (desktopContextCheck.finePointer) assert(desktopContextCheck.pointerResponse, "macOS 精细指针反馈没有启动");
+              pointerTarget.dispatchEvent(new w.PointerEvent("pointerout", { bubbles: true }));
+            }
             else assert(desktopContextCheck.motionTransitions === 0, "减少动态效果模式仍启动了大范围页面转场");
             const transitionsBeforeRapidNavigation = w.blogMotion.state.pageTransitions;
             w.blogUI.navigate("home", { history: false });
@@ -218,7 +239,7 @@
             w.blogUI.closeDialog(d.querySelector("#groupChatInfoDialog"));
             await wait(320);
             assert(!d.querySelector("#groupChatInfoDialog").open, "弹窗没有成功关闭");
-            if (baseChecks.motionEnabled) assert(w.blogMotion.state.dialogTransitions >= 1, "弹窗退场动画没有完成");
+            if (baseChecks.motionEnabled) assert(w.blogMotion.state.dialogTransitions >= 1 && w.blogMotion.state.lastDialogStrategy === "macos-panel", "macOS 面板退场动画没有完成");
             else assert(w.blogMotion.state.dialogTransitions === 0, "减少动态效果模式仍启动了弹窗位移动画");
             w.__selfCheckNotification?.({ kind: "group_message", actor_id: friend.id, actor_username: friend.username, payload: { group_id: group.group_id, group_name: group.group_name, preview: "当前会话消息" } });
             await wait(30);
@@ -268,7 +289,12 @@
           createDialog.noHorizontalOverflow = createDialog.horizontalScroll === 0;
           assert(createDialog.open && createDialog.friends === 2, "手机创建群聊或好友选择器异常");
           assert(createDialog.noHorizontalOverflow, `手机创建群聊弹窗可以横向滚动（${createDialog.scrollWidth}/${createDialog.clientWidth}；${createDialog.overflowSources.join(", ")}）`);
-          d.querySelector("#createGroupChatDialog").close();
+          w.blogUI.closeDialog(d.querySelector("#createGroupChatDialog"));
+          await wait(410);
+          createDialog.closed = !d.querySelector("#createGroupChatDialog").open;
+          createDialog.motionStrategy = w.blogMotion?.state.lastDialogStrategy || "";
+          assert(createDialog.closed, "手机底部 Sheet 没有成功关闭");
+          if (baseChecks.motionEnabled) assert(createDialog.motionStrategy === "ios-sheet", "手机弹窗误用了 macOS 面板动画");
 
           w.blogUI?.navigate?.("forum", { history: false });
           await wait(280);
@@ -282,11 +308,14 @@
             callDuration: Math.round(mobileTransitionCallDuration * 10) / 10,
             strategy: w.blogMotion?.state.lastStrategy || "",
             mobileTransitions: w.blogMotion?.state.mobileTransitions || 0,
+            desktopTransitions: w.blogMotion?.state.desktopTransitions || 0,
+            platform: w.blogMotion?.state.platform || "",
             snapshotClass: d.documentElement.classList.contains("motion-view-transition"),
             dockMoves: w.blogMobileShell?.state.moves || 0
           };
           assert(mobileMotion.activeImmediately && mobileMotion.callDuration < 60, "手机离开社区时仍会阻塞页面切换");
           assert(!mobileMotion.snapshotClass, "手机切页仍启用了整页 View Transition 快照");
+          assert(mobileMotion.platform === "ios" && mobileMotion.desktopTransitions === 0, "手机端误用了 macOS 桌面转场");
           if (baseChecks.motionEnabled) {
             assert(mobileMotion.strategy === "mobile-lightweight" && mobileMotion.mobileTransitions >= 2, "手机轻量转场策略没有启动");
             assert(mobileMotion.dockMoves >= 1, "液态底栏指示器没有响应页面切换");

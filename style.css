@@ -196,12 +196,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{
 @media(max-width:1023px){#mobileDock button{position:relative}#mobileDock button[data-unread]::after{content:attr(data-unread);position:absolute;top:4px;right:8px;min-width:15px;height:15px;padding:0 3px;border:2px solid var(--surface);border-radius:999px;background:#f4212e;color:#fff;font:700 8px/11px Inter,sans-serif;text-align:center}}
 /* Desktop interaction and motion layer */
 @media(min-width:1024px){
-  .topbar nav a,.actions button,.post-item,.thread-card,.side-card,.forum-hero,.friendship-card{will-change:transform;transition:transform .18s cubic-bezier(.2,.8,.2,1),background-color .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .topbar nav a,.actions button,.post-item,.thread-card,.side-card,.forum-hero,.friendship-card{transition:transform .18s cubic-bezier(.2,.8,.2,1),background-color .18s ease,border-color .18s ease,box-shadow .18s ease}
   .topbar nav a:hover{transform:translateX(3px)}.actions button:hover{transform:translateY(-1px)}
   .post-item:hover,.thread-card:hover{transform:translateY(-1px);box-shadow:0 8px 20px #0f14190a}.side-card:hover{box-shadow:0 8px 24px #0f141909}
-  #app.desktop-page-enter .page.active>.page-title,#app.desktop-page-enter .page.active>.forum-hero,#app.desktop-page-enter .page.active>.inner-title{animation:desktopRise .26s cubic-bezier(.2,.8,.2,1) both}
-  #app.desktop-page-enter .page.active>.layout,#app.desktop-page-enter .page.active>.forum-layout,#app.desktop-page-enter .page.active>.project-grid,#app.desktop-page-enter .page.active>.about-box,#app.desktop-page-enter .page.active>.friend-grid{animation:desktopRise .34s .035s cubic-bezier(.2,.8,.2,1) both}
-  @keyframes desktopRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 }
 @media(prefers-reduced-motion:reduce){.topbar nav a,.actions button,.post-item,.thread-card,.side-card,.forum-hero,.friendship-card{transition:none!important;animation:none!important}}
 /* Visual polish: layered surfaces, depth and motion */

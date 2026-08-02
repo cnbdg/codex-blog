@@ -5,16 +5,55 @@
   const $ = selector => document.querySelector(selector);
   let pendingGo = false;
   let lastKeyAt = 0;
+  let sidebarFrame = 0;
+  const state = { sidebarMoves: 0, selectionReady: false };
 
   function enabled() { return desktop.matches; }
   function editable(target) { return target?.matches?.("input, textarea, select, [contenteditable=true]"); }
 
-  function animatePageChange() {
-    if (!enabled() || reduceMotion.matches) return;
-    const app = $("#app");
-    if (!app) return;
-    app.classList.remove("desktop-page-enter");
-    requestAnimationFrame(() => app.classList.add("desktop-page-enter"));
+  function ensureSidebarSelection() {
+    const nav = $(".topbar nav");
+    if (!nav) return null;
+    let indicator = nav.querySelector(".macos-sidebar-selection");
+    if (!indicator) {
+      indicator = document.createElement("i");
+      indicator.className = "macos-sidebar-selection";
+      indicator.setAttribute("aria-hidden", "true");
+      nav.append(indicator);
+    }
+    return indicator;
+  }
+
+  function syncSidebarSelection({ instant = false } = {}) {
+    cancelAnimationFrame(sidebarFrame);
+    const nav = $(".topbar nav");
+    const indicator = ensureSidebarSelection();
+    if (!nav || !indicator || !enabled()) {
+      nav?.classList.remove("macos-selection-ready");
+      state.selectionReady = false;
+      return;
+    }
+    const active = nav.querySelector("a.active");
+    if (!active) {
+      nav.classList.remove("macos-selection-ready");
+      state.selectionReady = false;
+      return;
+    }
+    const navRect = nav.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const x = Math.round(activeRect.left - navRect.left + nav.scrollLeft);
+    const y = Math.round(activeRect.top - navRect.top + nav.scrollTop);
+    const previousY = Number.parseFloat(indicator.dataset.y || String(y));
+    if (instant || reduceMotion.matches) indicator.style.transition = "none";
+    nav.style.setProperty("--mac-sidebar-x", `${x}px`);
+    nav.style.setProperty("--mac-sidebar-y", `${y}px`);
+    nav.style.setProperty("--mac-sidebar-width", `${Math.round(activeRect.width)}px`);
+    nav.style.setProperty("--mac-sidebar-height", `${Math.round(activeRect.height)}px`);
+    indicator.dataset.y = String(y);
+    nav.classList.add("macos-selection-ready");
+    if (state.selectionReady && Math.abs(previousY - y) > 1) state.sidebarMoves += 1;
+    state.selectionReady = true;
+    if (indicator.style.transition === "none") sidebarFrame = requestAnimationFrame(() => indicator.style.removeProperty("transition"));
   }
 
   function openSearch() {
@@ -107,14 +146,20 @@
   function init() {
     buildContextRail();
     syncContext();
+    syncSidebarSelection({ instant: true });
     window.addEventListener("blog-page-change", event => {
-      animatePageChange();
       syncContext(event.detail);
+      syncSidebarSelection();
     });
     document.addEventListener("keydown", onKeydown);
-    desktop.addEventListener?.("change", () => { pendingGo = false; syncContext(); });
+    window.addEventListener("resize", () => syncSidebarSelection({ instant: true }), { passive: true });
+    desktop.addEventListener?.("change", () => {
+      pendingGo = false;
+      syncContext();
+      syncSidebarSelection({ instant: true });
+    });
   }
 
-  window.blogDesktop = { openSearch, openComposer, navigate, setProfileContext, clearProfileContext };
+  window.blogDesktop = { state, openSearch, openComposer, navigate, setProfileContext, clearProfileContext, syncSidebarSelection };
   document.addEventListener("DOMContentLoaded", init, { once: true });
 })();

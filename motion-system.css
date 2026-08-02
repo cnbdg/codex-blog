@@ -1,18 +1,21 @@
 /*
  * CNBDG Motion System
- * Hierarchical, interruptible motion inspired by iOS navigation and sheets.
- * Only compositor-friendly transform and opacity are animated.
+ * Platform-aware, interruptible motion.
+ * macOS uses restrained window depth and pointer precision; iOS uses direct
+ * manipulation, liquid navigation and bottom sheets. Only compositor-friendly
+ * transform and opacity are animated.
  */
 :root {
   --motion-spring: cubic-bezier(.2, .82, .22, 1);
   --motion-spring-out: cubic-bezier(.16, 1, .3, 1);
   --motion-accelerate: cubic-bezier(.4, 0, 1, 1);
-  --motion-duration-page: 520ms;
-  --motion-duration-sheet: 540ms;
+  --motion-duration-page: 380ms;
+  --motion-duration-sheet: 300ms;
+  --mac-pointer-x: 0px;
+  --mac-pointer-y: 0px;
 }
 
-html.motion-enabled .page.active,
-html.motion-enabled #app.desktop-page-enter .page.active > * {
+html.motion-enabled .page.active {
   animation: none !important;
 }
 
@@ -28,7 +31,7 @@ html.motion-view-transition body {
 }
 
 @supports (view-transition-name: page-content) {
-  html.motion-enabled .page.active { view-transition-name: page-content; }
+  html.motion-enabled.motion-platform-macos .page.active { view-transition-name: page-content; }
 
   ::view-transition-group(page-content) {
     z-index: 4;
@@ -53,50 +56,50 @@ html.motion-view-transition body {
     animation-fill-mode: both;
   }
 
-  html.motion-forward::view-transition-old(page-content) {
+  html.motion-platform-macos.motion-forward::view-transition-old(page-content) {
     z-index: 1;
-    animation-name: ios-page-old-forward;
-    animation-timing-function: cubic-bezier(.4, 0, .7, .2);
+    animation-name: macos-page-old-forward;
+    animation-timing-function: cubic-bezier(.4, 0, .8, .2);
   }
 
-  html.motion-forward::view-transition-new(page-content) {
+  html.motion-platform-macos.motion-forward::view-transition-new(page-content) {
     z-index: 2;
-    animation-name: ios-page-new-forward;
+    animation-name: macos-page-new-forward;
     animation-timing-function: var(--motion-spring-out);
   }
 
-  html.motion-backward::view-transition-old(page-content) {
+  html.motion-platform-macos.motion-backward::view-transition-old(page-content) {
     z-index: 2;
-    animation-name: ios-page-old-backward;
-    animation-timing-function: cubic-bezier(.4, 0, .7, .2);
+    animation-name: macos-page-old-backward;
+    animation-timing-function: cubic-bezier(.4, 0, .8, .2);
   }
 
-  html.motion-backward::view-transition-new(page-content) {
+  html.motion-platform-macos.motion-backward::view-transition-new(page-content) {
     z-index: 1;
-    animation-name: ios-page-new-backward;
+    animation-name: macos-page-new-backward;
     animation-timing-function: var(--motion-spring-out);
   }
 }
 
-@keyframes ios-page-old-forward {
+@keyframes macos-page-old-forward {
   from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  to { opacity: 0; transform: translate3d(-7.5%, 0, 0) scale(.965); }
+  to { opacity: .18; transform: translate3d(-6px, -2px, 0) scale(.994); }
 }
 
-@keyframes ios-page-new-forward {
-  0% { opacity: 0; transform: translate3d(13%, 0, 0) scale(.982); }
-  72% { opacity: 1; transform: translate3d(-.55%, 0, 0) scale(1.002); }
+@keyframes macos-page-new-forward {
+  0% { opacity: .18; transform: translate3d(10px, 5px, 0) scale(.991); }
+  76% { opacity: 1; transform: translate3d(-1px, 0, 0) scale(1.001); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
-@keyframes ios-page-old-backward {
+@keyframes macos-page-old-backward {
   from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  to { opacity: 0; transform: translate3d(10%, 0, 0) scale(.978); }
+  to { opacity: .18; transform: translate3d(6px, 2px, 0) scale(.994); }
 }
 
-@keyframes ios-page-new-backward {
-  0% { opacity: 0; transform: translate3d(-8%, 0, 0) scale(.966); }
-  72% { opacity: 1; transform: translate3d(.45%, 0, 0) scale(1.002); }
+@keyframes macos-page-new-backward {
+  0% { opacity: .18; transform: translate3d(-10px, 3px, 0) scale(.991); }
+  76% { opacity: 1; transform: translate3d(1px, 0, 0) scale(1.001); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
@@ -104,12 +107,22 @@ html.motion-view-transition body {
 html.motion-enabled .motion-reveal {
   animation: none !important;
   opacity: 0;
-  transform: translate3d(0, 24px, 0) scale(.986);
   transform-origin: center top;
-  transition:
-    opacity 440ms ease-out var(--motion-stagger, 0ms),
-    transform 640ms var(--motion-spring-out) var(--motion-stagger, 0ms);
   will-change: transform, opacity;
+}
+
+html.motion-enabled.motion-platform-macos .motion-reveal {
+  transform: translate3d(0, 12px, 0) scale(.995);
+  transition:
+    opacity 300ms ease-out var(--motion-stagger, 0ms),
+    transform 460ms var(--motion-spring-out) var(--motion-stagger, 0ms);
+}
+
+html.motion-enabled.motion-platform-ios .motion-reveal {
+  transform: translate3d(0, 17px, 0) scale(.991);
+  transition:
+    opacity 340ms ease-out var(--motion-stagger, 0ms),
+    transform 520ms var(--motion-spring-out) var(--motion-stagger, 0ms);
 }
 
 html.motion-enabled .motion-reveal.is-visible {
@@ -121,68 +134,36 @@ html.motion-enabled .motion-reveal.motion-settled {
   will-change: auto;
 }
 
-/* A large but restrained depth response for the desktop hero. */
+/* macOS: shallow depth keeps the desktop canvas stable under a precise pointer. */
 @media (min-width:1024px) and (hover:hover) and (pointer:fine) {
   html.motion-enabled .social-hero .hero-visual {
     transform:
-      perspective(900px)
+      perspective(1100px)
       translate3d(var(--motion-hero-x, 0px), var(--motion-hero-y, 0px), 0)
       rotateX(var(--motion-hero-rx, 0deg))
       rotateY(var(--motion-hero-ry, 0deg))
       scale(.9);
-    transition: transform 680ms var(--motion-spring-out);
+    transition: transform 520ms var(--motion-spring-out);
     will-change: transform;
   }
 
   html.motion-enabled .social-hero.is-pointer-active .hero-visual {
-    transition-duration: 180ms;
+    transition-duration: 150ms;
     transition-timing-function: ease-out;
   }
 }
 
-/* iOS-style modal presentation: centered cards on desktop, sheets on mobile. */
-html.motion-enabled dialog[open]:not(.ios-dialog-closing) {
-  animation: ios-dialog-open var(--motion-duration-sheet) var(--motion-spring-out) both !important;
-  transform-origin: center 58%;
-  will-change: transform, opacity;
+@keyframes platform-backdrop-open {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-html.motion-enabled dialog[open]:not(.ios-dialog-closing)::backdrop {
-  animation: ios-backdrop-open 300ms ease-out both !important;
+@keyframes platform-backdrop-close {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
-html.motion-enabled dialog[open].ios-dialog-closing {
-  animation: ios-dialog-close 240ms var(--motion-accelerate) both !important;
-  pointer-events: none;
-}
-
-html.motion-enabled dialog[open].ios-dialog-closing::backdrop {
-  animation: ios-backdrop-close 220ms ease-in both !important;
-}
-
-@keyframes ios-dialog-open {
-  0% { opacity: 0; transform: translate3d(0, 36px, 0) scale(.93); }
-  68% { opacity: 1; transform: translate3d(0, -2px, 0) scale(1.006); }
-  84% { transform: translate3d(0, 1px, 0) scale(.998); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-}
-
-@keyframes ios-dialog-close {
-  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  to { opacity: 0; transform: translate3d(0, 22px, 0) scale(.955); }
-}
-
-@keyframes ios-backdrop-open {
-  from { background-color: rgba(8, 14, 23, 0); }
-  to { background-color: rgba(8, 14, 23, .5); }
-}
-
-@keyframes ios-backdrop-close {
-  from { background-color: rgba(8, 14, 23, .5); }
-  to { background-color: rgba(8, 14, 23, 0); }
-}
-
-/* Direct manipulation: compact compression and spring release. */
+/* Platform-specific direct manipulation. */
 html.motion-enabled :where(
   button,
   .topbar nav a,
@@ -197,46 +178,162 @@ html.motion-enabled :where(
   -webkit-tap-highlight-color: transparent;
 }
 
-html.motion-enabled :where(
-  button:not(:disabled),
-  .topbar nav a,
-  .post-item,
-  .thread-card,
-  .message-friend-item,
-  .message-group-item,
-  .notification-item,
-  .friend-grid > a
-):active {
-  transform: scale(.972);
-  transition-duration: 80ms !important;
-}
-
 html.motion-enabled .logo-mark {
-  transition: transform 560ms var(--motion-spring-out), box-shadow 280ms ease;
+  transition: transform 420ms var(--motion-spring-out), box-shadow 240ms ease;
 }
 
 html.motion-enabled .logo:active .logo-mark {
   transform: rotate(-8deg) scale(.9);
 }
 
-html.motion-enabled #toast.show {
-  animation: ios-toast-in 460ms var(--motion-spring-out) both;
-}
-
-@keyframes ios-toast-in {
-  0% { opacity: 0; transform: translate3d(-50%, 18px, 0) scale(.9); }
-  70% { opacity: 1; transform: translate3d(-50%, -2px, 0) scale(1.018); }
-  100% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
-}
-
-html.motion-enabled .incoming-message-bubble.show {
-  animation: ios-notification-in 560ms var(--motion-spring-out) both;
-}
-
 @keyframes ios-notification-in {
   0% { opacity: 0; transform: translate3d(0, 24px, 0) scale(.88); }
   64% { opacity: 1; transform: translate3d(0, -4px, 0) scale(1.018); }
   82% { transform: translate3d(0, 2px, 0) scale(.996); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.macos-sidebar-selection { display: none; }
+
+/* macOS workspace motion: window hierarchy, low displacement and pointer precision. */
+@media (min-width:1024px) {
+  html.motion-enabled.motion-platform-macos dialog[open]:not(.platform-dialog-closing) {
+    animation: macos-panel-open var(--motion-duration-sheet) var(--motion-spring-out) both !important;
+    transform-origin: center 46%;
+    will-change: transform, opacity;
+  }
+
+  html.motion-enabled.motion-platform-macos dialog[open]:not(.platform-dialog-closing)::backdrop {
+    animation: platform-backdrop-open 190ms ease-out both !important;
+  }
+
+  html.motion-enabled.motion-platform-macos dialog[open].macos-panel-closing {
+    animation: macos-panel-close 190ms cubic-bezier(.4, 0, .8, .2) both !important;
+    pointer-events: none;
+  }
+
+  html.motion-enabled.motion-platform-macos dialog[open].macos-panel-closing::backdrop {
+    animation: platform-backdrop-close 180ms ease-in both !important;
+  }
+
+  html.motion-enabled.motion-platform-macos :where(
+    button:not(:disabled),
+    .topbar nav a,
+    .post-item,
+    .thread-card,
+    .message-friend-item,
+    .message-group-item,
+    .notification-item,
+    .friend-grid > a
+  ):active {
+    transform: scale(.985);
+    transition-duration: 70ms !important;
+  }
+
+  html.motion-enabled.motion-platform-macos :where(
+    .topbar nav a,
+    .actions button,
+    .desktop-context-search,
+    .desktop-context-trends > button,
+    .primary-btn,
+    .secondary-btn,
+    .follow-button,
+    .chat-button
+  ).mac-pointer-active {
+    transform: translate3d(var(--mac-pointer-x), var(--mac-pointer-y), 0) scale(1.012) !important;
+    transition-duration: 110ms !important;
+    transition-timing-function: ease-out !important;
+  }
+
+  html.motion-enabled.motion-platform-macos :where(
+    .topbar nav a,
+    .actions button,
+    .desktop-context-search,
+    .desktop-context-trends > button,
+    .primary-btn,
+    .secondary-btn,
+    .follow-button,
+    .chat-button
+  ).mac-pointer-pressing {
+    transform: translate3d(var(--mac-pointer-x), var(--mac-pointer-y), 0) scale(.982) !important;
+    transition-duration: 70ms !important;
+  }
+
+  html.motion-enabled.motion-platform-macos :where(
+    .post-list,
+    .thread-list,
+    .messages-shell,
+    .desktop-context-card
+  ):focus-within {
+    border-color: color-mix(in srgb, var(--blue) 28%, var(--line));
+    box-shadow: 0 12px 34px rgba(15, 20, 25, .08), 0 0 0 1px color-mix(in srgb, var(--blue) 9%, transparent);
+    transition: border-color 180ms ease, box-shadow 260ms ease;
+  }
+
+  html.motion-enabled.motion-platform-macos #toast.show {
+    animation: macos-toast-in 310ms var(--motion-spring-out) both;
+  }
+
+  html.motion-enabled.motion-platform-macos .incoming-message-bubble.show {
+    animation: macos-notification-in 340ms var(--motion-spring-out) both;
+  }
+
+  .topbar nav {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .topbar nav > a {
+    z-index: 1;
+  }
+
+  .macos-sidebar-selection {
+    display: block;
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    left: 0;
+    width: var(--mac-sidebar-width, 0px);
+    height: var(--mac-sidebar-height, 0px);
+    border: 1px solid color-mix(in srgb, var(--blue) 13%, var(--line));
+    border-radius: 15px;
+    background:
+      linear-gradient(112deg, color-mix(in srgb, var(--blue) 11%, var(--surface)), color-mix(in srgb, #9b7af2 6%, var(--surface)));
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 55%, transparent), 0 4px 14px rgba(15, 20, 25, .045);
+    opacity: 0;
+    transform: translate3d(var(--mac-sidebar-x, 0px), var(--mac-sidebar-y, 0px), 0);
+    transition:
+      transform 380ms var(--motion-spring-out),
+      opacity 150ms ease;
+    will-change: transform;
+    pointer-events: none;
+  }
+
+  .topbar nav.macos-selection-ready .macos-sidebar-selection { opacity: 1; }
+  .topbar nav.macos-selection-ready > a.active {
+    border-color: transparent !important;
+    background: transparent !important;
+  }
+}
+
+@keyframes macos-panel-open {
+  0% { opacity: 0; transform: translate3d(0, 10px, 0) scale(.974); }
+  74% { opacity: 1; transform: translate3d(0, -1px, 0) scale(1.002); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes macos-panel-close {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(0, 7px, 0) scale(.985); }
+}
+
+@keyframes macos-toast-in {
+  0% { opacity: 0; transform: translate3d(-50%, 9px, 0) scale(.965); }
+  100% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+}
+
+@keyframes macos-notification-in {
+  0% { opacity: 0; transform: translate3d(0, 10px, 0) scale(.975); }
   100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
@@ -248,7 +345,7 @@ html.motion-enabled .incoming-message-bubble.show {
 
   html.motion-enabled .page.active { view-transition-name: none; }
 
-  .topbar nav {
+  html.motion-platform-ios .topbar nav {
     transition: transform 520ms var(--motion-spring-out) !important;
     will-change: transform;
   }
@@ -261,14 +358,45 @@ html.motion-enabled .incoming-message-bubble.show {
     transition: opacity 340ms ease, visibility 0s step-start !important;
   }
 
-  html.motion-enabled dialog[open]:not(.ios-dialog-closing) {
-    animation-name: ios-sheet-open !important;
+  html.motion-enabled.motion-platform-ios dialog[open]:not(.platform-dialog-closing) {
+    animation: ios-sheet-open var(--motion-duration-sheet) var(--motion-spring-out) both !important;
     transform-origin: center bottom;
+    will-change: transform, opacity;
   }
 
-  html.motion-enabled dialog[open].ios-dialog-closing {
-    animation-name: ios-sheet-close !important;
-    animation-duration: 330ms !important;
+  html.motion-enabled.motion-platform-ios dialog[open]:not(.platform-dialog-closing)::backdrop {
+    animation: platform-backdrop-open 300ms ease-out both !important;
+  }
+
+  html.motion-enabled.motion-platform-ios dialog[open].ios-sheet-closing {
+    animation: ios-sheet-close 330ms var(--motion-accelerate) both !important;
+    pointer-events: none;
+  }
+
+  html.motion-enabled.motion-platform-ios dialog[open].ios-sheet-closing::backdrop {
+    animation: platform-backdrop-close 250ms ease-in both !important;
+  }
+
+  html.motion-enabled.motion-platform-ios :where(
+    button:not(:disabled),
+    .topbar nav a,
+    .post-item,
+    .thread-card,
+    .message-friend-item,
+    .message-group-item,
+    .notification-item,
+    .friend-grid > a
+  ):active {
+    transform: scale(.965);
+    transition-duration: 70ms !important;
+  }
+
+  html.motion-enabled.motion-platform-ios #toast.show {
+    animation: ios-toast-in 460ms var(--motion-spring-out) both;
+  }
+
+  html.motion-enabled.motion-platform-ios .incoming-message-bubble.show {
+    animation: ios-notification-in 560ms var(--motion-spring-out) both;
   }
 
   @keyframes ios-sheet-open {
@@ -281,6 +409,12 @@ html.motion-enabled .incoming-message-bubble.show {
   @keyframes ios-sheet-close {
     from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
     to { opacity: .35; transform: translate3d(0, 102%, 0) scale(.985); }
+  }
+
+  @keyframes ios-toast-in {
+    0% { opacity: 0; transform: translate3d(-50%, 18px, 0) scale(.9); }
+    70% { opacity: 1; transform: translate3d(-50%, -2px, 0) scale(1.018); }
+    100% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
   }
 
   /* iOS 26-style Liquid Glass navigation layer. */
