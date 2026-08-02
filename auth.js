@@ -97,6 +97,7 @@
     ,[/send_direct_message.*message_image_path/i, "私信图片功能尚未启用：请先执行 direct-message-media.sql"]
     ,[/CANNOT_DEMOTE_LAST_ADMIN/i, "不能移除最后一名管理员"]
     ,[/CANNOT_CHANGE_SELF_ROLE/i, "不能在这里修改自己的管理员身份"]
+    ,[/OWNER_PROTECTED|OWNER_FIELD_LOCKED/i, "永久站长账号受数据库保护，不能降级、删除或由其他管理员修改"]
     ,[/CASE_ALREADY_REVIEWED/i, "这条举报已经处理，请刷新列表"]
     ,[/REVIEW_NOTE_REQUIRED/i, "请填写完整的复核备注"]
     ,[/APPEAL_ALREADY_PENDING/i, "你已有一条待处理申诉，请耐心等待"]
@@ -499,7 +500,7 @@
         userAvatar.style.backgroundImage = profile?.avatar_url ? `url("${profile.avatar_url.replace(/["\\]/g, "")}")` : "";
         userAvatar.classList.toggle("has-image", Boolean(profile?.avatar_url));
       }
-      if ($("#userRole")) $("#userRole").textContent = profile?.is_admin ? "管理员 · 邮箱已验证" : "邮箱已验证";
+      if ($("#userRole")) $("#userRole").textContent = profile?.is_owner ? "永久站长 · 邮箱已验证" : profile?.is_admin ? "管理员 · 邮箱已验证" : "邮箱已验证";
       fillProfileForm($("#profileForm"));
     }
     updateProfilePage(signedIn);
@@ -543,7 +544,11 @@
     if ($("#profilePageTitle")) $("#profilePageTitle").textContent = profile?.display_title || "社区成员";
     if ($("#profilePageUid")) $("#profilePageUid").textContent = profile?.user_uid || "待分配";
     if ($("#profilePageEmail")) $("#profilePageEmail").textContent = user?.email || "";
-    if ($("#profilePageAdminBadge")) $("#profilePageAdminBadge").hidden = !profile?.is_admin;
+    if ($("#profilePageAdminBadge")) {
+      $("#profilePageAdminBadge").hidden = !profile?.is_admin;
+      $("#profilePageAdminBadge").textContent = profile?.is_owner ? "永久站长" : "管理员";
+      $("#profilePageAdminBadge").classList.toggle("is-owner", Boolean(profile?.is_owner));
+    }
     applyAvatar($("#profilePageAvatar"), name, avatarUrl);
     fillProfileForm($("#profilePageForm"));
     syncOwnGovernanceStatus();
@@ -583,11 +588,17 @@
       return;
     }
     let result = await client.from("profiles")
-      .select("user_uid,username,avatar_url,display_title,title_locked,is_admin")
+      .select("user_uid,username,avatar_url,display_title,title_locked,is_admin,is_owner")
       .eq("id", user.id)
       .maybeSingle();
     if (result.error) {
       await new Promise(resolve => setTimeout(resolve, 350));
+      result = await client.from("profiles")
+        .select("user_uid,username,avatar_url,display_title,title_locked,is_admin,is_owner")
+        .eq("id", user.id)
+        .maybeSingle();
+    }
+    if (result.error && /is_owner/i.test(result.error.message || "")) {
       result = await client.from("profiles")
         .select("user_uid,username,avatar_url,display_title,title_locked,is_admin")
         .eq("id", user.id)
@@ -1646,7 +1657,8 @@
 
   async function getAdminMemberByUid(uid) {
     if (!client || !profile?.is_admin) return { member: null, error: "当前账号没有站长权限" };
-    const result = await client.rpc("admin_get_member_by_uid", { requested_uid: Number(uid) });
+    let result = await client.rpc("admin_get_member_by_uid_v2", { requested_uid: Number(uid) });
+    if (isMissingRpc(result.error)) result = await client.rpc("admin_get_member_by_uid", { requested_uid: Number(uid) });
     if (!result.error) return { member: result.data?.[0] || null, error: "" };
     if (!isMissingRpc(result.error)) return { member: null, error: friendlyError(result.error) };
     const rows = await searchUsers(String(uid));
@@ -1897,6 +1909,7 @@
     get user() { return user; },
     get profile() { return profile; },
     get isAdmin() { return Boolean(profile?.is_admin); },
+    get isOwner() { return Boolean(profile?.is_owner); },
     get adminCaptchaReady() { return !captchaRequiredForAuth || Boolean(adminCaptchaToken && adminCaptchaSolvedAt && Date.now() - adminCaptchaSolvedAt <= captchaMaxAge); },
     get initialized() { return initialized; },
     get sessionPersistent() { return storagePersistent; },

@@ -17,13 +17,61 @@
     const target = $("#adminMemberPreview");
     selectedMember = member || null;
     target.hidden = !member;
-    if (!member) { target.innerHTML = ""; return; }
+    const form = $("#memberAdminForm");
+    const roleSelect = form?.elements.role_action;
+    const titleInput = form?.elements.title;
+    const submitButton = form?.querySelector(".dialog-actions .primary-btn");
+    const roleHint = $("#ownerRoleHint");
+    if (!member) {
+      target.innerHTML = "";
+      target.classList.remove("is-owner");
+      if (roleSelect) { roleSelect.disabled = false; roleSelect.value = "keep"; }
+      if (titleInput) titleInput.disabled = false;
+      if (submitButton) submitButton.disabled = false;
+      if (roleHint) roleHint.textContent = "保持角色不会意外降级；选择“降为普通用户”时会再次确认。";
+      return;
+    }
     const name = escapeText(member.username || "社区用户");
     const restricted = Boolean(member.restricted ?? member.banned);
-    target.innerHTML = `<div class="owner-preview-avatar">${name.charAt(0).toUpperCase()}</div><div><strong>${name}</strong><span>UID ${member.user_uid || "—"} · ${escapeText(member.display_title || "社区成员")}</span><small>${member.is_admin ? "管理员" : "普通用户"}${restricted ? " · 当前受限" : " · 状态正常"}${member.strike_count != null ? ` · ${member.strike_count} 条违规记录` : ""}</small></div>`;
-    const form = $("#memberAdminForm");
+    const permanentOwner = Boolean(member.is_owner);
+    const ownOwnerAccount = permanentOwner && member.user_id === window.blogAuth?.user?.id;
+    target.classList.toggle("is-owner", permanentOwner);
+    target.innerHTML = `<div class="owner-preview-avatar">${name.charAt(0).toUpperCase()}</div><div><div class="owner-preview-name"><strong>${name}</strong>${permanentOwner ? '<b>永久站长</b>' : member.is_admin ? '<b class="admin">管理员</b>' : ""}</div><span>UID ${member.user_uid || "—"} · ${escapeText(member.display_title || "社区成员")}</span><small>${permanentOwner ? "数据库永久保护" : member.is_admin ? "管理员" : "普通用户"}${restricted ? " · 当前受限" : " · 状态正常"}${member.strike_count != null ? ` · ${member.strike_count} 条违规记录` : ""}</small></div>`;
     form.elements.title.value = member.display_title || "社区成员";
     form.elements.role_action.value = "keep";
+    roleSelect.disabled = permanentOwner;
+    titleInput.disabled = permanentOwner && !ownOwnerAccount;
+    if (submitButton) submitButton.disabled = permanentOwner && !ownOwnerAccount;
+    if (roleHint) roleHint.textContent = permanentOwner
+      ? ownOwnerAccount
+        ? "这是你的永久站长账号：管理员角色已锁定，只能保持；仍可修改自己的展示头衔。"
+        : "该账号是永久站长，不能由其他管理员降级、删除或修改身份。"
+      : "保持角色不会意外降级；选择“降为普通用户”时会再次确认。";
+  }
+
+  function syncOwnerProtectionUI() {
+    const currentProfile = window.blogAuth?.profile;
+    const isOwner = Boolean(window.blogAuth?.isOwner);
+    const name = currentProfile?.username || window.blogAuth?.user?.user_metadata?.username || "管理员";
+    if ($("#adminIdentityName")) $("#adminIdentityName").textContent = name;
+    if ($("#adminIdentityRole")) {
+      $("#adminIdentityRole").textContent = isOwner ? "永久站长" : "管理员";
+      $("#adminIdentityRole").classList.toggle("is-owner", isOwner);
+    }
+    if ($("#adminOwnerStatus")) $("#adminOwnerStatus").textContent = isOwner
+      ? "身份已由数据库永久锁定，其他管理员无法降级或删除。"
+      : "当前拥有管理权限，但尚未检测到永久站长保护。";
+    if ($("#adminProtectionState")) {
+      $("#adminProtectionState").textContent = isOwner ? "已锁定" : "待启用";
+      $("#adminProtectionState").classList.toggle("is-owner", isOwner);
+    }
+    const banner = $("#ownerProtectionBanner");
+    if (banner) banner.dataset.state = isOwner ? "protected" : "pending";
+    if ($("#ownerProtectionTitle")) $("#ownerProtectionTitle").textContent = isOwner ? "永久站长保护已启用" : "永久站长保护尚未启用";
+    if ($("#ownerProtectionText")) $("#ownerProtectionText").textContent = isOwner
+      ? "你的账号已绑定不可变用户 UUID，其他管理员无法降级、删除或修改你的身份。"
+      : "请在 Supabase SQL Editor 执行 permanent-owner.sql，完成数据库级身份锁定。";
+    if ($("#ownerProtectionBadge")) $("#ownerProtectionBadge").textContent = isOwner ? "受保护" : "待升级";
   }
 
   async function lookupMember() {
@@ -62,7 +110,9 @@
     renderMemberPreview(null);
     adminError();
     if (uid) form.elements.uid.value = uid;
-    $("#memberAdminDialog").showModal();
+    syncOwnerProtectionUI();
+    if (window.blogUI?.openDialog) window.blogUI.openDialog($("#memberAdminDialog"));
+    else $("#memberAdminDialog").showModal();
     window.blogAuth.prepareAdminCaptcha?.();
     loadOwnerHealth();
     if (uid) lookupMember();
@@ -81,9 +131,11 @@
       const title = form.elements.title.value.trim();
       const roleAction = form.elements.role_action.value;
       if (!selectedMember || Number(selectedMember.user_uid) !== uid) { await lookupMember(); if (!selectedMember) return; }
+      if (selectedMember.is_owner && selectedMember.user_id !== window.blogAuth?.user?.id) return adminError("永久站长账号不能由其他管理员修改");
+      if (selectedMember.is_owner && roleAction !== "keep") return adminError("永久站长角色已锁定，不能降级或重新分配");
       if (roleAction === "demote" && !confirm(`确认将 ${selectedMember.username} 降为普通用户吗？该用户将立即失去全部管理权限。`)) return;
       if (!window.blogAuth.adminCaptchaReady) return adminError("请先完成管理员人机验证");
-      const button = form.querySelector("button[type=submit]");
+      const button = form.querySelector("button[type=submit], .dialog-actions .primary-btn");
       button.disabled = true;
       button.textContent = "正在验证并保存…";
       if (!await window.blogAuth.confirmAdminPassword(password)) { button.disabled = false; button.textContent = "保存身份设置"; return adminError("密码验证失败，未执行任何操作"); }
@@ -96,9 +148,17 @@
       await loadOwnerHealth();
     });
     $("#ownerOpenModerationBtn")?.addEventListener("click", () => {
-      $("#memberAdminDialog").close();
+      if (window.blogUI?.closeDialog) window.blogUI.closeDialog($("#memberAdminDialog"));
+      else $("#memberAdminDialog").close();
       window.showPage?.("admin", true);
       setTimeout(() => $("#moderationPanel")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    });
+    $(".admin-quick-actions")?.addEventListener("click", event => {
+      const button = event.target.closest("[data-admin-jump]");
+      if (!button) return;
+      if (button.dataset.adminJump === "member") return openMemberAdmin();
+      const target = document.getElementById(button.dataset.adminJump);
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     $("#governanceCleanupBtn")?.addEventListener("click", async () => {
       const form = $("#memberAdminForm");
@@ -210,6 +270,8 @@
     $("#adminWorkspace").hidden = !admin;
     $("#newPostBtn").hidden = !admin;
     $("#importPostsBtn").hidden = !admin;
+    $("#adminMemberBtn").hidden = !admin;
+    if (admin) syncOwnerProtectionUI();
     if (!admin) {
       const signedIn = Boolean(window.blogAuth?.user);
       $("#adminGateTitle").textContent = signedIn ? "尚未识别管理员权限" : "仅管理员可访问";
@@ -223,6 +285,7 @@
     if (!window.blogAuth?.isAdmin) return;
     $("#adminPostList").innerHTML = `<p class="search-hint">正在加载…</p>`;
     records = await window.blogAuth.listAllPosts();
+    if ($("#adminPostCount")) $("#adminPostCount").textContent = records.length;
     renderList();
   }
 

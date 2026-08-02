@@ -132,6 +132,18 @@ async function runChrome(url, width, height, scale = 1) {
 }
 
 async function main() {
+  const ownerMigration = await readFile(resolve(root, "permanent-owner.sql"), "utf8");
+  const ownerSecurity = {
+    transaction: /\bbegin;[\s\S]*commit;\s*$/i.test(ownerMigration.trim()),
+    immutableRole: /add column if not exists is_owner[\s\S]*protect_permanent_owner_trigger/i.test(ownerMigration),
+    updateAndDeleteGuard: /before update or delete on public\.profiles/i.test(ownerMigration),
+    moderationGuard: /before insert or update on public\.user_moderation/i.test(ownerMigration),
+    rpcGuard: /admin_manage_member[\s\S]*OWNER_PROTECTED/i.test(ownerMigration),
+    compatibleLookup: /admin_get_member_by_uid_v2/i.test(ownerMigration) && !/drop function if exists public\.admin_get_member_by_uid\(bigint\)/i.test(ownerMigration),
+    schemaReload: /notify pgrst,\s*'reload schema'/i.test(ownerMigration),
+    privateEmailAbsent: !/[\w.+-]+@[\w.-]+\.[a-z]{2,}/i.test(ownerMigration)
+  };
+  assert(Object.values(ownerSecurity).every(Boolean), `永久站长数据库保护脚本不完整：${JSON.stringify(ownerSecurity)}`);
   const server = await startStaticServer();
   const origin = `http://127.0.0.1:${server.address().port}`;
   if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_SERVER ${origin}`);
@@ -139,7 +151,7 @@ async function main() {
     const desktop = await runChrome(`${origin}/tools/browser-self-check.html?mode=desktop`, 1440, 900);
     const mobile = await runChrome(`${origin}/tools/browser-self-check.html?mode=mobile`, 500, 980);
     const authentication = await runChrome(`${origin}/tools/auth-self-check.html`, 1100, 800);
-    console.log(JSON.stringify({ status: "PASS", desktop, mobile, authentication }, null, 2));
+    console.log(JSON.stringify({ status: "PASS", ownerSecurity, desktop, mobile, authentication }, null, 2));
   } finally {
     await new Promise(resolveClose => {
       server.close(resolveClose);

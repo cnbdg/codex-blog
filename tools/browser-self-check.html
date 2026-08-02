@@ -66,7 +66,7 @@
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
           assert(baseChecks.motionPlatform === (mode === "mobile" ? "ios" : "macos") && baseChecks.motionPlatformClass, "电脑与手机动效平台没有正确隔离");
-          assert(baseChecks.newestPostTitle.startsWith("账户系统修复"), "本次更新日志没有显示在首页首位");
+          assert(baseChecks.newestPostTitle.startsWith("永久站长保护"), "本次更新日志没有显示在首页首位");
           assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(baseChecks.newestPostTime) && /T\d{2}:\d{2}:\d{2}/.test(baseChecks.newestPostDateTime), "博客发布时间没有精确显示到秒");
           const firstPageTitle = baseChecks.newestPostTitle;
           const pagination = d.querySelector("#pagination");
@@ -274,7 +274,56 @@
             w.__selfCheckNotification?.({ kind: "group_message", actor_id: friend.id, actor_username: friend.username, payload: { group_id: group.group_id, group_name: group.group_name, preview: "其他会话消息" } });
             await wait(30);
             assert(d.querySelector("#incomingMessageBubble")?.hidden === false, "非当前会话没有显示新消息气泡");
-            finish("pass", { mode, baseChecks, paginationCheck, desktopContextCheck, listResult, threadResult, shellWidth, groupInfo, bubbleRules: true });
+            Object.assign(w.blogAuth, {
+              isAdmin: true,
+              isOwner: true,
+              profile: { id: viewer.id, username: "Cnbdg", user_uid: 1, display_title: "站长", is_admin: true, is_owner: true },
+              listAllPosts: async () => [{ id: 1, title: "管理界面自检文章", status: "published", published_at: new Date().toISOString() }],
+              getGovernanceOverview: async () => ({ data: { pending_reports: 2, restricted_users: 1, pending_appeals: 0, actions_today: 3 }, error: "" }),
+              listModerationReports: async () => ({ rows: [], error: "" }),
+              listModerationUsers: async () => ({ rows: [], error: "" }),
+              listModerationAppeals: async () => ({ rows: [], error: "" }),
+              listModerationActions: async () => ({ rows: [], error: "" }),
+              prepareAdminCaptcha() {},
+              getAdminMemberByUid: async () => ({ member: { user_id: viewer.id, user_uid: 1, username: "Cnbdg", display_title: "站长", is_admin: true, is_owner: true, restricted: false, strike_count: 0 }, error: "" }),
+              confirmAdminPassword: async () => true,
+              adminManageMember: async () => true,
+              runGovernanceMaintenance: async () => ({ data: { expired_restrictions_closed: 0 }, error: "" }),
+              refreshProfile: async () => true,
+              adminCaptchaReady: true
+            });
+            w.dispatchEvent(new w.CustomEvent("blog-auth-change", { detail: { user: viewer, profile: w.blogAuth.profile } }));
+            w.blogUI.navigate("admin", { history: false, animate: false });
+            await wait(160);
+            const commandCenter = d.querySelector(".admin-command-center");
+            const adminUi = {
+              workspaceVisible: !d.querySelector("#adminWorkspace")?.hidden,
+              title: d.querySelector("#admin .admin-header h1")?.textContent,
+              identity: d.querySelector("#adminIdentityName")?.textContent,
+              role: d.querySelector("#adminIdentityRole")?.textContent,
+              protection: d.querySelector("#adminProtectionState")?.textContent,
+              postCount: d.querySelector("#adminPostCount")?.textContent,
+              quickActions: d.querySelectorAll(".admin-quick-actions button").length,
+              commandColumns: getComputedStyle(commandCenter).gridTemplateColumns,
+              commandWidth: Math.round(commandCenter?.getBoundingClientRect().width || 0)
+            };
+            assert(adminUi.workspaceVisible && adminUi.title === "管理中心", "新版管理中心没有正确显示");
+            assert(adminUi.identity === "Cnbdg" && adminUi.role === "永久站长" && adminUi.protection === "已锁定", "永久站长身份状态没有显示");
+            assert(adminUi.postCount === "1" && adminUi.quickActions === 3 && adminUi.commandWidth > 700, "管理概览或快捷入口布局异常");
+            w.openMemberAdmin(1);
+            await wait(100);
+            const ownerDialog = {
+              open: d.querySelector("#memberAdminDialog")?.open,
+              state: d.querySelector("#ownerProtectionBanner")?.dataset.state,
+              badge: d.querySelector("#ownerProtectionBadge")?.textContent,
+              memberOwner: d.querySelector("#adminMemberPreview")?.classList.contains("is-owner"),
+              roleLocked: d.querySelector('#memberAdminForm [name="role_action"]')?.disabled,
+              roleHint: d.querySelector("#ownerRoleHint")?.textContent || ""
+            };
+            assert(ownerDialog.open && ownerDialog.state === "protected" && ownerDialog.badge === "受保护", "永久站长保护状态弹窗显示异常");
+            assert(ownerDialog.memberOwner && ownerDialog.roleLocked && /角色已锁定/.test(ownerDialog.roleHint), `永久站长危险角色操作没有锁定：${JSON.stringify(ownerDialog)}`);
+            w.blogUI.closeDialog(d.querySelector("#memberAdminDialog"));
+            finish("pass", { mode, baseChecks, paginationCheck, desktopContextCheck, listResult, threadResult, shellWidth, groupInfo, bubbleRules: true, adminUi, ownerDialog });
             return;
           }
 
@@ -416,7 +465,48 @@
           };
           assert(wallpaperPanel.open && wallpaperPanel.drawerClosed, "从手机侧栏打开壁纸面板失败");
           assert(wallpaperPanel.opacityControl, "壁纸面板缺少透明度控制");
-          finish("pass", { mode, baseChecks, paginationCheck, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileMotion, mobileVisual, mobileDrawer, wallpaperPanel });
+          w.blogUI.closeDialog(d.querySelector("#wallpaperDialog"));
+          await wait(320);
+          Object.assign(w.blogAuth, {
+            isAdmin: true,
+            isOwner: true,
+            profile: { id: viewer.id, username: "Cnbdg", user_uid: 1, display_title: "站长", is_admin: true, is_owner: true },
+            listAllPosts: async () => [{ id: 1, title: "管理界面自检文章", status: "published", published_at: new Date().toISOString() }],
+            getGovernanceOverview: async () => ({ data: { pending_reports: 2, restricted_users: 1, pending_appeals: 0, actions_today: 3 }, error: "" }),
+            listModerationReports: async () => ({ rows: [], error: "" }),
+            listModerationUsers: async () => ({ rows: [], error: "" }),
+            listModerationAppeals: async () => ({ rows: [], error: "" }),
+            listModerationActions: async () => ({ rows: [], error: "" }),
+            prepareAdminCaptcha() {},
+            getAdminMemberByUid: async () => ({ member: { user_id: viewer.id, user_uid: 1, username: "Cnbdg", display_title: "站长", is_admin: true, is_owner: true, restricted: false, strike_count: 0 }, error: "" }),
+            refreshProfile: async () => true,
+            adminCaptchaReady: true
+          });
+          w.dispatchEvent(new w.CustomEvent("blog-auth-change", { detail: { user: viewer, profile: w.blogAuth.profile } }));
+          w.blogUI.navigate("admin", { history: false, animate: false });
+          await wait(150);
+          const mobileAdmin = {
+            workspaceVisible: !d.querySelector("#adminWorkspace")?.hidden,
+            title: d.querySelector("#admin .admin-header h1")?.textContent,
+            role: d.querySelector("#adminIdentityRole")?.textContent,
+            commandWidth: Math.round(d.querySelector(".admin-command-center")?.getBoundingClientRect().width || 0),
+            quickActions: d.querySelectorAll(".admin-quick-actions button").length,
+            horizontalScroll: d.documentElement.scrollWidth - d.documentElement.clientWidth
+          };
+          assert(mobileAdmin.workspaceVisible && mobileAdmin.title === "管理中心" && mobileAdmin.role === "永久站长", "手机管理中心身份或工作区异常");
+          assert(mobileAdmin.commandWidth <= 380 && mobileAdmin.quickActions === 3 && mobileAdmin.horizontalScroll <= 1, `手机管理中心拥挤或横向溢出：${JSON.stringify(mobileAdmin)}`);
+          w.openMemberAdmin(1);
+          await wait(100);
+          const ownerRect = d.querySelector("#memberAdminDialog")?.getBoundingClientRect();
+          mobileAdmin.ownerDialog = {
+            open: d.querySelector("#memberAdminDialog")?.open,
+            width: Math.round(ownerRect?.width || 0),
+            roleLocked: d.querySelector('#memberAdminForm [name="role_action"]')?.disabled,
+            protected: d.querySelector("#ownerProtectionBanner")?.dataset.state === "protected"
+          };
+          assert(mobileAdmin.ownerDialog.open && mobileAdmin.ownerDialog.width <= 390 && mobileAdmin.ownerDialog.roleLocked && mobileAdmin.ownerDialog.protected, `手机权限面板布局或保护状态异常：${JSON.stringify(mobileAdmin.ownerDialog)}`);
+          w.blogUI.closeDialog(d.querySelector("#memberAdminDialog"));
+          finish("pass", { mode, baseChecks, paginationCheck, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileMotion, mobileVisual, mobileDrawer, wallpaperPanel, mobileAdmin });
         } catch (error) {
           finish("fail", { mode, error: error.stack || error.message || String(error) });
         }
