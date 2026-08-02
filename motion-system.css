@@ -17,6 +17,7 @@
 
 html.motion-enabled .page.active {
   animation: none !important;
+  will-change: auto;
 }
 
 html.motion-view-transition,
@@ -110,7 +111,7 @@ html.motion-enabled .motion-reveal {
   animation: none !important;
   opacity: 0;
   transform-origin: center top;
-  will-change: transform, opacity;
+  will-change: auto;
 }
 
 html.motion-enabled.motion-platform-macos .motion-reveal {
@@ -130,6 +131,7 @@ html.motion-enabled.motion-platform-ios .motion-reveal {
 html.motion-enabled .motion-reveal.is-visible {
   opacity: 1;
   transform: translate3d(0, 0, 0) scale(1);
+  will-change: transform, opacity;
 }
 
 html.motion-enabled .motion-reveal.motion-settled {
@@ -146,12 +148,12 @@ html.motion-enabled .motion-reveal.motion-settled {
       rotateY(var(--motion-hero-ry, 0deg))
       scale(.9);
     transition: transform 520ms var(--motion-spring-out);
-    will-change: transform;
   }
 
   html.motion-enabled .social-hero.is-pointer-active .hero-visual {
     transition-duration: 150ms;
     transition-timing-function: ease-out;
+    will-change: transform;
   }
 }
 
@@ -203,6 +205,11 @@ html.motion-enabled .logo:active .logo-mark {
     animation: macos-panel-open var(--motion-duration-sheet) var(--motion-spring-out) both !important;
     transform-origin: center 46%;
     will-change: transform, opacity;
+  }
+
+  html.motion-enabled.motion-platform-macos dialog[open].motion-dialog-settled:not(.platform-dialog-closing) {
+    animation: none !important;
+    will-change: auto;
   }
 
   html.motion-enabled.motion-platform-macos dialog[open]:not(.platform-dialog-closing)::backdrop {
@@ -307,7 +314,6 @@ html.motion-enabled .logo:active .logo-mark {
     transition:
       transform 380ms var(--motion-spring-out),
       opacity 150ms ease;
-    will-change: transform;
     pointer-events: none;
   }
 
@@ -349,8 +355,9 @@ html.motion-enabled .logo:active .logo-mark {
 
   html.motion-platform-ios .topbar nav {
     transition: transform 520ms var(--motion-spring-out) !important;
-    will-change: transform;
   }
+
+  body.nav-open .topbar nav { will-change: transform; }
 
   #navBackdrop {
     transition: opacity 340ms ease, visibility 340ms step-end !important;
@@ -364,6 +371,11 @@ html.motion-enabled .logo:active .logo-mark {
     animation: ios-sheet-open var(--motion-duration-sheet) var(--motion-spring-out) both !important;
     transform-origin: center bottom;
     will-change: transform, opacity;
+  }
+
+  html.motion-enabled.motion-platform-ios dialog[open].motion-dialog-settled:not(.platform-dialog-closing) {
+    animation: none !important;
+    will-change: auto;
   }
 
   html.motion-enabled.motion-platform-ios dialog[open]:not(.platform-dialog-closing)::backdrop {
@@ -616,7 +628,7 @@ html.motion-enabled .logo:active .logo-mark {
   #mobileDock { background: var(--surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
-/* The system preference wins: hierarchy remains clear through a short dissolve. */
+/* The system preference wins: state changes are immediate and motion-free. */
 @media (prefers-reduced-motion:reduce) {
   :root {
     --motion-duration-page: 1ms;
@@ -631,13 +643,20 @@ html.motion-enabled .logo:active .logo-mark {
   }
 
   html.motion-enabled .social-hero .hero-visual,
-  html.motion-enabled dialog[open],
-  html.motion-enabled #toast.show,
-  html.motion-enabled .incoming-message-bubble.show {
+  dialog[open],
+  dialog[open]::backdrop,
+  #toast,
+  .incoming-message-bubble,
+  #navBackdrop,
+  .topbar nav {
     animation: none !important;
     transform: none !important;
     transition: none !important;
+    will-change: auto !important;
   }
+
+  html { scroll-behavior: auto; }
+  .page.active { will-change: auto !important; }
 
   #mobileDock,
   #mobileDock .liquid-glass-indicator,
@@ -647,9 +666,6 @@ html.motion-enabled .logo:active .logo-mark {
     transition-duration: .01ms !important;
   }
 
-  ::view-transition-old(page-content) { animation: motion-dissolve-out 120ms ease both !important; }
-  ::view-transition-new(page-content) { animation: motion-dissolve-in 120ms ease both !important; }
+  ::view-transition-old(page-content),
+  ::view-transition-new(page-content) { animation: none !important; }
 }
-
-@keyframes motion-dissolve-out { to { opacity: 0; } }
-@keyframes motion-dissolve-in { from { opacity: 0; } }

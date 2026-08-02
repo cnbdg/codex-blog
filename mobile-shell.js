@@ -18,6 +18,9 @@
     scrollDirection: 0,
     scrollFrame: 0,
     lightFrame: 0,
+    syncFrame: 0,
+    layoutFrame: 0,
+    layoutFlushes: 0,
     animation: null
   };
 
@@ -149,7 +152,21 @@
     dock.dataset.activeAction = activeAction;
     const changed = dockState.action !== activeAction;
     dockState.action = activeAction;
-    requestAnimationFrame(() => syncLiquidIndicator(activeButton, { instant: !changed || dockState.width === 0 }));
+    cancelAnimationFrame(dockState.syncFrame);
+    dockState.syncFrame = requestAnimationFrame(() => {
+      dockState.syncFrame = 0;
+      syncLiquidIndicator(activeButton, { instant: !changed || dockState.width === 0 });
+    });
+  }
+
+  function scheduleDockLayout() {
+    cancelAnimationFrame(dockState.layoutFrame);
+    dockState.layoutFrame = requestAnimationFrame(() => {
+      dockState.layoutFrame = 0;
+      dockState.layoutFlushes += 1;
+      const active = $("#mobileDock")?.querySelector("button.active");
+      syncLiquidIndicator(active, { instant: true });
+    });
   }
 
   function openSearch() {
@@ -236,14 +253,8 @@
       dock?.addEventListener(type, () => dock.classList.remove("is-pressing"), { passive: true });
     });
     window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", () => {
-      const active = dock?.querySelector("button.active");
-      requestAnimationFrame(() => syncLiquidIndicator(active, { instant: true }));
-    }, { passive: true });
-    window.visualViewport?.addEventListener("resize", () => {
-      const active = dock?.querySelector("button.active");
-      requestAnimationFrame(() => syncLiquidIndicator(active, { instant: true }));
-    }, { passive: true });
+    window.addEventListener("resize", scheduleDockLayout, { passive: true });
+    window.visualViewport?.addEventListener("resize", scheduleDockLayout, { passive: true });
 
     $("#menuBtn")?.addEventListener("click", event => {
       if (!isMobile()) return;
@@ -288,7 +299,7 @@
     });
   }
 
-  window.blogMobileShell = { state: dockState, syncDock, setDockMinimized };
+  window.blogMobileShell = { state: dockState, syncDock, setDockMinimized, setDrawer };
 
   document.addEventListener("DOMContentLoaded", init, { once: true });
 })();

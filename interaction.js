@@ -10,6 +10,11 @@
   }
 
   function closeMenu() {
+    if (window.blogMobileShell?.setDrawer && window.matchMedia("(max-width: 1023px)").matches) {
+      window.blogMobileShell.setDrawer(false);
+      state.menuOpen = false;
+      return;
+    }
     const nav = $("#mainNav");
     nav?.classList.remove("open");
     document.body.classList.remove("nav-open");
@@ -44,22 +49,43 @@
     return true;
   }
 
+  function syncDialogClosed(dialog) {
+    dialog?.classList.remove("motion-dialog-settled");
+    if (!dialog || state.overlay !== dialog.id) return;
+    state.overlay = null;
+    emit("blog-overlay-change", { id: dialog.id, open: false });
+  }
+
   function openDialog(dialog) {
-    if (!dialog || dialog.open) return;
+    if (!(dialog instanceof HTMLDialogElement) || !dialog.isConnected) return false;
+    closeMenu();
+    dialog.classList.remove("motion-dialog-settled");
+    if (dialog.open) {
+      state.overlay = dialog.id;
+      return true;
+    }
     document.querySelectorAll("dialog[open]").forEach(node => {
-      if (node !== dialog) node.close();
+      if (node === dialog) return;
+      node.close();
+      syncDialogClosed(node);
     });
-    dialog.showModal();
+    try {
+      dialog.showModal();
+    } catch (error) {
+      console.error("Dialog open failed", error);
+      return false;
+    }
     state.overlay = dialog.id;
     emit("blog-overlay-change", { id: dialog.id, open: true });
+    return true;
   }
 
   function closeDialog(dialog) {
-    if (!dialog?.open) return;
-    if (window.blogMotion?.closeDialog) window.blogMotion.closeDialog(dialog);
-    else dialog.close();
-    if (state.overlay === dialog.id) state.overlay = null;
-    emit("blog-overlay-change", { id: dialog.id, open: false });
+    if (!dialog?.open) return Promise.resolve();
+    if (window.blogMotion?.closeDialog) return window.blogMotion.closeDialog(dialog).then(() => syncDialogClosed(dialog));
+    dialog.close();
+    syncDialogClosed(dialog);
+    return Promise.resolve();
   }
 
   function init() {
@@ -68,6 +94,10 @@
 
     window.addEventListener("popstate", () => navigate(location.hash.slice(1) || "home", { history: false }));
     window.addEventListener("hashchange", () => navigate(location.hash.slice(1) || "home", { history: false }));
+
+    document.querySelectorAll("dialog").forEach(dialog => {
+      dialog.addEventListener("close", () => syncDialogClosed(dialog));
+    });
 
     document.addEventListener("click", event => {
       const pageLink = event.target.closest("[data-page]");

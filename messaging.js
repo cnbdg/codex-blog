@@ -243,7 +243,7 @@
     if (!dialog || !content) return;
     const request = ++profileRequest;
     content.innerHTML = `<div class="profile-loading"><span></span><p>正在加载用户资料…</p></div>`;
-    if (!dialog.open) dialog.showModal();
+    openDialog(dialog);
 
     const publicProfile = await window.blogAuth?.getPublicProfile?.(userId);
     if (request !== profileRequest || !dialog.open) return;

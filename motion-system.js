@@ -139,13 +139,8 @@
     }
     if (reduceMotion.matches) {
       update();
-      state.lastStrategy = "reduced-dissolve";
-      const target = document.querySelector(".page.active");
-      if (!target?.animate) return Promise.resolve();
-      return target.animate([{ opacity: 0 }, { opacity: 1 }], {
-        duration: 120,
-        easing: "ease-out"
-      }).finished.catch(() => {});
+      state.lastStrategy = "reduced-instant";
+      return Promise.resolve();
     }
 
     state.activeTransition?.skipTransition?.();
@@ -186,7 +181,9 @@
       "ios-dialog-closing",
       "dialog-closing"
     );
+    dialog.classList.remove("motion-dialog-settled");
     delete dialog.dataset.motionClosing;
+    delete dialog.__motionClosePromise;
     resolve?.();
   }
 
@@ -202,7 +199,7 @@
     const closingClass = mobile ? "ios-sheet-closing" : "macos-panel-closing";
     state.lastDialogStrategy = mobile ? "ios-sheet" : "macos-panel";
     dialog.dataset.motionClosing = "true";
-    dialog.classList.remove("dialog-closing", "ios-dialog-closing");
+    dialog.classList.remove("dialog-closing", "ios-dialog-closing", "motion-dialog-settled");
     dialog.classList.add("platform-dialog-closing", closingClass);
     state.dialogTransitions += 1;
     dialog.__motionClosePromise = new Promise(resolve => {
@@ -214,7 +211,7 @@
         finishDialogClose(dialog, resolve);
       };
       const onAnimationEnd = event => {
-        if (event.target === dialog) complete();
+        if (event.target === dialog && !event.pseudoElement) complete();
       };
       dialog.addEventListener("animationend", onAnimationEnd);
       window.setTimeout(complete, mobile ? 390 : 270);
@@ -356,6 +353,20 @@
       state.activeTransition?.skipTransition?.();
       clearDirection();
       syncPlatform();
+    });
+    document.addEventListener("animationend", event => {
+      const dialog = event.target;
+      if (event.pseudoElement || !(dialog instanceof HTMLDialogElement) || !dialog.open || dialog.dataset.motionClosing === "true") return;
+      dialog.classList.add("motion-dialog-settled");
+    });
+    document.querySelectorAll("dialog").forEach(dialog => {
+      dialog.addEventListener("close", () => dialog.classList.remove("motion-dialog-settled"));
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) return;
+      state.activeTransition?.skipTransition?.();
+      clearDirection();
+      clearMacPointerTarget();
     });
   }
 

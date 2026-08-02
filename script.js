@@ -70,11 +70,17 @@ function closeDialogAnimated(dialog){
  dialog.classList.add("dialog-closing");
  let closed=false;
  const finish=()=>{if(closed)return;closed=true;dialog.removeEventListener("animationend",onEnd);dialog.classList.remove("dialog-closing");dialog.close()};
- const onEnd=event=>{if(event.target===dialog)finish()};
+ const onEnd=event=>{if(event.target===dialog&&!event.pseudoElement)finish()};
  dialog.addEventListener("animationend",onEnd);
  setTimeout(finish,260);
 }
 window.closeDialog=closeDialogAnimated;
+function openDialogManaged(dialog){
+ if(!dialog)return false;
+ if(window.blogUI?.openDialog)return window.blogUI.openDialog(dialog);
+ if(dialog.open)return true;
+ dialog.showModal();return true;
+}
 document.querySelectorAll("dialog").forEach(dialog=>{
  dialog.addEventListener("cancel",event=>{event.preventDefault();closeDialogAnimated(dialog)});
  if(dialog.id!=="authDialog")dialog.addEventListener("click",event=>{if(event.target===dialog)closeDialogAnimated(dialog)});
@@ -127,7 +133,7 @@ document.addEventListener("click",e=>{
 });
 compactPagination.addEventListener?.("change",()=>renderPagination(filtered().length));
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.matches(".post-item"))openArticle(Number(e.target.dataset.id))});
-function closeMenu(){document.querySelector("nav").classList.remove("open");document.body.classList.remove("nav-open");$("#menuBtn").textContent="☰";$("#menuBtn").setAttribute("aria-expanded","false")}
+function closeMenu(){if(window.blogMobileShell?.setDrawer&&matchMedia("(max-width:1023px)").matches){window.blogMobileShell.setDrawer(false);return}document.querySelector("nav").classList.remove("open");document.body.classList.remove("nav-open");$("#menuBtn").textContent="☰";$("#menuBtn").setAttribute("aria-expanded","false")}
 function showPage(id,push=false){
  if(window.blogUI?.navigate)return window.blogUI.navigate(id,{history:push});
  const target=document.getElementById(id);
@@ -145,15 +151,15 @@ function showPage(id,push=false){
 }
 window.showPage=showPage;
 $("#filters").onclick=e=>{const b=e.target.closest("[data-filter]");if(!b)return;filter=b.dataset.filter;page=1;$("#filters .active").classList.remove("active");b.classList.add("active");render()};
-document.querySelector(".tag-cloud").onclick=e=>{const b=e.target.closest("[data-tag]");if(!b)return;filter=b.dataset.tag;page=1;document.querySelectorAll("#filters button").forEach(x=>x.classList.remove("active"));render();scrollTo({top:280,behavior:"smooth"})};
+document.querySelector(".tag-cloud").onclick=e=>{const b=e.target.closest("[data-tag]");if(!b)return;filter=b.dataset.tag;page=1;document.querySelectorAll("#filters button").forEach(x=>x.classList.remove("active"));render();scrollTo({top:280,behavior:reduceMotion.matches?"auto":"smooth"})};
 $("#menuBtn").setAttribute("aria-expanded","false");$("#menuBtn").onclick=()=>{const open=!document.querySelector("nav").classList.contains("open");document.querySelector("nav").classList.toggle("open",open);document.body.classList.toggle("nav-open",open);$("#menuBtn").textContent=open?"×":"☰";$("#menuBtn").setAttribute("aria-expanded",String(open))};$("#navBackdrop").onclick=closeMenu;
-let navTouchX=0;document.addEventListener("touchstart",e=>{navTouchX=e.touches[0]?.clientX||0},{passive:true});document.addEventListener("touchend",e=>{const end=e.changedTouches[0]?.clientX||0;if(navTouchX<24&&end-navTouchX>70){document.querySelector("nav")?.classList.add("open");document.body.classList.add("nav-open");$("#menuBtn").textContent="×"}else if(document.querySelector("nav")?.classList.contains("open")&&navTouchX<330&&navTouchX-end>70)closeMenu()},{passive:true});
+let navTouchX=0;document.addEventListener("touchstart",e=>{navTouchX=e.touches[0]?.clientX||0},{passive:true});document.addEventListener("touchend",e=>{const end=e.changedTouches[0]?.clientX||0;if(navTouchX<24&&end-navTouchX>70){if(window.blogMobileShell?.setDrawer)window.blogMobileShell.setDrawer(true);else{document.querySelector("nav")?.classList.add("open");document.body.classList.add("nav-open");$("#menuBtn").textContent="×"}}else if(document.querySelector("nav")?.classList.contains("open")&&navTouchX<330&&navTouchX-end>70)closeMenu()},{passive:true});
 const setTheme=d=>{document.body.classList.toggle("dark",d);document.querySelector('meta[name="theme-color"]').content=d?"#080b0e":"#f4f7fa";localStorage.setItem("yu-theme",d?"dark":"light")};setTheme(localStorage.getItem("yu-theme")==="dark"||(!localStorage.getItem("yu-theme")&&matchMedia("(prefers-color-scheme:dark)").matches));$("#themeBtn").onclick=e=>animateThemeChange(!document.body.classList.contains("dark"),e);
-$("#searchBtn").onclick=()=>{$("#searchDialog").showModal();$("#searchInput").value="";search("");setTimeout(()=>$("#searchInput").focus(),50)};$("#searchInput").oninput=e=>search(e.target.value);
+$("#searchBtn").onclick=()=>{openDialogManaged($("#searchDialog"));$("#searchInput").value="";search("");setTimeout(()=>$("#searchInput").focus(),50)};$("#searchInput").oninput=e=>search(e.target.value);
 async function search(q){let l=q?posts.filter(p=>(p.title+p.desc+p.tags).toLowerCase().includes(q.toLowerCase())):posts.slice(0,4);$("#searchResults").innerHTML=l.map(p=>`<div class="search-result" data-id="${p.id}"><small>${esc(formatPostTime(p.date))} · ${p.tags.map(esc).join(" / ")}</small><div>${esc(p.title)}</div></div>`).join("")||`<p class="search-hint">${posts.length?"没有找到相关文章":"暂时还没有发布文章"}</p>`;const users=q?await window.blogAuth?.searchUsers?.(q):[];$("#userSearchResults").innerHTML=users?.length?`<div class="user-search-heading">社区用户</div>`+users.map(user=>`<div class="user-search-item"><div><strong>${esc(user.username)}</strong><span>UID ${esc(user.user_uid)} · ${esc(user.display_title||"社区成员")}</span></div><div><button type="button" class="follow-button" data-follow-user="${esc(user.id)}">关注</button><button type="button" class="chat-button" data-chat-user="${esc(user.id)}" data-chat-name="${esc(user.username)}">私聊</button></div></div>`).join(""):q?`<p class="search-hint">没有找到用户</p>`:"";document.querySelectorAll("#userSearchResults [data-follow-user]").forEach(button=>window.hydrateFollowButton?.(button))}
-window.onscroll=()=>$("#toTop").classList.toggle("show",scrollY>500);$("#toTop").onclick=()=>scrollTo({top:0,behavior:"smooth"});
+window.onscroll=()=>$("#toTop").classList.toggle("show",scrollY>500);$("#toTop").onclick=()=>scrollTo({top:0,behavior:reduceMotion.matches?"auto":"smooth"});
 let currentPost;
-function openArticle(id){currentPost=posts.find(p=>p.id===id);if(!currentPost)return;window.currentPost=currentPost;const body=window.blogMarkdown?window.blogMarkdown.render(currentPost.body):esc(currentPost.body);$("#articleContent").innerHTML=`<div class="article-body"><div class="article-meta">${esc(currentPost.type)} · <time datetime="${esc(postTimeAttribute(currentPost.date))}">${esc(formatPostTime(currentPost.date))}</time> · ${esc(currentPost.read)}</div><h1>${esc(currentPost.title)}</h1><p class="lead">${esc(currentPost.lead)}</p><div class="article-text">${body}<p>感谢你读到这里。如果这篇文章对你有帮助，欢迎在评论区留下想法。</p></div></div>`;if($("#searchDialog").open)$("#searchDialog").close();$("#articleDialog").showModal();$("#articleDialog").scrollTop=0;renderComments()}
+function openArticle(id){currentPost=posts.find(p=>p.id===id);if(!currentPost)return;window.currentPost=currentPost;const body=window.blogMarkdown?window.blogMarkdown.render(currentPost.body):esc(currentPost.body);$("#articleContent").innerHTML=`<div class="article-body"><div class="article-meta">${esc(currentPost.type)} · <time datetime="${esc(postTimeAttribute(currentPost.date))}">${esc(formatPostTime(currentPost.date))}</time> · ${esc(currentPost.read)}</div><h1>${esc(currentPost.title)}</h1><p class="lead">${esc(currentPost.lead)}</p><div class="article-text">${body}<p>感谢你读到这里。如果这篇文章对你有帮助，欢迎在评论区留下想法。</p></div></div>`;openDialogManaged($("#articleDialog"));$("#articleDialog").scrollTop=0;renderComments()}
 function getComments(){return JSON.parse(localStorage.getItem(`yu-comments-${currentPost.id}`)||"null")||[]}function saveComments(v){localStorage.setItem(`yu-comments-${currentPost.id}`,JSON.stringify(v))}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 async function renderComments(){let l;if(window.blogAuth?.configured){$("#commentList").innerHTML=`<p class="search-hint">正在加载评论…</p>`;l=await window.blogAuth.listComments(currentPost.id)}else{l=getComments()}$("#commentCount").textContent=l.length;$("#commentList").innerHTML=l.length?l.map(c=>`<article class="comment"><div class="avatar">${esc(c.name[0].toUpperCase())}</div><div><div class="comment-head"><strong>${esc(c.name)}</strong><time>${c.time}</time></div><p>${esc(c.text)}</p><button class="like-btn" data-like="${c.id}" data-likes="${c.likes||0}">♡ ${c.likes||0}</button>${c.own?`<button class="comment-delete" data-delete="${c.id}">删除</button>`:""}<button class="comment-report" data-report-type="blog_comment" data-report-id="${c.id}">举报</button></div></article>`).join(""):`<p class="search-hint">还没有评论，来留下第一条吧。</p>`}
@@ -161,7 +167,7 @@ window.renderComments=renderComments;
 $("#commentForm textarea").oninput=e=>$("#charCount").textContent=e.target.value.length;
 $("#commentForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),content=f.get("content").trim();if(window.blogAuth?.configured){const ok=await window.blogAuth.addComment(currentPost.id,content);if(!ok)return}else{const l=getComments();l.unshift({id:Date.now(),name:"本地访客",text:content,time:new Date().toLocaleString("zh-CN",{hour12:false}),likes:0});saveComments(l)}e.target.reset();$("#charCount").textContent=0;await renderComments();toast("评论发表成功")};
 $("#commentList").onclick=async e=>{const like=e.target.closest("[data-like]"),del=e.target.closest("[data-delete]");if(del){if(window.blogAuth?.configured&&await window.blogAuth.deleteComment(Number(del.dataset.delete))){await renderComments();toast("评论已删除")}return}if(!like)return;if(window.blogAuth?.configured){if(await window.blogAuth.likeComment(Number(like.dataset.like),Number(like.dataset.likes)))await renderComments()}else{const l=getComments(),c=l.find(x=>x.id===Number(like.dataset.like));c.likes++;saveComments(l);renderComments()}};
-function toast(t){$("#toast").textContent=t;$("#toast").classList.add("show");setTimeout(()=>$("#toast").classList.remove("show"),1800)}window.toast=toast;
+function toast(t){const target=$("#toast");target.textContent=t;target.classList.add("show");clearTimeout(toast.timer);toast.timer=setTimeout(()=>target.classList.remove("show"),1800)}window.toast=toast;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()});
 window.addEventListener("popstate",()=>{if(!window.blogUI?.navigate)showPage(location.hash.slice(1)||"home")});
 if(location.hash&&document.querySelector(location.hash+".page"))showPage(location.hash.slice(1));else history.replaceState({page:"home"},"","#home");

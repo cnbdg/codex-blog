@@ -38,6 +38,12 @@
     else dialog.close();
   }
 
+  function openDialog(dialog) {
+    if (!dialog || dialog.open) return;
+    if (window.blogUI?.openDialog) window.blogUI.openDialog(dialog);
+    else dialog.showModal();
+  }
+
   function setFormError(id, message = "") {
     const target = $(id);
     if (!target) return;
@@ -52,7 +58,7 @@
     form.elements.target_type.value = type;
     form.elements.target_id.value = id;
     setFormError("#reportError");
-    $("#reportDialog").showModal();
+    openDialog($("#reportDialog"));
     setTimeout(() => form.elements.reason.focus(), 40);
   }
 
@@ -81,7 +87,7 @@
     form.elements.category.value = category || "other";
     $("#banDialogTitle").textContent = `限制用户：${username || "社区用户"}`;
     setFormError("#banError");
-    $("#banDialog").showModal();
+    openDialog($("#banDialog"));
   }
 
   async function submitBan(event) {
@@ -114,7 +120,7 @@
     $("#moderationPenaltyField").hidden = true;
     $("#moderationDecisionSummary").innerHTML = `<span>${escapeText(targetLabels[row.target_type] || row.target_type)}</span><strong>${escapeText(row.target_author_name || "作者未知")}${row.target_author_uid ? ` · UID ${row.target_author_uid}` : ""}</strong><p>${escapeText(row.content_excerpt || "[内容已删除]")}</p><small>举报说明：${escapeText(row.reason)}</small>`;
     setFormError("#moderationDecisionError");
-    $("#moderationDecisionDialog").showModal();
+    openDialog($("#moderationDecisionDialog"));
   }
 
   async function submitDecision(event) {
@@ -148,7 +154,7 @@
     form.elements.appeal_id.value = row.appeal_id;
     $("#appealReviewSummary").innerHTML = `<span>UID ${escapeText(row.user_uid || "—")}</span><strong>${escapeText(row.username || "社区用户")}</strong><p>${escapeText(row.reason)}</p><small>原处罚：${escapeText(row.restriction_reason || "未记录")}</small>`;
     setFormError("#appealReviewError");
-    $("#appealReviewDialog").showModal();
+    openDialog($("#appealReviewDialog"));
   }
 
   async function submitAppealReview(event) {
@@ -336,7 +342,7 @@
     $("#profileAppealBtn")?.addEventListener("click", () => {
       $("#moderationAppealForm").reset();
       setFormError("#moderationAppealError");
-      $("#moderationAppealDialog").showModal();
+      openDialog($("#moderationAppealDialog"));
     });
     document.addEventListener("click", event => {
       const report = event.target.closest("[data-report-type]");

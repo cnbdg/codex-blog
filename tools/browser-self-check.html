@@ -36,7 +36,7 @@
         try {
           const w = frame.contentWindow;
           const d = frame.contentDocument;
-          await wait(300);
+          await wait(900);
           const sanitizedMarkdown = w.blogMarkdown?.render('<p>安全测试<script>window.__xss=1<\/script><a href="javascript:alert(1)" onclick="alert(2)">链接</a><img src="x" onerror="alert(3)"></p>') || "";
           const baseChecks = {
             modulesLoaded: Boolean(w.blogUI && w.blogAuth && w.blogMarkdown && w.blogMotion),
@@ -66,8 +66,52 @@
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
           assert(baseChecks.motionPlatform === (mode === "mobile" ? "ios" : "macos") && baseChecks.motionPlatformClass, "电脑与手机动效平台没有正确隔离");
-          assert(baseChecks.newestPostTitle.startsWith("永久站长保护"), "本次更新日志没有显示在首页首位");
+          assert(baseChecks.newestPostTitle.startsWith("全站自检完成"), "本次更新日志没有显示在首页首位");
           assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(baseChecks.newestPostTime) && /T\d{2}:\d{2}:\d{2}/.test(baseChecks.newestPostDateTime), "博客发布时间没有精确显示到秒");
+          const restingLayers = [...d.querySelectorAll("body *")].filter(node => {
+            if (node.closest("dialog:not([open])")) return false;
+            const style = getComputedStyle(node);
+            return node.getClientRects().length > 0 && style.visibility !== "hidden" && style.willChange !== "auto";
+          }).map(node => `${node.tagName.toLowerCase()}#${node.id}.${[...node.classList].join(".")}:${getComputedStyle(node).willChange}`);
+          baseChecks.restingLayers = restingLayers;
+          assert(restingLayers.length === 0, `静止界面仍长期占用动画合成层：${restingLayers.join(", ")}`);
+
+          const overlayEvents = [];
+          const onOverlayChange = event => overlayEvents.push(`${event.detail?.id}:${event.detail?.open ? "open" : "closed"}`);
+          w.addEventListener("blog-overlay-change", onOverlayChange);
+          d.documentElement.style.setProperty("--motion-duration-sheet", "24ms");
+          const searchDialog = d.querySelector("#searchDialog");
+          assert(w.blogUI.openDialog(searchDialog) && w.blogUI.state.overlay === "searchDialog", "统一弹窗调度没有记录打开状态");
+          await wait(80);
+          const overlayLifecycle = {
+            settled: !baseChecks.motionEnabled || searchDialog.classList.contains("motion-dialog-settled"),
+            settledLayer: getComputedStyle(searchDialog).willChange,
+            stateWhileClosing: ""
+          };
+          const closePromise = w.blogUI.closeDialog(searchDialog);
+          overlayLifecycle.stateWhileClosing = w.blogUI.state.overlay || "";
+          await closePromise;
+          overlayLifecycle.closed = !searchDialog.open;
+          overlayLifecycle.stateAfterClose = w.blogUI.state.overlay;
+          overlayLifecycle.events = overlayEvents.slice();
+          d.documentElement.style.removeProperty("--motion-duration-sheet");
+          w.removeEventListener("blog-overlay-change", onOverlayChange);
+          assert(overlayLifecycle.settled && overlayLifecycle.settledLayer === "auto", `弹窗入场后没有释放合成层：${JSON.stringify(overlayLifecycle)}`);
+          if (baseChecks.motionEnabled) assert(overlayLifecycle.stateWhileClosing === "searchDialog", "弹窗退场动画尚未结束时状态已被提前清空");
+          assert(overlayLifecycle.closed && overlayLifecycle.stateAfterClose === null && overlayLifecycle.events.join(",") === "searchDialog:open,searchDialog:closed", `弹窗生命周期状态不同步：${JSON.stringify(overlayLifecycle)}`);
+
+          w.toast("第一条自检消息");
+          const firstToastTimer = w.toast.timer;
+          w.toast("第二条自检消息");
+          const secondToastTimer = w.toast.timer;
+          const toastLifecycle = {
+            timerReplaced: Boolean(firstToastTimer && secondToastTimer && firstToastTimer !== secondToastTimer),
+            latestText: d.querySelector("#toast")?.textContent || "",
+            visible: d.querySelector("#toast")?.classList.contains("show") || false
+          };
+          clearTimeout(secondToastTimer);
+          d.querySelector("#toast")?.classList.remove("show");
+          assert(toastLifecycle.timerReplaced && toastLifecycle.latestText === "第二条自检消息" && toastLifecycle.visible, "连续状态提示会被上一条旧定时器提前隐藏");
           const firstPageTitle = baseChecks.newestPostTitle;
           const pagination = d.querySelector("#pagination");
           const paginationCheck = {
@@ -323,7 +367,7 @@
             assert(ownerDialog.open && ownerDialog.state === "protected" && ownerDialog.badge === "受保护", "永久站长保护状态弹窗显示异常");
             assert(ownerDialog.memberOwner && ownerDialog.roleLocked && /角色已锁定/.test(ownerDialog.roleHint), `永久站长危险角色操作没有锁定：${JSON.stringify(ownerDialog)}`);
             w.blogUI.closeDialog(d.querySelector("#memberAdminDialog"));
-            finish("pass", { mode, baseChecks, paginationCheck, desktopContextCheck, listResult, threadResult, shellWidth, groupInfo, bubbleRules: true, adminUi, ownerDialog });
+            finish("pass", { mode, baseChecks, overlayLifecycle, toastLifecycle, paginationCheck, desktopContextCheck, listResult, threadResult, shellWidth, groupInfo, bubbleRules: true, adminUi, ownerDialog });
             return;
           }
 
@@ -395,6 +439,20 @@
             assert(mobileMotion.strategy === "mobile-lightweight" && mobileMotion.mobileTransitions >= 2, "手机轻量转场策略没有启动");
             assert(mobileMotion.dockMoves >= 1, "液态底栏指示器没有响应页面切换");
           }
+          const dockMovesBeforeBurst = w.blogMobileShell.state.moves;
+          w.blogUI.navigate("forum", { history: false });
+          w.blogUI.navigate("notifications", { history: false });
+          w.blogUI.navigate("forum", { history: false });
+          await wait(40);
+          mobileMotion.coalescedDockMoves = w.blogMobileShell.state.moves - dockMovesBeforeBurst;
+          const layoutFlushesBeforeBurst = w.blogMobileShell.state.layoutFlushes;
+          for (let index = 0; index < 8; index += 1) w.dispatchEvent(new Event("resize"));
+          await wait(40);
+          mobileMotion.coalescedResizeFlushes = w.blogMobileShell.state.layoutFlushes - layoutFlushesBeforeBurst;
+          const expectedDockMoves = baseChecks.motionEnabled ? 1 : 0;
+          assert(mobileMotion.coalescedDockMoves === expectedDockMoves && mobileMotion.coalescedResizeFlushes === 1, `手机快速切页或缩放仍排队重复动画帧：${JSON.stringify(mobileMotion)}`);
+          w.blogUI.navigate("home", { history: false, animate: false });
+          await wait(40);
           const topbarRect = d.querySelector(".topbar")?.getBoundingClientRect();
           const heroRect = d.querySelector("#home .social-hero")?.getBoundingClientRect();
           const dock = d.querySelector("#mobileDock");
@@ -456,6 +514,17 @@
           };
           assert(mobileDrawer.open && mobileDrawer.bodyOpen && mobileDrawer.interactive, "手机侧栏无法正常交互");
           assert(mobileDrawer.wallpaperEntry, "手机侧栏缺少壁纸入口");
+          w.blogUI.navigate("about", { history: false, animate: false });
+          await wait(20);
+          mobileDrawer.programmaticClose = !drawer.classList.contains("open")
+            && !d.body.classList.contains("nav-open")
+            && drawer.hasAttribute("inert")
+            && drawer.getAttribute("aria-hidden") === "true"
+            && d.querySelector("#navBackdrop")?.getAttribute("aria-hidden") === "true";
+          assert(mobileDrawer.programmaticClose, "手机程序化切页后侧栏的交互与无障碍状态没有完整复位");
+          w.blogUI.navigate("home", { history: false, animate: false });
+          d.querySelector("#menuBtn").click();
+          await wait(30);
           drawer.querySelector("[data-open-wallpaper]").click();
           await wait(50);
           const wallpaperPanel = {
@@ -506,7 +575,7 @@
           };
           assert(mobileAdmin.ownerDialog.open && mobileAdmin.ownerDialog.width <= 390 && mobileAdmin.ownerDialog.roleLocked && mobileAdmin.ownerDialog.protected, `手机权限面板布局或保护状态异常：${JSON.stringify(mobileAdmin.ownerDialog)}`);
           w.blogUI.closeDialog(d.querySelector("#memberAdminDialog"));
-          finish("pass", { mode, baseChecks, paginationCheck, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileMotion, mobileVisual, mobileDrawer, wallpaperPanel, mobileAdmin });
+          finish("pass", { mode, baseChecks, overlayLifecycle, toastLifecycle, paginationCheck, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileMotion, mobileVisual, mobileDrawer, wallpaperPanel, mobileAdmin });
         } catch (error) {
           finish("fail", { mode, error: error.stack || error.message || String(error) });
         }

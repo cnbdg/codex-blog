@@ -21,6 +21,12 @@
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
   })[character]);
 
+  function openDialog(dialog) {
+    if (!dialog || dialog.open) return;
+    if (window.blogUI?.openDialog) window.blogUI.openDialog(dialog);
+    else dialog.showModal();
+  }
+
   function viewerKey() {
     try {
       let value = localStorage.getItem(VIEWER_KEY);
@@ -274,7 +280,7 @@
     $("#saveThreadBtn").textContent = thread ? "保存修改" : "发布帖子";
     setThreadFormError();
     renderPreview();
-    if (!$("#threadEditorDialog").open) $("#threadEditorDialog").showModal();
+    openDialog($("#threadEditorDialog"));
   }
 
   function renderPreview() {
@@ -353,7 +359,7 @@
     renderThreadDetail(thread);
     hydrateForumSocial($("#threadContent"));
     updateReplyAccess();
-    if (!$("#threadDialog").open) $("#threadDialog").showModal();
+    openDialog($("#threadDialog"));
     $("#threadDialog").scrollTop = 0;
     if (updateUrl) syncThreadUrl(thread.id);
     rememberThread(thread);
