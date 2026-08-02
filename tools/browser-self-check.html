@@ -66,7 +66,7 @@
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
           assert(baseChecks.motionPlatform === (mode === "mobile" ? "ios" : "macos") && baseChecks.motionPlatformClass, "电脑与手机动效平台没有正确隔离");
-          assert(baseChecks.newestPostTitle.startsWith("双平台动效系统"), "本次更新日志没有显示在首页首位");
+          assert(baseChecks.newestPostTitle.startsWith("桌面切页重影修复"), "本次更新日志没有显示在首页首位");
           assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(baseChecks.newestPostTime) && /T\d{2}:\d{2}:\d{2}/.test(baseChecks.newestPostDateTime), "博客发布时间没有精确显示到秒");
           const firstPageTitle = baseChecks.newestPostTitle;
           const pagination = d.querySelector("#pagination");
@@ -96,6 +96,22 @@
           if (mode === "mobile") assert(paginationCheck.numberButtons <= 4 && paginationCheck.fits && paginationCheck.minButtonTarget >= 44, "手机分页拥挤、溢出或触控区域过小");
           let desktopContextCheck = null;
           if (mode === "desktop") {
+            const overlapSamples = [];
+            const overlapSampling = baseChecks.motionEnabled && typeof d.startViewTransition === "function"
+              ? new Promise(resolveSampling => {
+                  const startedAt = performance.now();
+                  const sample = () => {
+                    const oldOpacity = Number.parseFloat(w.getComputedStyle(d.documentElement, "::view-transition-old(page-content)").opacity);
+                    const newOpacity = Number.parseFloat(w.getComputedStyle(d.documentElement, "::view-transition-new(page-content)").opacity);
+                    if (d.documentElement.classList.contains("motion-view-transition") && Number.isFinite(oldOpacity) && Number.isFinite(newOpacity)) {
+                      overlapSamples.push(oldOpacity + newOpacity);
+                    }
+                    if (performance.now() - startedAt < 315) w.requestAnimationFrame(sample);
+                    else resolveSampling();
+                  };
+                  w.requestAnimationFrame(sample);
+                })
+              : Promise.resolve();
             w.blogUI?.navigate?.("forum");
             await wait(50);
             const context = d.querySelector("#desktopContext");
@@ -136,6 +152,16 @@
               desktopContextCheck.pointerResponse = pointerTarget.classList.contains("mac-pointer-active") && w.blogMotion.state.desktopPointerResponses >= 1;
               if (desktopContextCheck.finePointer) assert(desktopContextCheck.pointerResponse, "macOS 精细指针反馈没有启动");
               pointerTarget.dispatchEvent(new w.PointerEvent("pointerout", { bubbles: true }));
+              await overlapSampling;
+              const firstActiveOpacitySample = overlapSamples.findIndex(value => value < 1.8);
+              const activeOpacitySamples = firstActiveOpacitySample >= 0 ? overlapSamples.slice(firstActiveOpacitySample) : [];
+              desktopContextCheck.transitionOpacitySamples = activeOpacitySamples.length;
+              desktopContextCheck.transitionOpacityTrace = activeOpacitySamples.map(value => Math.round(value * 100) / 100);
+              desktopContextCheck.minCombinedTransitionOpacity = Math.round(Math.min(2, ...activeOpacitySamples) * 1000) / 1000;
+              desktopContextCheck.maxCombinedTransitionOpacity = Math.round(Math.max(0, ...activeOpacitySamples) * 1000) / 1000;
+              if (desktopContextCheck.motionStrategy === "macos-view-transition") {
+                assert(desktopContextCheck.transitionOpacitySamples >= 3 && desktopContextCheck.maxCombinedTransitionOpacity <= 1.05, `桌面新旧页面仍存在叠加重影：${desktopContextCheck.maxCombinedTransitionOpacity}`);
+              }
             }
             else assert(desktopContextCheck.motionTransitions === 0, "减少动态效果模式仍启动了大范围页面转场");
             const transitionsBeforeRapidNavigation = w.blogMotion.state.pageTransitions;
