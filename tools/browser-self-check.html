@@ -53,7 +53,9 @@
             wallpaperVariable: d.documentElement.style.getPropertyValue("--wallpaper"),
             bodyBackground: getComputedStyle(d.body).backgroundColor,
             heroBackground: getComputedStyle(d.querySelector("#home .social-hero")).backgroundColor,
-            newestPostTitle: d.querySelector("#postList .post-item h2")?.textContent?.trim() || ""
+            newestPostTitle: d.querySelector("#postList .post-item h2")?.textContent?.trim() || "",
+            newestPostTime: d.querySelector("#postList .post-item time")?.textContent?.trim() || "",
+            newestPostDateTime: d.querySelector("#postList .post-item time")?.dateTime || ""
           };
           assert(baseChecks.modulesLoaded, "页面核心模块没有完整加载");
           assert(baseChecks.captchaConfigured, "登录人机验证配置缺失");
@@ -61,7 +63,34 @@
           assert(baseChecks.unifiedIcons, "主导航图标没有统一");
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
           assert(baseChecks.motionEnabled !== baseChecks.motionReduced, "动效偏好状态没有正确初始化");
-          assert(baseChecks.newestPostTitle.startsWith("桌面三栏稳固"), "本次更新日志没有显示在首页首位");
+          assert(baseChecks.newestPostTitle.startsWith("博客时间与分页升级"), "本次更新日志没有显示在首页首位");
+          assert(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(baseChecks.newestPostTime) && /T\d{2}:\d{2}:\d{2}/.test(baseChecks.newestPostDateTime), "博客发布时间没有精确显示到秒");
+          const firstPageTitle = baseChecks.newestPostTitle;
+          const pagination = d.querySelector("#pagination");
+          const paginationCheck = {
+            visible: !pagination.hidden,
+            role: pagination.getAttribute("role"),
+            current: pagination.querySelector('[aria-current="page"]')?.textContent?.trim() || "",
+            previousDisabled: Boolean(pagination.querySelector(".pagination-prev")?.disabled),
+            nextExists: Boolean(pagination.querySelector(".pagination-next")),
+            ellipsis: pagination.querySelectorAll(".pagination-ellipsis").length,
+            summary: pagination.querySelector(".pagination-summary")?.textContent?.replace(/\s+/g, " ").trim() || "",
+            numberButtons: pagination.querySelectorAll(".pagination-page").length,
+            fits: pagination.scrollWidth <= pagination.clientWidth + 1,
+            minButtonTarget: Math.round(Math.min(...[...pagination.querySelectorAll("button")].map(button => button.getBoundingClientRect().height)))
+          };
+          assert(paginationCheck.visible && paginationCheck.role === "navigation", "博客分页导航没有正确显示");
+          assert(paginationCheck.current === "1" && paginationCheck.previousDisabled && paginationCheck.nextExists, "分页初始状态错误");
+          assert(paginationCheck.ellipsis >= 1 && /第 1 \/ \d+ 页 · 共 \d+ 篇/.test(paginationCheck.summary), "分页省略或页数统计错误");
+          pagination.querySelector(".pagination-next")?.click();
+          await wait(60);
+          paginationCheck.secondPage = pagination.querySelector('[aria-current="page"]')?.textContent?.trim() === "2";
+          paginationCheck.contentChanged = d.querySelector("#postList .post-item h2")?.textContent?.trim() !== firstPageTitle;
+          pagination.querySelector(".pagination-prev")?.click();
+          await wait(60);
+          paginationCheck.restored = pagination.querySelector('[aria-current="page"]')?.textContent?.trim() === "1" && d.querySelector("#postList .post-item h2")?.textContent?.trim() === firstPageTitle;
+          assert(paginationCheck.secondPage && paginationCheck.contentChanged && paginationCheck.restored, "上一页或下一页翻页逻辑错误");
+          if (mode === "mobile") assert(paginationCheck.numberButtons <= 4 && paginationCheck.fits && paginationCheck.minButtonTarget >= 44, "手机分页拥挤、溢出或触控区域过小");
           let desktopContextCheck = null;
           if (mode === "desktop") {
             w.blogUI?.navigate?.("forum");
@@ -198,7 +227,7 @@
             w.__selfCheckNotification?.({ kind: "group_message", actor_id: friend.id, actor_username: friend.username, payload: { group_id: group.group_id, group_name: group.group_name, preview: "其他会话消息" } });
             await wait(30);
             assert(d.querySelector("#incomingMessageBubble")?.hidden === false, "非当前会话没有显示新消息气泡");
-            finish("pass", { mode, baseChecks, desktopContextCheck, listResult, threadResult, shellWidth, groupInfo, bubbleRules: true });
+            finish("pass", { mode, baseChecks, paginationCheck, desktopContextCheck, listResult, threadResult, shellWidth, groupInfo, bubbleRules: true });
             return;
           }
 
@@ -332,7 +361,7 @@
           };
           assert(wallpaperPanel.open && wallpaperPanel.drawerClosed, "从手机侧栏打开壁纸面板失败");
           assert(wallpaperPanel.opacityControl, "壁纸面板缺少透明度控制");
-          finish("pass", { mode, baseChecks, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileMotion, mobileVisual, mobileDrawer, wallpaperPanel });
+          finish("pass", { mode, baseChecks, paginationCheck, listResult, threadResult, mobileOpen, mobileClosed, createDialog, mobileMotion, mobileVisual, mobileDrawer, wallpaperPanel });
         } catch (error) {
           finish("fail", { mode, error: error.stack || error.message || String(error) });
         }

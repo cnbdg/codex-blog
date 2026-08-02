@@ -4,6 +4,7 @@
   let records = [];
   let activeId = null;
   let selectedMember = null;
+  const postDateKey = value => (window.blogPostTime?.format?.(value) || String(value || "")).slice(0, 10);
 
   function adminError(message = "") {
     const target = $("#memberAdminError");
@@ -154,15 +155,15 @@
     const source = Array.isArray(window.LEGACY_POSTS) ? window.LEGACY_POSTS : [];
     if (!source.length) return window.toast("旧博客迁移包没有加载成功，请刷新后重试");
     const latestRecords = await window.blogAuth.listAllPosts();
-    const existing = new Set(latestRecords.map(post => `${post.published_at}::${post.title.trim().toLowerCase()}`));
-    const pending = source.filter(post => !existing.has(`${post.published_at}::${post.title.trim().toLowerCase()}`));
+    const existing = new Set(latestRecords.map(post => `${postDateKey(post.published_at)}::${post.title.trim().toLowerCase()}`));
+    const pending = source.filter(post => !existing.has(`${postDateKey(post.published_at)}::${post.title.trim().toLowerCase()}`));
     if (!pending.length) return window.toast("18 篇旧文章都已经导入，无需重复操作");
     if (!confirm(`将导入 ${pending.length} 篇旧博客文章并立即发布。已存在的同名同日期文章会自动跳过，是否继续？`)) return;
 
     const button = $("#importPostsBtn");
     button.disabled = true;
     button.textContent = `正在导入 ${pending.length} 篇…`;
-    const imported = await window.blogAuth.importPosts(pending);
+    const imported = await window.blogAuth.importPosts(pending.map(post => ({ ...post, published_at: window.blogPostTime?.toStorage?.(post.published_at) || post.published_at })));
     button.disabled = false;
     button.textContent = "⇣ 导入旧博客（18）";
     if (!imported) return;
@@ -227,7 +228,7 @@
 
   function renderList() {
     $("#adminPostList").innerHTML = records.length
-      ? records.map(post => `<article class="admin-list-item ${activeId===post.id?"active":""}" data-admin-id="${post.id}"><strong>${escapeText(post.title)}</strong><div><span class="status-badge ${post.status}">${post.status==="published"?"已发布":"草稿"}</span><time>${post.published_at}</time></div></article>`).join("")
+      ? records.map(post => `<article class="admin-list-item ${activeId===post.id?"active":""}" data-admin-id="${post.id}"><strong>${escapeText(post.title)}</strong><div><span class="status-badge ${post.status}">${post.status==="published"?"已发布":"草稿"}</span><time datetime="${escapeText(window.blogPostTime?.toAttribute?.(post.published_at) || post.published_at)}">${escapeText(window.blogPostTime?.format?.(post.published_at) || post.published_at)}</time></div></article>`).join("")
       : `<p class="search-hint">还没有云端文章，点击“新建文章”开始写作。</p>`;
   }
 
@@ -238,7 +239,7 @@
     const form = $("#postEditor");
     form.elements.id.value = post.id;
     form.elements.title.value = post.title;
-    form.elements.published_at.value = post.published_at;
+    form.elements.published_at.value = window.blogPostTime?.toEditor?.(post.published_at) || String(post.published_at).slice(0, 16);
     form.elements.description.value = post.description;
     form.elements.type.value = post.type;
     form.elements.tags.value = (post.tags || []).join(", ");
@@ -260,7 +261,7 @@
     const form = $("#postEditor");
     form.reset();
     form.elements.id.value = "";
-    form.elements.published_at.value = new Date().toISOString().slice(0, 10);
+    form.elements.published_at.value = window.blogPostTime?.toEditor?.(new Date()) || new Date().toISOString().slice(0, 19);
     form.elements.read_time.value = "5 分钟";
     $("#editorMode").textContent = "NEW POST";
     $("#editorTitle").textContent = "新建文章";
@@ -285,7 +286,7 @@
       lead: data.get("lead").trim(),
       body: data.get("body").trim(),
       status: data.get("status"),
-      published_at: data.get("published_at")
+      published_at: window.blogPostTime?.toStorage?.(data.get("published_at")) || data.get("published_at")
     };
     const button = $("#savePostBtn");
     button.disabled = true;
@@ -317,7 +318,7 @@
   }
 
   function formatTime(value) {
-    return new Date(value).toLocaleString("zh-CN", { hour12: false });
+    return window.blogPostTime?.format?.(value) || new Date(value).toLocaleString("zh-CN", { hour12: false });
   }
 
   function escapeText(value) {

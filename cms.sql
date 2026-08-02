@@ -15,10 +15,30 @@ create table if not exists public.posts (
   lead text not null check (char_length(lead) between 1 and 500),
   body text not null,
   status text not null default 'draft' check (status in ('draft', 'published')),
-  published_at date not null default current_date,
+  published_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- 旧版本只保存发布日期。升级后保留原日期，并按北京时间 00:00:00 转换；
+-- 新发布的文章会完整保存到秒和时区。
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'posts'
+      and column_name = 'published_at'
+      and data_type = 'date'
+  ) then
+    alter table public.posts alter column published_at drop default;
+    alter table public.posts alter column published_at type timestamptz
+      using (published_at::timestamp at time zone 'Asia/Shanghai');
+  end if;
+end;
+$$;
+
+alter table public.posts alter column published_at set default now();
 
 create index if not exists posts_status_published_at_idx
   on public.posts(status, published_at desc);
