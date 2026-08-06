@@ -4,9 +4,17 @@
   const query = window.matchMedia("(max-width: 1023px)");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
   const $ = selector => document.querySelector(selector);
-  let startX = 0;
-  let startY = 0;
   let trackedPointer = null;
+  let drawerDrag = {
+    active: false,
+    startX: 0,
+    lastX: 0,
+    lastTime: 0,
+    velocity: 0,
+    width: 0,
+    open: false,
+    history: []
+  };
   const dockState = {
     action: "",
     x: 0,
@@ -27,6 +35,59 @@
   function isMobile() { return query.matches; }
   function nav() { return $("#mainNav"); }
   function isDialogOpen() { return Boolean(document.querySelector("dialog[open]")); }
+
+  function drawerWidth() {
+    return Math.min(window.innerWidth * .82, 336);
+  }
+
+  function drawerOpenProgress() {
+    const drawer = nav();
+    if (!drawer) return 0;
+    const width = drawerWidth();
+    const rect = drawer.getBoundingClientRect();
+    // Drawer is anchored left (translateX(-105%) closed, 0 open).
+    return Math.max(0, Math.min(1, 1 + rect.left / width));
+  }
+
+  function setDrawerProgress(progress) {
+    const drawer = nav();
+    if (!drawer) return;
+    const width = drawerWidth();
+    // The closed drawer style uses transform !important, so the drag
+    // transform must be set with !important too to win the cascade.
+    drawer.style.setProperty("transform", `translate3d(${(-(1 - progress) * width * 1.05).toFixed(2)}px, 0, 0)`, "important");
+    document.body.style.setProperty("--drawer-progress", progress.toFixed(3));
+    const backdrop = $("#navBackdrop");
+    if (backdrop) {
+      backdrop.style.opacity = String(progress * .6);
+      backdrop.style.visibility = progress > .02 ? "visible" : "hidden";
+    }
+  }
+
+  function clearDrawerProgress() {
+    const drawer = nav();
+    if (!drawer) return;
+    drawer.style.removeProperty("transform");
+    const backdrop = $("#navBackdrop");
+    if (backdrop) {
+      backdrop.style.removeProperty("opacity");
+      backdrop.style.removeProperty("visibility");
+    }
+    document.body.style.removeProperty("--drawer-progress");
+  }
+
+  function snapDrawer(open, velocity = 0) {
+    const drawer = nav();
+    if (!drawer) return;
+    const width = drawerWidth();
+    const progress = drawerOpenProgress();
+    // Apple momentum projection: decide by velocity first, distance second.
+    const projected = progress + (velocity * 0.18) / width;
+    const shouldOpen = projected > .42 || (Math.abs(velocity) < .05 && progress > .5);
+    if (open === undefined) open = shouldOpen;
+    clearDrawerProgress();
+    setDrawer(open);
+  }
 
   function setDrawer(open) {
     const drawer = nav();
@@ -278,22 +339,75 @@
     document.addEventListener("pointerdown", event => {
       trackedPointer = null;
       if (!isMobile() || event.pointerType === "mouse" || isDialogOpen()) return;
+      const drawer = nav();
+      const edgeStart = event.clientX <= 34;
+      const insideDrawer = drawer?.classList.contains("open") && event.clientX <= drawerWidth() + 8;
+      if (!edgeStart && !insideDrawer) return;
       trackedPointer = event.pointerId;
-      startX = event.clientX;
-      startY = event.clientY;
+      drawerDrag.active = true;
+      drawerDrag.startX = event.clientX;
+      drawerDrag.lastX = event.clientX;
+      drawerDrag.lastTime = performance.now();
+      drawerDrag.velocity = 0;
+      drawerDrag.width = drawerWidth();
+      drawerDrag.open = Boolean(drawer?.classList.contains("open"));
+      drawerDrag.history = [];
+      drawer?.classList.add("is-dragging");
+      try { drawer?.setPointerCapture?.(event.pointerId); } catch { /* synthetic or released pointer */ }
     }, { passive: true });
+    document.addEventListener("pointermove", event => {
+      if (!drawerDrag.active || trackedPointer !== event.pointerId) return;
+      const drawer = nav();
+      if (!drawer) return;
+      const now = performance.now();
+      const dt = Math.max(1, now - drawerDrag.lastTime);
+      const dx = event.clientX - drawerDrag.lastX;
+      drawerDrag.velocity = .7 * (dx / dt) + .3 * drawerDrag.velocity;
+      drawerDrag.history.push({ x: event.clientX, t: now });
+      if (drawerDrag.history.length > 8) drawerDrag.history.shift();
+      drawerDrag.lastX = event.clientX;
+      drawerDrag.lastTime = now;
+
+      const travel = event.clientX - drawerDrag.startX;
+      const width = drawerDrag.width;
+      // Closed drawer dragged right opens; open drawer dragged left closes.
+      let progress;
+      if (drawerDrag.open) progress = 1 + travel / width;
+      else progress = travel / width;
+      // Rubber-band at the far edge: resist past the boundary.
+      if (progress > 1) progress = 1 + (progress - 1) * .18;
+      if (progress < 0) progress = progress * .25;
+      setDrawerProgress(Math.max(0, Math.min(1, progress)));
+      if (event.pointerType === "touch") event.preventDefault();
+    }, { passive: false });
     document.addEventListener("pointerup", event => {
       if (trackedPointer !== event.pointerId) return;
       trackedPointer = null;
       if (!isMobile() || event.pointerType === "mouse" || isDialogOpen()) return;
-      const dx = event.clientX - startX;
-      const dy = event.clientY - startY;
-      if (Math.abs(dy) > 70 || Math.abs(dx) < 70) return;
-      if (startX <= 28 && dx > 70) setDrawer(true);
-      const drawerWidth = Math.min(window.innerWidth * 0.82, 336);
-      if (nav()?.classList.contains("open") && startX <= drawerWidth && dx < -70) setDrawer(false);
+      if (!drawerDrag.active) return;
+      drawerDrag.active = false;
+      const drawer = nav();
+      drawer?.classList.remove("is-dragging");
+      try { drawer?.releasePointerCapture?.(event.pointerId); } catch { /* synthetic or released pointer */ }
+      // Velocity from the last ~90ms window, Apple-style handoff.
+      const history = drawerDrag.history;
+      let velocity = 0;
+      if (history.length >= 2) {
+        const tail = history[history.length - 1];
+        const head = history[0];
+        const elapsed = Math.max(1, tail.t - head.t);
+        velocity = (tail.x - head.x) / elapsed;
+      }
+      snapDrawer(undefined, velocity);
+      drawerDrag.history = [];
     }, { passive: true });
-    document.addEventListener("pointercancel", () => { trackedPointer = null; }, { passive: true });
+    document.addEventListener("pointercancel", () => {
+      if (!drawerDrag.active) return;
+      drawerDrag.active = false;
+      trackedPointer = null;
+      nav()?.classList.remove("is-dragging");
+      snapDrawer(drawerDrag.open);
+    }, { passive: true });
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && nav()?.classList.contains("open")) setDrawer(false);
     });

@@ -166,7 +166,12 @@
                 })
               : Promise.resolve();
             w.blogUI?.navigate?.("forum");
-            await wait(50);
+            // The materialized entrance adds blur to the first transition
+            // frames; poll for the navigated state instead of a fixed wait.
+            const navStartedAt = Date.now();
+            while (!d.querySelector('#mainNav [data-page="forum"]')?.getAttribute("aria-current") && Date.now() - navStartedAt < 600) {
+              await wait(25);
+            }
             const context = d.querySelector("#desktopContext");
             const contextRect = context?.getBoundingClientRect();
             desktopContextCheck = {
