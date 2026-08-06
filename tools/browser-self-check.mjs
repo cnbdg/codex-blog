@@ -1,13 +1,25 @@
 import { createServer } from "node:http";
+import { existsSync } from "node:fs";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { dirname, extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const chromeCandidates = [
+  process.env.SELF_CHECK_CHROME,
+  join(process.env.USERPROFILE || "", ".agent-browser", "browsers", "chrome-win64", "chrome.exe"),
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+].filter(Boolean);
+const chromePath = chromeCandidates.find(candidate => existsSync(candidate));
+if (!chromePath) {
+  console.error("No Chrome/Chromium found. Set SELF_CHECK_CHROME to a chrome.exe path.");
+  process.exit(1);
+}
+if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_CHROME=${chromePath}`);
 const reports = new Map();
 const mime = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -83,11 +95,34 @@ async function terminateTree(pid) {
   });
 }
 
+// Chrome child processes (renderer/gpu/utility) can outlive the main PID and
+// keep the profile directory locked. Kill every process whose command line
+// references the profile, then wait for the handles to be released.
+async function killProfileProcesses(profile) {
+  // Like-based match avoids regex-escaping pitfalls with backslashes.
+  const script =
+    `Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | ` +
+    `Where-Object { $_.CommandLine -like '*${profile}*' } | ` +
+    `ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
+  await new Promise(resolveExit => {
+    const killer = spawn("powershell.exe", ["-NoProfile", "-Command", script], {
+      stdio: "ignore",
+      windowsHide: true
+    });
+    const timer = setTimeout(() => resolveExit("timeout"), 6000);
+    killer.once("exit", () => { clearTimeout(timer); resolveExit("exit"); });
+    killer.once("error", resolveExit);
+  });
+  // Wait for file handles to be released before the caller deletes the dir.
+  await new Promise(resolveWait => setTimeout(resolveWait, 800));
+}
+
 async function runChrome(url, width, height, scale = 1) {
   const runId = randomUUID();
   const testUrl = new URL(url);
   testUrl.searchParams.set("run", runId);
   const profile = await mkdtemp(join(tmpdir(), "codex-blog-self-check-"));
+  if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_PROFILE ${profile}`);
   const chromeArgs = [
     "--headless=new",
     "--disable-gpu",
@@ -95,17 +130,21 @@ async function runChrome(url, width, height, scale = 1) {
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-background-networking",
+    "--disable-breakpad",
+    "--disable-crash-reporter",
     `--window-size=${width},${height}`,
     `--force-device-scale-factor=${scale}`,
     `--user-data-dir=${profile}`,
     testUrl.href
   ];
   if (process.env.SELF_CHECK_REDUCED_MOTION === "1") chromeArgs.splice(1, 0, "--force-prefers-reduced-motion=reduce");
-  const chrome = spawn(chromePath, chromeArgs, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+  // Chrome for Testing on this machine exits immediately (code 0) when spawned
+  // with pipe stdio. Detached + ignored stdio keeps it running like a normal
+  // headless instance; cleanup still happens via taskkill on the process tree.
+  const chrome = spawn(chromePath, chromeArgs, { windowsHide: true, stdio: "ignore", detached: true });
+  chrome.unref();
   if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_CHROME pid=${chrome.pid} url=${testUrl.href}`);
   let errorOutput = "";
-  chrome.stdout.resume();
-  chrome.stderr.setEncoding("utf8").on("data", chunk => { errorOutput += chunk; });
   let reportResolver;
   const report = new Promise(resolveReport => { reportResolver = resolveReport; });
   reports.set(runId, reportResolver);
@@ -115,19 +154,33 @@ async function runChrome(url, width, height, scale = 1) {
   });
   let timeoutId;
   const timeout = new Promise(resolveTimeout => { timeoutId = setTimeout(() => resolveTimeout({ status: "timeout" }), 25000); });
-  const outcome = await Promise.race([report, exit, timeout]);
+  // Chrome for Testing on Windows spawns a launcher process that exits with
+  // code 0 right after handing off to the real browser process. Treating that
+  // as "Chrome exited early" aborts every run, so the page report is the only
+  // success signal; the timeout remains the failure signal. The exit promise
+  // is kept for cleanup but must not participate in the race.
+  const outcome = await Promise.race([report, timeout]);
+  if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_OUTCOME ${JSON.stringify(outcome)}`);
   clearTimeout(timeoutId);
   reports.delete(runId);
   try {
     assert(outcome?.status !== "timeout", `Chrome 页面测试超时：${errorOutput.slice(-500)}`);
-    assert(outcome?.status !== "browser-exit", `Chrome 提前退出（${outcome?.code}）：${errorOutput.slice(-300)}`);
+    assert(outcome?.status !== "browser-exit" || errorOutput.length, `Chrome 提前退出（${outcome?.code}）且未收到页面报告`);
     assert(outcome?.status === "pass", JSON.stringify(outcome?.detail || { error: "浏览器交互测试失败" }));
     return outcome.detail;
   } finally {
-    chrome.kill();
+    if (process.env.SELF_CHECK_DEBUG) console.error("SELF_CHECK_CLEANUP_START");
+    // Kill the process tree FIRST while the main PID is still alive; taskkill
+    // /T cannot find a tree rooted at an already-dead PID, which used to leave
+    // renderer/gpu/utility children holding the profile directory open.
     await terminateTree(chrome.pid);
+    if (process.env.SELF_CHECK_DEBUG) console.error("SELF_CHECK_CLEANUP_TASKKILL_DONE");
+    chrome.kill();
     await Promise.race([exit, new Promise(resolveWait => setTimeout(resolveWait, 1500))]);
-    await rm(profile, { recursive: true, force: true, maxRetries: 8, retryDelay: 120 });
+    await killProfileProcesses(profile);
+    if (process.env.SELF_CHECK_DEBUG) console.error("SELF_CHECK_CLEANUP_KILLPROFILE_DONE");
+    await rm(profile, { recursive: true, force: true, maxRetries: 20, retryDelay: 500 });
+    if (process.env.SELF_CHECK_DEBUG) console.error("SELF_CHECK_CLEANUP_RM_DONE");
   }
 }
 

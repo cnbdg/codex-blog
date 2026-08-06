@@ -519,6 +519,7 @@
     document.querySelectorAll(`[data-like-type="${type}"][data-like-id="${id}"]`).forEach(button => {
       button.classList.toggle("liked", result.liked);
       button.querySelector("span").textContent = result.likes;
+      popButton(button);
     });
     if (type === "post" && currentThread) { currentThread.likes = result.likes; threadState.post_liked = result.liked; }
     if (type === "reply") {
@@ -528,6 +529,18 @@
       result.liked ? liked.add(Number(id)) : liked.delete(Number(id));
       threadState.liked_reply_ids = [...liked];
     }
+  }
+
+  function popButton(button) {
+    if (!button?.animate || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    button.animate(
+      [
+        { transform: "scale(1)" },
+        { transform: "scale(1.14)" },
+        { transform: "scale(1)" }
+      ],
+      { duration: 220, easing: "cubic-bezier(.2, .9, .25, 1.08)" }
+    );
   }
 
   async function toggleBookmark(id) {

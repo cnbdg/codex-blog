@@ -335,8 +335,24 @@ input:focus, textarea:focus, select:focus {
 .about-box,
 .apply-card { box-shadow: var(--ds-shadow-sm); }
 
-.status-dot { animation: dsStatusPulse 2.6s ease-in-out infinite; }
-@keyframes dsStatusPulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--ds-positive) 4%, transparent); } }
+.status-dot,
+.online-dot {
+  position: relative;
+  animation: none !important;
+}
+.status-dot::before,
+.online-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--ds-positive) 12%, transparent);
+  opacity: .55;
+  animation: ds-status-halo 2.6s ease-in-out infinite;
+}
+@keyframes ds-status-halo {
+  50% { opacity: 1; transform: scale(1.35); }
+}
 
 .forum-hero {
   min-height: 176px;

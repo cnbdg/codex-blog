@@ -21,12 +21,28 @@ Requirements:
   Add-Content -LiteralPath $logPath -Encoding UTF8
 
 try {
-  $prompt | & $codexPath exec `
-    --dangerously-bypass-approvals-and-sandbox `
-    --dangerously-bypass-hook-trust `
-    --color never `
-    -C $repoPath `
-    - 2>&1 | Tee-Object -FilePath $logPath -Append
+  # codex.cmd writes its banner to stderr; under $ErrorActionPreference = "Stop"
+  # PowerShell 5.1 turns that into NativeCommandError and aborts the audit.
+  # Redirect stderr to a temp file and merge it into the log after the run.
+  $stderrFile = Join-Path $env:TEMP ("codex-audit-{0}.err" -f ([guid]::NewGuid().ToString("N")))
+  $previousPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    $prompt | & $codexPath exec `
+      --dangerously-bypass-approvals-and-sandbox `
+      --dangerously-bypass-hook-trust `
+      --color never `
+      -C $repoPath `
+      - 1>> $logPath 2> $stderrFile
+    $auditExitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousPreference
+  }
+  if (Test-Path -LiteralPath $stderrFile) {
+    Get-Content -LiteralPath $stderrFile -Encoding UTF8 |
+      Add-Content -LiteralPath $logPath -Encoding UTF8
+    Remove-Item -LiteralPath $stderrFile -Force
+  }
   $auditExitCode = $LASTEXITCODE
 } catch {
   $_ | Out-String | Add-Content -LiteralPath $logPath -Encoding UTF8

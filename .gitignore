@@ -1,2 +1,4 @@
 .ui-check/
 .scheduled-audit.log
+
+node_modules/

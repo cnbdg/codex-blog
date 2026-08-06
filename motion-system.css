@@ -222,7 +222,7 @@ html.motion-enabled .logo:active .logo-mark {
   }
 
   html.motion-enabled.motion-platform-macos dialog[open].macos-panel-closing::backdrop {
-    animation: platform-backdrop-close 180ms ease-in both !important;
+    animation: platform-backdrop-close 180ms cubic-bezier(.4, 0, .8, .2) both !important;
   }
 
   html.motion-enabled.motion-platform-macos :where(
@@ -388,7 +388,7 @@ html.motion-enabled .logo:active .logo-mark {
   }
 
   html.motion-enabled.motion-platform-ios dialog[open].ios-sheet-closing::backdrop {
-    animation: platform-backdrop-close 250ms ease-in both !important;
+    animation: platform-backdrop-close 250ms cubic-bezier(.4, 0, .8, .2) both !important;
   }
 
   html.motion-enabled.motion-platform-ios :where(
