@@ -19,6 +19,12 @@ create table if not exists public.direct_messages (
   check (sender_id <> recipient_id)
 );
 
+-- 兼容媒体/引用/撤回升级列；基础脚本可重复执行
+alter table public.direct_messages
+  add column if not exists image_path text,
+  add column if not exists reply_to_id bigint,
+  add column if not exists revoked_at timestamptz;
+
 create index if not exists direct_messages_pair_created_idx
   on public.direct_messages(sender_id, recipient_id, created_at);
 
@@ -73,22 +79,40 @@ begin
 end;
 $$;
 
-create or replace function public.list_direct_messages(other_user uuid)
-returns table (id bigint, sender_id uuid, recipient_id uuid, content text, created_at timestamptz)
-language plpgsql security definer set search_path = public
-as $$
+drop function if exists public.list_direct_messages(uuid);
+create function public.list_direct_messages(other_user uuid)
+returns table (
+  id bigint,
+  sender_id uuid,
+  recipient_id uuid,
+  content text,
+  image_path text,
+  created_at timestamptz,
+  revoked_at timestamptz,
+  reply_to_id bigint,
+  reply_sender_id uuid,
+  reply_sender_name text,
+  reply_content text,
+  reply_image_path text,
+  reply_created_at timestamptz,
+  reply_revoked_at timestamptz
+)
+language plpgsql stable security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'AUTH_REQUIRED'; end if;
-  if not (
-    exists(select 1 from public.user_follows where follower_id = auth.uid() and following_id = other_user)
-    and exists(select 1 from public.user_follows where follower_id = other_user and following_id = auth.uid())
-  ) then raise exception 'MUTUAL_FOLLOW_REQUIRED'; end if;
+  if not public.can_send_direct_media_path(other_user::text) then raise exception 'MUTUAL_FOLLOW_REQUIRED'; end if;
   return query
-    select m.id, m.sender_id, m.recipient_id, m.content, m.created_at
-    from public.direct_messages m
-    where (m.sender_id = auth.uid() and m.recipient_id = other_user)
-       or (m.sender_id = other_user and m.recipient_id = auth.uid())
-    order by m.created_at asc;
+  select m.id, m.sender_id, m.recipient_id, m.content, m.image_path, m.created_at, m.revoked_at,
+    quoted.id as reply_to_id, quoted.sender_id as reply_sender_id,
+    coalesce(quoted_sender.username, '社区用户') as reply_sender_name,
+    quoted.content as reply_content, quoted.image_path as reply_image_path, quoted.created_at as reply_created_at,
+    quoted.revoked_at as reply_revoked_at
+  from public.direct_messages m
+  left join public.direct_messages quoted on quoted.id = m.reply_to_id
+  left join public.profiles quoted_sender on quoted_sender.id = quoted.sender_id
+  where (m.sender_id = auth.uid() and m.recipient_id = other_user)
+     or (m.sender_id = other_user and m.recipient_id = auth.uid())
+  order by m.created_at asc;
 end;
 $$;
 
