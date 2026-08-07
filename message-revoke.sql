@@ -152,3 +152,6 @@ grant execute on function public.revoke_direct_message(bigint) to authenticated;
 grant execute on function public.revoke_group_chat_message(bigint) to authenticated;
 grant execute on function public.list_direct_messages(uuid) to authenticated;
 grant execute on function public.list_group_chat_messages(uuid, integer) to authenticated;
+
+-- 刷新 PostgREST schema 缓存，让前端立即可调用新的 RPC 签名
+notify pgrst, 'reload schema';

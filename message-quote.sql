@@ -208,3 +208,6 @@ grant execute on function public.send_group_chat_message(uuid, text, text, bigin
 grant execute on function public.send_group_chat_message(uuid, text, text) to authenticated;
 grant execute on function public.send_group_chat_message(uuid, text) to authenticated;
 grant execute on function public.list_group_chat_messages(uuid, integer) to authenticated;
+
+-- 刷新 PostgREST schema 缓存，让前端立即可调用新的 RPC 签名
+notify pgrst, 'reload schema';

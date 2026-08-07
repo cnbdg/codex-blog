@@ -125,3 +125,6 @@ grant execute on function public.toggle_follow(uuid) to authenticated;
 grant execute on function public.send_direct_message(uuid, text) to authenticated;
 grant execute on function public.list_direct_messages(uuid) to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
+
+-- 刷新 PostgREST schema 缓存，让前端立即可调用新的 RPC 签名
+notify pgrst, 'reload schema';

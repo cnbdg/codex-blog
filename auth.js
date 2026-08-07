@@ -1522,7 +1522,17 @@
     if (cleanImagePath) payload.message_image_path = cleanImagePath;
     if (cleanReplyToId) payload.p_reply_to_id = cleanReplyToId;
     const { error } = await client.rpc("send_direct_message", payload);
-    if (error) { notify("私信发送失败：" + friendlyError(error)); return false; }
+    if (error) {
+      const missingHint = isMissingRpc(error)
+        ? (cleanImagePath
+          ? "聊天媒体功能尚未启用：请先执行 media-upgrade.sql"
+          : cleanReplyToId
+            ? "消息引用功能尚未启用：请先执行 message-revoke.sql"
+            : "请先执行 private-chat.sql")
+        : friendlyError(error);
+      notify("私信发送失败：" + missingHint);
+      return false;
+    }
     return true;
   }
 
@@ -1591,7 +1601,16 @@
     if (cleanMediaPath) payload.p_media_path = cleanMediaPath;
     if (cleanReplyToId) payload.p_reply_to_id = cleanReplyToId;
     const { error } = await client.rpc("send_group_chat_message", payload);
-    if (error) notify("群消息发送失败：" + (isMissingRpc(error) ? (cleanMediaPath ? "请先执行 media-upgrade.sql" : "请先执行 group-chat.sql") : friendlyError(error)));
+    if (error) {
+      const missingHint = isMissingRpc(error)
+        ? (cleanMediaPath
+          ? "聊天媒体功能尚未启用：请先执行 media-upgrade.sql"
+          : cleanReplyToId
+            ? "消息引用功能尚未启用：请先执行 message-revoke.sql"
+            : "请先执行 group-chat.sql")
+        : friendlyError(error);
+      notify("群消息发送失败：" + missingHint);
+    }
     return !error;
   }
 
