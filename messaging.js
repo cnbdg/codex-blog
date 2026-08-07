@@ -139,6 +139,7 @@
   }
 
   function replySummary(message) {
+    if (message?.revoked_at) return "消息已被撤回";
     const content = String(message?.content || "").trim();
     if (content) return content.length > 90 ? content.slice(0, 90) + "…" : content;
     const path = message?.media_path || message?.image_path || "";
@@ -152,10 +153,11 @@
   function quoteMarkup(message, { compact = false } = {}) {
     const targetId = message?.reply_to_id;
     if (!targetId) return "";
-    const summary = replySummary(message);
+    const quotedRevoked = Boolean(message?.reply_revoked_at);
+    const summary = quotedRevoked ? "消息已被撤回" : replySummary(message);
     const sender = String(message?.reply_sender_name || "消息").trim();
     const body = summary
-      ? `<span class="message-reply-quote-text">${escapeText(summary)}</span>`
+      ? `<span class="message-reply-quote-text${quotedRevoked ? " is-deleted" : ""}">${escapeText(summary)}</span>`
       : `<span class="message-reply-quote-text is-deleted">消息已被删除</span>`;
     return `<button type="button" class="message-quote${compact ? " is-compact" : ""}" data-quote-jump="${escapeText(String(targetId))}" aria-label="查看 ${escapeText(sender)} 的消息">` +
       `<span class="message-quote-rail" aria-hidden="true"></span>` +
@@ -188,6 +190,20 @@
 
   function findMessageById(messageId) {
     return renderedMessages.find(message => Number(message.id) === Number(messageId)) || null;
+  }
+
+  async function revokeMessage(button) {
+    const messageId = Number(button.dataset.revokeMessage);
+    const kind = button.dataset.revokeKind === "group" ? "group" : "direct";
+    const message = findMessageById(messageId);
+    if (!message || message.sender_id !== window.blogAuth?.user?.id) return;
+    if (!window.confirm?.("确定要撤回这条消息吗？双方都将无法再查看原内容。")) return;
+    const ok = kind === "group"
+      ? await window.blogAuth?.revokeGroupChatMessage(messageId)
+      : await window.blogAuth?.revokeDirectMessage(messageId);
+    if (!ok) return;
+    window.toast?.("已撤回一条消息");
+    await renderMessages({ forceScroll: false });
   }
 
   function jumpToQuote(targetId) {
@@ -496,7 +512,8 @@
       ? await window.blogAuth.listGroupChatMessages(group)
       : await window.blogAuth.listDirectMessages(peer);
     if (!messages || conversationKey !== currentChatKey() || viewer !== window.blogAuth?.user?.id || !isChatVisible()) return;
-    const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}:${message.media_path || message.image_path || ""}`).join("|") : "empty";
+    renderedMessages = messages;
+    const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}:${message.media_path || message.image_path || ""}:${message.revoked_at || ""}`).join("|") : "empty";
     const imagePaths = messages.map(message => group ? message.media_path : message.image_path).filter(Boolean);
     const shouldRefreshImages = imagePaths.length && Date.now() >= signedImageRefreshAt;
     if (hasRenderedMessages && key === renderedMessageKey && !shouldRefreshImages) return;
@@ -512,24 +529,34 @@
     const previousCount = renderedMessageCount;
     list.innerHTML = messages.length ? messages.map(message => {
       const own = message.sender_id === window.blogAuth.user?.id;
+      const revoked = Boolean(message.revoked_at);
       const content = String(message.content || "").trim();
       const quote = quoteMarkup(message);
-      const quoteAction = `<button type="button" class="message-reply-action" data-quote-message="${escapeText(String(message.id))}" aria-label="引用这条消息">引用</button>`;
+      const revokeAvailable = own && !revoked && Date.now() - new Date(message.created_at).getTime() <= 2 * 60 * 1000;
+      const quoteAction = revoked
+        ? ""
+        : `<button type="button" class="message-reply-action" data-quote-message="${escapeText(String(message.id))}" aria-label="引用这条消息">引用</button>`;
+      const revokeAction = revokeAvailable
+        ? `<button type="button" class="message-revoke-action" data-revoke-message="${escapeText(String(message.id))}" data-revoke-kind="${group ? "group" : "direct"}" aria-label="撤回这条消息">撤回</button>`
+        : "";
+      const bodyContent = revoked
+        ? `<p class="message-revoked-note">${escapeText(own ? "你撤回了一条消息" : (message.sender_username ? `${message.sender_username} 撤回了一条消息` : "对方撤回了一条消息"))}</p>`
+        : `${quote}${content ? `<p>${escapeText(content)}</p>` : ""}`;
       if (group) {
         const senderName = message.sender_username || "社区用户";
         const senderAvatar = safeAvatarUrl(message.sender_avatar_url);
         const avatarStyle = senderAvatar ? ` style="background-image:url(&quot;${escapeText(senderAvatar)}&quot;)"` : "";
         const time = new Date(message.created_at).toLocaleString("zh-CN", { hour12: false });
-        const media = renderMessageMedia(message.media_path, imageUrls.get(message.media_path), "群聊媒体");
-        if (own) return `<article class="dm-message own group-message" data-message-id="${escapeText(String(message.id))}">${quote}${media}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${escapeText(time)}</time>${quoteAction}</article>`;
+        const media = revoked ? "" : renderMessageMedia(message.media_path, imageUrls.get(message.media_path), "群聊媒体");
+        if (own) return `<article class="dm-message own group-message${revoked ? " is-revoked" : ""}" data-message-id="${escapeText(String(message.id))}">${bodyContent}${media}<time>${escapeText(time)}</time>${quoteAction}${revokeAction}</article>`;
         return `<article class="group-message-row">
           <button type="button" class="group-message-avatar ${senderAvatar ? "has-image" : ""}" data-user-profile="${escapeText(message.sender_id)}" aria-label="查看 ${escapeText(senderName)} 的资料"${avatarStyle}>${escapeText(senderName[0]?.toUpperCase() || "U")}</button>
-          <div class="dm-message other group-message" data-message-id="${escapeText(String(message.id))}"><button type="button" class="group-message-sender" data-user-profile="${escapeText(message.sender_id)}">${escapeText(senderName)} <small>UID ${escapeText(message.sender_uid || "—")}</small></button>${quote}${media}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${escapeText(time)}</time>${quoteAction}</div>
+          <div class="dm-message other group-message${revoked ? " is-revoked" : ""}" data-message-id="${escapeText(String(message.id))}"><button type="button" class="group-message-sender" data-user-profile="${escapeText(message.sender_id)}">${escapeText(senderName)} <small>UID ${escapeText(message.sender_uid || "—")}</small></button>${bodyContent}${media}<time>${escapeText(time)}</time>${quoteAction}${revokeAction}</div>
         </article>`;
       }
       const imageUrl = message.image_path ? imageUrls.get(message.image_path) : "";
-      const image = renderMessageMedia(message.image_path, imageUrl, "私信媒体");
-      return `<article class="dm-message ${own ? "own" : "other"}" data-message-id="${escapeText(String(message.id))}">${quote}${image}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time>${quoteAction}</article>`;
+      const image = revoked ? "" : renderMessageMedia(message.image_path, imageUrl, "私信媒体");
+      return `<article class="dm-message ${own ? "own" : "other"}${revoked ? " is-revoked" : ""}" data-message-id="${escapeText(String(message.id))}">${bodyContent}${image}<time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time>${quoteAction}${revokeAction}</article>`;
     }).join("") : `<p class="forum-empty">还没有消息，打个招呼吧。</p>`;
     renderedMessageKey = key;
     renderedMessageCount = messages.length;
@@ -888,6 +915,12 @@
       const ownProfile = event.target.closest("[data-open-own-profile]");
       const quoteAction = event.target.closest("[data-quote-message]");
       const quoteJump = event.target.closest("[data-quote-jump]");
+      const revokeAction = event.target.closest("[data-revoke-message]");
+      if (revokeAction) {
+        event.stopPropagation();
+        revokeMessage(revokeAction);
+        return;
+      }
       if (quoteAction) {
         event.stopPropagation();
         const message = findMessageById(Number(quoteAction.dataset.quoteMessage));

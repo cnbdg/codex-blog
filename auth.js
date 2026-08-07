@@ -122,6 +122,9 @@
     ,[/INVALID_GROUP_NAME/i, "群名称需要包含 2–40 个字符"]
     ,[/INVALID_GROUP_DESCRIPTION/i, "群简介不能超过 200 个字符"]
     ,[/INVALID_GROUP_AVATAR/i, "群头像地址无效"]
+    ,[/CANNOT_REVOKE_OTHER/i, "只能撤回自己发送的消息"]
+    ,[/REVOKE_WINDOW_EXPIRED/i, "发送超过 2 分钟的消息不能撤回"]
+    ,[/MESSAGE_NOT_FOUND/i, "这条消息不存在或已被删除"]
   ];
 
   function friendlyError(error, fallback = "操作失败，请稍后重试") {
@@ -1528,9 +1531,10 @@
     if (directMessageChannel) client.removeChannel(directMessageChannel);
     const currentUserId = user.id;
     const channel = client.channel(`direct-messages-${currentUserId}-${otherUser}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages", filter: `recipient_id=eq.${currentUserId}` }, payload => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages", filter: `recipient_id=eq.${currentUserId}` }, payload => {
         const row = payload.new;
-        if (row.sender_id === otherUser && row.recipient_id === currentUserId) onMessage?.(row);
+        if (payload.eventType === "INSERT" && row.sender_id === otherUser && row.recipient_id === currentUserId) onMessage?.(row);
+        if (payload.eventType === "UPDATE" && (row.sender_id === otherUser || row.recipient_id === otherUser) && row.revoked_at) onMessage?.(row);
       }).subscribe((status, error) => onStatus?.(status, error));
     directMessageChannel = channel;
     return () => {
@@ -1597,6 +1601,20 @@
     return !error;
   }
 
+  async function revokeDirectMessage(messageId) {
+    if (!client || !user) { openAuth("login"); return false; }
+    const { data, error } = await client.rpc("revoke_direct_message", { p_message_id: Number(messageId) });
+    if (error) notify("撤回失败：" + friendlyError(error));
+    return !error && Boolean(data);
+  }
+
+  async function revokeGroupChatMessage(messageId) {
+    if (!client || !user) { openAuth("login"); return false; }
+    const { data, error } = await client.rpc("revoke_group_chat_message", { p_message_id: Number(messageId) });
+    if (error) notify("撤回失败：" + friendlyError(error));
+    return !error && Boolean(data);
+  }
+
   async function listGroupChatMembers(groupId) {
     if (!client || !user || !groupId) return [];
     const { data, error } = await client.rpc("list_group_chat_members", { p_group_id: groupId });
@@ -1655,8 +1673,10 @@
     const currentUserId = user.id;
     const channel = client.channel(`group-chat-${groupId}-${currentUserId}`)
       .on("postgres_changes", {
-        event: "INSERT", schema: "public", table: "group_chat_messages", filter: `group_id=eq.${groupId}`
-      }, payload => onMessage?.(payload.new))
+        event: "*", schema: "public", table: "group_chat_messages", filter: `group_id=eq.${groupId}`
+      }, payload => {
+        if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") onMessage?.(payload.new);
+      })
       .subscribe((status, error) => onStatus?.(status, error));
     groupMessageChannel = channel;
     return () => {
@@ -1960,6 +1980,7 @@
     listForumBookmarks, toggleForumBookmark, recordForumView, getForumThreadState, adminSetForumPostStatus,
     getFollowState, toggleFollow, listDirectMessages, sendDirectMessage, subscribeDirectMessages, subscribeNotifications,
     listGroupChats, createGroupChat, listGroupChatMessages, sendGroupChatMessage, markGroupChatRead,
+    revokeDirectMessage, revokeGroupChatMessage,
     listGroupChatMembers, updateGroupChat, addGroupChatMembers, removeGroupChatMember, leaveGroupChat, subscribeGroupChatMessages,
     searchUsers, getPublicProfile, adminUpdateMember, getAdminMemberByUid, adminManageMember, prepareAdminCaptcha, confirmAdminPassword, listNotifications, markNotificationsRead, markDirectMessagesRead, listFriends,
     reportContent, getMyModeration, getMyGovernanceStatus, getGovernanceOverview, listModerationUsers, listModerationReports,

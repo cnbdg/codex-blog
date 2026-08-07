@@ -1570,3 +1570,15 @@ body.has-wallpaper .blog-pagination{background:color-mix(in srgb,var(--surface) 
 .message-reply-preview button{flex:none;width:24px;height:24px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;transition:background-color .15s ease}
 .message-reply-preview button:hover{background:color-mix(in srgb,var(--blue) 12%,transparent);color:var(--blue)}
 @media(hover:none){.dm-message .message-reply-action{position:static;display:block;width:max-content;margin:6px 0 0;padding:5px 10px;opacity:1;visibility:visible;pointer-events:auto;transform:none}}
+
+/* Message revoke. */
+.dm-message.is-revoked{opacity:.78}
+.dm-message.is-revoked .message-revoked-note{margin:0;color:var(--muted);font-size:11px;font-style:italic;line-height:1.6}
+.dm-message.is-revoked .dm-media-card,.dm-message.is-revoked .dm-image-link{display:none}
+.message-revoke-action{position:absolute;z-index:2;top:50%;right:calc(100% + 7px);transform:translateY(-50%);padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:#d05656;font-size:9px;font-weight:700;white-space:nowrap;opacity:0;visibility:hidden;pointer-events:none;box-shadow:0 4px 12px color-mix(in srgb,#10131a 12%,transparent);transition:opacity .16s ease,transform .16s var(--ease-out),visibility .16s}
+.dm-message.own .message-revoke-action{right:auto;left:calc(100% + 7px)}
+.dm-message:hover .message-revoke-action,.dm-message:focus-within .message-revoke-action{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(-50%) scale(1)}
+.message-revoke-action:hover{background:#fff0f0}
+.message-revoke-action:focus-visible{outline:2px solid color-mix(in srgb,#d05656 38%,transparent);outline-offset:2px}
+.dm-message .message-reply-action + .message-revoke-action{top:calc(50% + 20px)}
+@media(hover:none){.message-revoke-action{position:static;display:block;width:max-content;margin:6px 0 0;padding:5px 10px;opacity:1;visibility:visible;pointer-events:auto;transform:none}}
