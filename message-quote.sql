@@ -16,6 +16,7 @@ alter table public.group_chat_messages
 -- 3. 私信发送：支持可选引用（兼容旧签名，不破坏已有调用）
 drop function if exists public.send_direct_message(uuid, text);
 drop function if exists public.send_direct_message(uuid, text, text);
+drop function if exists public.send_direct_message(uuid, text, bigint);
 drop function if exists public.send_direct_message(uuid, text, text, bigint);
 
 create function public.send_direct_message(
@@ -62,6 +63,13 @@ returns bigint language sql security definer set search_path = public as $$
   select public.send_direct_message(recipient_user, message_content, null, null);
 $$;
 
+-- 前端“文本 + 引用”发送只传三个键：recipient_user / message_content / p_reply_to_id。
+-- PostgREST 按参数名精确匹配，必须存在这个 3 参重载。
+create function public.send_direct_message(recipient_user uuid, message_content text, p_reply_to_id bigint)
+returns bigint language sql security definer set search_path = public as $$
+  select public.send_direct_message(recipient_user, message_content, null, p_reply_to_id);
+$$;
+
 -- 4. 私信列表：返回被引用消息快照
 drop function if exists public.list_direct_messages(uuid);
 create function public.list_direct_messages(other_user uuid)
@@ -100,6 +108,7 @@ $$;
 -- 5. 群聊发送：支持可选引用（兼容旧签名）
 drop function if exists public.send_group_chat_message(uuid, text);
 drop function if exists public.send_group_chat_message(uuid, text, text);
+drop function if exists public.send_group_chat_message(uuid, text, bigint);
 drop function if exists public.send_group_chat_message(uuid, text, text, bigint);
 
 create function public.send_group_chat_message(
@@ -142,6 +151,13 @@ $$;
 create function public.send_group_chat_message(p_group_id uuid, p_content text)
 returns bigint language sql security definer set search_path = public as $$
   select public.send_group_chat_message(p_group_id, p_content, null, null);
+$$;
+
+-- 前端“文本 + 引用”发送只传三个键：p_group_id / p_content / p_reply_to_id。
+-- PostgREST 按参数名精确匹配，必须存在这个 3 参重载。
+create function public.send_group_chat_message(p_group_id uuid, p_content text, p_reply_to_id bigint)
+returns bigint language sql security definer set search_path = public as $$
+  select public.send_group_chat_message(p_group_id, p_content, null, p_reply_to_id);
 $$;
 
 -- 6. 群聊列表：返回被引用消息快照
@@ -194,18 +210,22 @@ $$;
 -- 7. 权限：新签名与旧签名保持同样的公开可执行范围
 revoke all on function public.send_direct_message(uuid, text, text, bigint) from public;
 revoke all on function public.send_direct_message(uuid, text, text) from public;
+revoke all on function public.send_direct_message(uuid, text, bigint) from public;
 revoke all on function public.send_direct_message(uuid, text) from public;
 revoke all on function public.list_direct_messages(uuid) from public;
 revoke all on function public.send_group_chat_message(uuid, text, text, bigint) from public;
 revoke all on function public.send_group_chat_message(uuid, text, text) from public;
+revoke all on function public.send_group_chat_message(uuid, text, bigint) from public;
 revoke all on function public.send_group_chat_message(uuid, text) from public;
 revoke all on function public.list_group_chat_messages(uuid, integer) from public;
 grant execute on function public.send_direct_message(uuid, text, text, bigint) to authenticated;
 grant execute on function public.send_direct_message(uuid, text, text) to authenticated;
+grant execute on function public.send_direct_message(uuid, text, bigint) to authenticated;
 grant execute on function public.send_direct_message(uuid, text) to authenticated;
 grant execute on function public.list_direct_messages(uuid) to authenticated;
 grant execute on function public.send_group_chat_message(uuid, text, text, bigint) to authenticated;
 grant execute on function public.send_group_chat_message(uuid, text, text) to authenticated;
+grant execute on function public.send_group_chat_message(uuid, text, bigint) to authenticated;
 grant execute on function public.send_group_chat_message(uuid, text) to authenticated;
 grant execute on function public.list_group_chat_messages(uuid, integer) to authenticated;
 
