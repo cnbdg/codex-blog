@@ -149,12 +149,24 @@
     return "";
   }
 
+  // 被引用消息的摘要：取 reply_* 字段（被引用消息的内容），而不是当前消息 content。
+  function replyQuotedSummary(message) {
+    if (message?.reply_revoked_at) return "消息已被撤回";
+    const content = String(message?.reply_content || "").trim();
+    if (content) return content.length > 90 ? content.slice(0, 90) + "…" : content;
+    const path = message?.reply_media_path || message?.reply_image_path || "";
+    if (/\.(mp4|webm|mov)(?:$|\?)/i.test(path)) return "[视频]";
+    if (/\.gif(?:$|\?)/i.test(path)) return "[GIF]";
+    if (path) return "[图片]";
+    return "消息已被删除";
+  }
+
   // 微信式引用块：左侧竖线 + 发送者名 + 内容摘要，点击跳到被引用消息。
   function quoteMarkup(message, { compact = false } = {}) {
     const targetId = message?.reply_to_id;
     if (!targetId) return "";
     const quotedRevoked = Boolean(message?.reply_revoked_at);
-    const summary = quotedRevoked ? "消息已被撤回" : replySummary(message);
+    const summary = replyQuotedSummary(message);
     const sender = String(message?.reply_sender_name || "消息").trim();
     const body = summary
       ? `<span class="message-reply-quote-text${quotedRevoked ? " is-deleted" : ""}">${escapeText(summary)}</span>`
@@ -175,7 +187,11 @@
     }
     const name = $("#messageReplyPreviewName");
     const text = $("#messageReplyPreviewText");
-    const sender = String(message.reply_sender_name || message.sender_name || "消息").trim();
+    // 被引用消息的发送者：群聊用 sender_username；私信判断是否自己。
+    let sender;
+    if (message.sender_id === window.blogAuth?.user?.id) sender = "我";
+    else if (targetGroup) sender = message.sender_username || "社区用户";
+    else sender = targetName || "对方";
     if (name) name.textContent = `回复 ${sender}`;
     if (text) text.textContent = replySummary(message);
     preview.hidden = false;
