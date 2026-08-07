@@ -11,11 +11,13 @@
   let messagePoll = null;
   let renderedMessageKey = null;
   let renderedMessageCount = 0;
+  let renderedMessages = [];
   let hasRenderedMessages = false;
   let chatOwner = null;
   let selectedImageFile = null;
   let selectedImagePreviewUrl = "";
   let signedImageRefreshAt = 0;
+  let replyTarget = null;
 
   const messageMediaTypes = new Set([
     "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif",
@@ -134,6 +136,72 @@
       return `<div class="dm-media-card"><video src="${safeUrl}" controls preload="metadata" playsinline aria-label="${escapeText(label)}">你的浏览器不支持视频播放。</video><a href="${safeUrl}" target="_blank" rel="noopener">在新窗口打开视频</a></div>`;
     }
     return `<a class="dm-image-link" href="${safeUrl}" target="_blank" rel="noopener"><img src="${safeUrl}" alt="${escapeText(mediaKind(path) === "gif" ? "聊天 GIF" : label)}" loading="lazy" decoding="async"></a>`;
+  }
+
+  function replySummary(message) {
+    const content = String(message?.content || "").trim();
+    if (content) return content.length > 90 ? content.slice(0, 90) + "…" : content;
+    const path = message?.media_path || message?.image_path || "";
+    if (/\.(mp4|webm|mov)(?:$|\?)/i.test(path)) return "[视频]";
+    if (/\.gif(?:$|\?)/i.test(path)) return "[GIF]";
+    if (path) return "[图片]";
+    return "";
+  }
+
+  // 微信式引用块：左侧竖线 + 发送者名 + 内容摘要，点击跳到被引用消息。
+  function quoteMarkup(message, { compact = false } = {}) {
+    const targetId = message?.reply_to_id;
+    if (!targetId) return "";
+    const summary = replySummary(message);
+    const sender = String(message?.reply_sender_name || "消息").trim();
+    const body = summary
+      ? `<span class="message-reply-quote-text">${escapeText(summary)}</span>`
+      : `<span class="message-reply-quote-text is-deleted">消息已被删除</span>`;
+    return `<button type="button" class="message-quote${compact ? " is-compact" : ""}" data-quote-jump="${escapeText(String(targetId))}" aria-label="查看 ${escapeText(sender)} 的消息">` +
+      `<span class="message-quote-rail" aria-hidden="true"></span>` +
+      `<span class="message-quote-copy"><strong>${escapeText(sender)}</strong>${body}</span>` +
+      `</button>`;
+  }
+
+  function setReplyTarget(message) {
+    replyTarget = message && message.id ? message : null;
+    const preview = $("#messageReplyPreview");
+    if (!preview) return;
+    if (!replyTarget) {
+      preview.hidden = true;
+      return;
+    }
+    const name = $("#messageReplyPreviewName");
+    const text = $("#messageReplyPreviewText");
+    const sender = String(message.reply_sender_name || message.sender_name || "消息").trim();
+    if (name) name.textContent = `回复 ${sender}`;
+    if (text) text.textContent = replySummary(message);
+    preview.hidden = false;
+    $("#messageForm textarea")?.focus();
+  }
+
+  function clearReplyTarget() {
+    replyTarget = null;
+    const preview = $("#messageReplyPreview");
+    if (preview) preview.hidden = true;
+  }
+
+  function findMessageById(messageId) {
+    return renderedMessages.find(message => Number(message.id) === Number(messageId)) || null;
+  }
+
+  function jumpToQuote(targetId) {
+    if (!targetId) return;
+    const list = $("#messageList");
+    const target = list?.querySelector(`[data-message-id="${CSS.escape(String(targetId))}"]`);
+    if (!target) {
+      window.toast?.("这条消息不在当前加载范围内");
+      return;
+    }
+    target.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    target.classList.add("quote-target-flash");
+    clearTimeout(jumpToQuote.timer);
+    jumpToQuote.timer = setTimeout(() => target.classList.remove("quote-target-flash"), 1600);
   }
 
   function formatJoinDate(value) {
@@ -323,7 +391,9 @@
     chatOwner = viewer;
     renderedMessageKey = null;
     renderedMessageCount = 0;
+    renderedMessages = [];
     hasRenderedMessages = false;
+    clearReplyTarget();
     signedImageRefreshAt = 0;
     $("#messageForm")?.reset();
     clearImageSelection();
@@ -357,7 +427,9 @@
     chatOwner = viewer;
     renderedMessageKey = null;
     renderedMessageCount = 0;
+    renderedMessages = [];
     hasRenderedMessages = false;
+    clearReplyTarget();
     signedImageRefreshAt = 0;
     $("#messageForm")?.reset();
     clearImageSelection();
@@ -391,7 +463,9 @@
     chatOwner = null;
     renderedMessageKey = null;
     renderedMessageCount = 0;
+    renderedMessages = [];
     hasRenderedMessages = false;
+    clearReplyTarget();
     signedImageRefreshAt = 0;
     $("#messageForm")?.reset();
     clearImageSelection();
@@ -439,21 +513,23 @@
     list.innerHTML = messages.length ? messages.map(message => {
       const own = message.sender_id === window.blogAuth.user?.id;
       const content = String(message.content || "").trim();
+      const quote = quoteMarkup(message);
+      const quoteAction = `<button type="button" class="message-reply-action" data-quote-message="${escapeText(String(message.id))}" aria-label="引用这条消息">引用</button>`;
       if (group) {
         const senderName = message.sender_username || "社区用户";
         const senderAvatar = safeAvatarUrl(message.sender_avatar_url);
         const avatarStyle = senderAvatar ? ` style="background-image:url(&quot;${escapeText(senderAvatar)}&quot;)"` : "";
         const time = new Date(message.created_at).toLocaleString("zh-CN", { hour12: false });
         const media = renderMessageMedia(message.media_path, imageUrls.get(message.media_path), "群聊媒体");
-        if (own) return `<article class="dm-message own group-message">${media}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${escapeText(time)}</time></article>`;
+        if (own) return `<article class="dm-message own group-message" data-message-id="${escapeText(String(message.id))}">${quote}${media}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${escapeText(time)}</time>${quoteAction}</article>`;
         return `<article class="group-message-row">
           <button type="button" class="group-message-avatar ${senderAvatar ? "has-image" : ""}" data-user-profile="${escapeText(message.sender_id)}" aria-label="查看 ${escapeText(senderName)} 的资料"${avatarStyle}>${escapeText(senderName[0]?.toUpperCase() || "U")}</button>
-          <div class="dm-message other group-message"><button type="button" class="group-message-sender" data-user-profile="${escapeText(message.sender_id)}">${escapeText(senderName)} <small>UID ${escapeText(message.sender_uid || "—")}</small></button>${media}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${escapeText(time)}</time></div>
+          <div class="dm-message other group-message" data-message-id="${escapeText(String(message.id))}"><button type="button" class="group-message-sender" data-user-profile="${escapeText(message.sender_id)}">${escapeText(senderName)} <small>UID ${escapeText(message.sender_uid || "—")}</small></button>${quote}${media}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${escapeText(time)}</time>${quoteAction}</div>
         </article>`;
       }
       const imageUrl = message.image_path ? imageUrls.get(message.image_path) : "";
       const image = renderMessageMedia(message.image_path, imageUrl, "私信媒体");
-      return `<article class="dm-message ${own ? "own" : "other"}">${image}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time></article>`;
+      return `<article class="dm-message ${own ? "own" : "other"}" data-message-id="${escapeText(String(message.id))}">${quote}${image}${content ? `<p>${escapeText(content)}</p>` : ""}<time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time>${quoteAction}</article>`;
     }).join("") : `<p class="forum-empty">还没有消息，打个招呼吧。</p>`;
     renderedMessageKey = key;
     renderedMessageCount = messages.length;
@@ -493,6 +569,7 @@
     const normalText = button.textContent;
     const contentInput = form.elements.content;
     const imageInput = $("#messageImageInput");
+    const replyId = replyTarget?.id || null;
     let imagePath = null;
     form.dataset.sending = "true";
     form.setAttribute("aria-busy", "true");
@@ -518,8 +595,8 @@
       }
       button.textContent = "…";
       const ok = group
-        ? await window.blogAuth.sendGroupChatMessage(group, content, imagePath)
-        : await window.blogAuth.sendDirectMessage(recipient, content, imagePath);
+        ? await window.blogAuth.sendGroupChatMessage(group, content, imagePath, replyId)
+        : await window.blogAuth.sendDirectMessage(recipient, content, imagePath, replyId);
       if (!ok) {
         if (imagePath) await (group
           ? window.blogAuth.deleteGroupChatMedia(imagePath)
@@ -528,6 +605,7 @@
       }
       form.reset();
       clearImageSelection();
+      clearReplyTarget();
       signedImageRefreshAt = 0;
       await renderMessages({ forceScroll: true });
     } finally {
@@ -771,6 +849,7 @@
     $("#messageForm")?.addEventListener("submit", sendMessage);
     $("#messageImageInput")?.addEventListener("change", selectMessageImage);
     $("#removeMessageImageBtn")?.addEventListener("click", clearImageSelection);
+    $("#removeMessageReplyBtn")?.addEventListener("click", clearReplyTarget);
     $("#messageForm textarea")?.addEventListener("keydown", event => {
       if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
         event.preventDefault();
@@ -807,6 +886,19 @@
       const removeMember = event.target.closest("[data-remove-group-member]");
       const profileLink = event.target.closest("[data-user-profile]");
       const ownProfile = event.target.closest("[data-open-own-profile]");
+      const quoteAction = event.target.closest("[data-quote-message]");
+      const quoteJump = event.target.closest("[data-quote-jump]");
+      if (quoteAction) {
+        event.stopPropagation();
+        const message = findMessageById(Number(quoteAction.dataset.quoteMessage));
+        if (message) setReplyTarget(message);
+        return;
+      }
+      if (quoteJump) {
+        event.stopPropagation();
+        jumpToQuote(quoteJump.dataset.quoteJump);
+        return;
+      }
       if (follow) {
         event.stopPropagation();
         toggleFollow(follow);

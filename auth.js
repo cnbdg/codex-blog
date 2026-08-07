@@ -1505,10 +1505,11 @@
     return data || [];
   }
 
-  async function sendDirectMessage(recipient, content, imagePath = null) {
+  async function sendDirectMessage(recipient, content, imagePath = null, replyToId = null) {
     if (!client || !user) { openAuth(); return false; }
     const cleanContent = String(content || "").trim();
     const cleanImagePath = String(imagePath || "").trim() || null;
+    const cleanReplyToId = Number(replyToId) || null;
     if ((!cleanContent && !cleanImagePath) || cleanContent.length > 2000) return false;
     const payload = {
       recipient_user: recipient,
@@ -1516,6 +1517,7 @@
     };
     // 仅在真的携带图片时传第三个 RPC 参数，未执行迁移时文字私信仍可继续使用。
     if (cleanImagePath) payload.message_image_path = cleanImagePath;
+    if (cleanReplyToId) payload.p_reply_to_id = cleanReplyToId;
     const { error } = await client.rpc("send_direct_message", payload);
     if (error) { notify("私信发送失败：" + friendlyError(error)); return false; }
     return true;
@@ -1572,16 +1574,18 @@
     return data || [];
   }
 
-  async function sendGroupChatMessage(groupId, content, mediaPath = null) {
+  async function sendGroupChatMessage(groupId, content, mediaPath = null, replyToId = null) {
     if (!client || !user) { openAuth("login"); return false; }
     const cleanContent = String(content || "").trim();
     const cleanMediaPath = String(mediaPath || "").trim() || null;
+    const cleanReplyToId = Number(replyToId) || null;
     if (!groupId || (!cleanContent && !cleanMediaPath) || cleanContent.length > 2000) return false;
     const payload = {
       p_group_id: groupId,
       p_content: cleanContent
     };
     if (cleanMediaPath) payload.p_media_path = cleanMediaPath;
+    if (cleanReplyToId) payload.p_reply_to_id = cleanReplyToId;
     const { error } = await client.rpc("send_group_chat_message", payload);
     if (error) notify("群消息发送失败：" + (isMissingRpc(error) ? (cleanMediaPath ? "请先执行 media-upgrade.sql" : "请先执行 group-chat.sql") : friendlyError(error)));
     return !error;

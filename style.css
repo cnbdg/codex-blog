@@ -1542,3 +1542,31 @@ body.has-wallpaper .blog-pagination{background:color-mix(in srgb,var(--surface) 
 .dm-message .dm-media-card video{display:block;width:100%;max-height:420px;object-fit:contain;background:#080a0e}
 .dm-message .dm-media-card a{display:block;padding:7px 10px;color:#dbe7ff;background:rgba(12,17,27,.92);font-size:9px;line-height:1.35;text-decoration:none}
 @media(max-width:480px){.dm-message .dm-media-card{max-width:min(270px,100%)}}
+
+/* WeChat-style message quoting. */
+.message-quote{display:flex;align-items:stretch;gap:8px;width:100%;max-width:min(360px,100%);margin:0 0 8px;padding:7px 10px 7px 8px;border:0;border-radius:9px;background:color-mix(in srgb,var(--muted) 10%,transparent);color:var(--muted);font:inherit;text-align:left;cursor:pointer;transition:background-color .15s ease}
+.dm-message.own .message-quote{background:color-mix(in srgb,var(--blue) 9%,transparent)}
+.message-quote:hover{background:color-mix(in srgb,var(--muted) 18%,transparent)}
+.message-quote .message-quote-rail{flex:none;width:3px;border-radius:3px;background:color-mix(in srgb,var(--blue) 55%,transparent)}
+.message-quote .message-quote-copy{display:grid;gap:2px;min-width:0}
+.message-quote strong{font-size:10px;font-weight:700;color:var(--blue);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.message-quote .message-reply-quote-text{font-size:11px;line-height:1.45;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.message-quote .message-reply-quote-text.is-deleted{font-style:italic;opacity:.75}
+.dm-message{position:relative}
+.dm-message .message-reply-action{position:absolute;z-index:2;top:50%;right:calc(100% + 7px);transform:translateY(-50%);padding:5px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--blue);font-size:9px;font-weight:700;white-space:nowrap;opacity:0;visibility:hidden;pointer-events:none;box-shadow:0 4px 12px color-mix(in srgb,#10131a 12%,transparent);transition:opacity .16s ease,transform .16s var(--ease-out),visibility .16s}
+.dm-message.own .message-reply-action{right:auto;left:calc(100% + 7px)}
+.dm-message:hover .message-reply-action,.dm-message:focus-within .message-reply-action{opacity:1;visibility:visible;pointer-events:auto;transform:translateY(-50%) scale(1)}
+.message-reply-action:hover{background:var(--soft)}
+.message-reply-action:focus-visible{outline:2px solid color-mix(in srgb,var(--blue) 35%,transparent);outline-offset:2px}
+.message-quote.is-compact{max-width:210px}
+.dm-message.quote-target-flash{animation:quoteTargetFlash 1.4s ease}
+@keyframes quoteTargetFlash{0%,55%{box-shadow:0 0 0 3px color-mix(in srgb,#ffd95c 38%,transparent),0 0 18px color-mix(in srgb,#ffd95c 18%,transparent)}100%{box-shadow:none}}
+.message-reply-preview{display:flex;align-items:center;gap:8px;margin:0 0 7px;padding:8px 9px;border:1px solid color-mix(in srgb,var(--blue) 22%,var(--line));border-radius:10px;background:color-mix(in srgb,var(--soft) 62%,var(--surface))}
+.message-reply-preview[hidden]{display:none}
+.message-reply-preview .message-reply-quote{flex:none;color:var(--blue);font-size:14px;line-height:1}
+.message-reply-preview>div{display:grid;gap:1px;min-width:0;flex:1}
+.message-reply-preview strong{font-size:10px;font-weight:700;color:var(--blue)}
+.message-reply-preview span:not(.message-reply-quote){font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.message-reply-preview button{flex:none;width:24px;height:24px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;transition:background-color .15s ease}
+.message-reply-preview button:hover{background:color-mix(in srgb,var(--blue) 12%,transparent);color:var(--blue)}
+@media(hover:none){.dm-message .message-reply-action{position:static;display:block;width:max-content;margin:6px 0 0;padding:5px 10px;opacity:1;visibility:visible;pointer-events:auto;transform:none}}

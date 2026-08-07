@@ -194,6 +194,7 @@
             <div id="messageAnnouncement" class="sr-only" role="status" aria-live="polite"></div>
             <form id="messageForm" class="dm-composer message-composer">
               <div id="messageImagePreview" class="message-image-preview" aria-live="polite" hidden><div id="messageMediaPreviewVisual" class="message-media-preview-visual"></div><span id="messageImagePreviewName"></span><button id="removeMessageImageBtn" type="button" aria-label="移除待发送媒体">×</button></div>
+              <div id="messageReplyPreview" class="message-reply-preview" aria-live="polite" hidden><span class="message-reply-quote">❝</span><div><strong id="messageReplyPreviewName"></strong><span id="messageReplyPreviewText"></span></div><button id="removeMessageReplyBtn" type="button" aria-label="取消引用">×</button></div>
               <textarea name="content" maxlength="2000" aria-label="私信内容" placeholder="输入消息，按 Enter 发送…"></textarea>
               <div class="dm-composer-foot"><label class="message-image-picker" title="添加图片、GIF 或视频"><input id="messageImageInput" name="media" type="file" aria-label="选择图片、GIF 或视频" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime"><span aria-hidden="true">▧</span><em>媒体</em></label><small id="messageComposerHint">Enter 发送 · 图片/GIF ≤ 10MB · 视频 ≤ 30MB</small><button type="submit" data-send-message aria-label="发送消息">➤</button></div>
             </form>
