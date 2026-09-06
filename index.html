@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="cnbdg的博客，记录生活的点点滴滴。"><meta name="author" content="cnbdg"><meta property="og:title" content="cnbdg的博客"><meta property="og:description" content="记录生活的点点滴滴"><meta property="og:type" content="website"><meta name="theme-color" content="#f4f7fa"><meta name="color-scheme" content="light dark"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><title>cnbdg的博客</title>
-  <link rel="stylesheet" href="style.min.css?v=20260807"></head>
+  <link rel="stylesheet" href="style.min.css?v=600bafebd176"></head>
 <body>
   <svg class="icon-sprite" aria-hidden="true" focusable="false">
     <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3.5 10.8 12 3.7l8.5 7.1v9a1.2 1.2 0 0 1-1.2 1.2h-5.1v-6.2H9.8V21H4.7a1.2 1.2 0 0 1-1.2-1.2Z"/></symbol>
@@ -191,12 +191,14 @@
             </header>
             <div id="messageContextLabel" class="message-privacy-label">今天 <span>消息仅对你们双方可见</span></div>
             <div id="messageList" class="dm-list message-list" aria-live="off" aria-label="消息记录"><p class="forum-empty">正在加载消息…</p></div>
+            <div class="message-reading-tools"><button id="messageLatestBtn" type="button" aria-controls="messageList" hidden>↓ 回到最新消息</button></div>
             <div id="messageAnnouncement" class="sr-only" role="status" aria-live="polite"></div>
             <form id="messageForm" class="dm-composer message-composer">
               <div id="messageImagePreview" class="message-image-preview" aria-live="polite" hidden><div id="messageMediaPreviewVisual" class="message-media-preview-visual"></div><span id="messageImagePreviewName"></span><button id="removeMessageImageBtn" type="button" aria-label="移除待发送媒体">×</button></div>
               <div id="messageReplyPreview" class="message-reply-preview" aria-live="polite" hidden><span class="message-reply-quote">❝</span><div><strong id="messageReplyPreviewName"></strong><span id="messageReplyPreviewText"></span></div><button id="removeMessageReplyBtn" type="button" aria-label="取消引用">×</button></div>
               <textarea name="content" maxlength="2000" aria-label="私信内容" placeholder="输入消息，按 Enter 发送…"></textarea>
-              <div class="dm-composer-foot"><label class="message-image-picker" title="添加图片、GIF 或视频"><input id="messageImageInput" name="media" type="file" aria-label="选择图片、GIF 或视频" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime"><span aria-hidden="true">▧</span><em>媒体</em></label><small id="messageComposerHint">Enter 发送 · 图片/GIF ≤ 10MB · 视频 ≤ 30MB</small><button type="submit" data-send-message aria-label="发送消息">➤</button></div>
+              <div class="message-writing-status"><small id="messageDraftStatus" title="仅在当前浏览器标签页临时保存文字，退出登录后清除；媒体和引用需重新选择。" hidden>文字草稿已暂存</small><small id="messageCharacterCount">0 / 2000</small></div>
+              <div class="dm-composer-foot"><label class="message-image-picker" title="添加图片或 GIF（≤10MB）、视频（≤30MB）"><input id="messageImageInput" name="media" type="file" aria-label="选择图片或 GIF（不超过 10MB）、视频（不超过 30MB）" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,video/mp4,video/webm,video/quicktime"><span aria-hidden="true">▧</span><em>媒体</em></label><small id="messageComposerHint">Enter 发送 · Shift + Enter 换行</small><button type="submit" data-send-message aria-label="发送消息">➤</button></div>
             </form>
           </div>
         </section>
@@ -272,7 +274,7 @@
   <footer><div><strong>cnbdg的博客</strong><p>记录生活的点点滴滴。</p></div><div class="footer-links"><a href="https://home.cnbdg0826.dpdns.org/" target="_blank" rel="noopener">导航页</a><a href="https://xsf.indevs.in/" target="_blank" rel="noopener">旧博客</a><a href="https://github.com/cnbdg" target="_blank" rel="noopener">GitHub</a><a href="mailto:3606604482@qq.com">联系</a></div><small>© 2026 cnbdg. All rights reserved.</small></footer>
   <button id="toTop" aria-label="返回顶部"><svg class="ui-icon"><use href="#icon-arrow-up"/></svg></button>
 
-  <dialog id="searchDialog"><div class="dialog-title"><b>搜索</b><button data-close="searchDialog">×</button></div><div class="search-box">⌕<input id="searchInput" placeholder="搜索文章、用户名或 UID…" autocomplete="off"></div><div id="userSearchResults" class="user-search-results"></div><div id="searchResults"></div><small class="search-hint">支持搜索文章、社区用户和 UID</small></dialog>
+  <dialog id="searchDialog" aria-labelledby="searchDialogTitle"><div class="dialog-title"><b id="searchDialogTitle">搜索</b><button data-close="searchDialog" aria-label="关闭搜索">×</button></div><div class="search-box">⌕<input id="searchInput" aria-label="搜索文章、用户名或 UID" placeholder="搜索文章、用户名或 UID…" autocomplete="off"></div><div class="search-results-scroll" tabindex="0" aria-label="搜索结果"><div id="userSearchResults" class="user-search-results" aria-live="polite"></div><div id="searchResults"></div></div><small class="search-hint">支持搜索文章、社区用户和 UID · Esc 关闭</small></dialog>
   <dialog id="articleDialog" class="article-dialog"><button class="article-close" data-close="articleDialog">×</button><article id="articleContent"></article>
     <section class="comments"><div class="comment-heading"><div><small>DISCUSSION</small><h2>评论 <span id="commentCount">0</span></h2></div><p>友善交流，真诚表达。</p></div>
       <div id="commentLoginTip" class="comment-login-tip">登录后即可参与评论。<button type="button" data-open-auth>立即登录</button></div><form id="commentForm"><label>评论<textarea name="content" required maxlength="500" placeholder="写下你的想法…"></textarea></label><div class="form-foot"><small><span id="charCount">0</span> / 500</small><button>发表评论</button></div></form><div id="commentList"></div>
@@ -318,4 +320,4 @@
       <aside class="owner-maintenance"><small>SYSTEM MAINTENANCE</small><h3>治理系统维护</h3><p class="owner-maintenance-lead">查看社区风险概况，并进入完整治理工作台。</p><div id="ownerHealthSummary" class="owner-health-summary"><p>打开面板后会读取治理系统状态。</p></div><button id="ownerOpenModerationBtn" type="button" class="secondary-btn">打开治理中心</button><button id="governanceCleanupBtn" type="button" class="secondary-btn">清理过期限制</button><p>清理只关闭已经到期的限制，不删除处罚记录、举报或操作日志。</p></aside>
     </form>
   </dialog>
-  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.min.js?v=20260807"></script></body></html>
+  <div id="navBackdrop" aria-hidden="true"></div><div id="toast" role="status"></div><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.min.js?v=d3636105bf23"></script></body></html>

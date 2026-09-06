@@ -114,13 +114,20 @@ function render(){
 }
 function gridAnimate(){if(reduceMotion.matches)return;$("#postList").classList.remove("is-refreshing");requestAnimationFrame(()=>$("#postList").classList.add("is-refreshing"))}
 render();
+let postRefreshRequest = 0;
+function applyPostRefresh(nextPosts) {
+ if (JSON.stringify(posts) === JSON.stringify(nextPosts)) return;
+ posts = nextPosts;
+ render(); // render clamps the page only if the new list is actually shorter.
+}
 async function refreshRemotePosts(){
+ const request = ++postRefreshRequest;
  const localLogs=localUpdatePosts();
- if(!window.blogAuth?.listPublishedPosts){posts=localLogs.length?localLogs:[...seedPosts];page=1;render();return}
+ if(!window.blogAuth?.listPublishedPosts){applyPostRefresh(localLogs.length?localLogs:[...seedPosts]);return}
  const rows=await window.blogAuth.listPublishedPosts();
- if(rows===null){posts=localLogs.length?localLogs:[...seedPosts];page=1;render();return}
+ if(request !== postRefreshRequest || rows===null)return;
  const remote=rows.map(p=>({id:1000000+Number(p.id),dbId:p.id,title:p.title,desc:p.description,date:p.published_at,type:p.type,tags:p.tags||[],read:p.read_time||"5 分钟",lead:p.lead,body:p.body}));
- posts=[...localLogs,...remote];page=1;render();
+ applyPostRefresh([...localLogs,...remote]);
 }
 window.refreshRemotePosts=refreshRemotePosts;
 window.addEventListener("blog-auth-change",refreshRemotePosts);
@@ -153,10 +160,37 @@ window.showPage=showPage;
 $("#filters").onclick=e=>{const b=e.target.closest("[data-filter]");if(!b)return;filter=b.dataset.filter;page=1;$("#filters .active").classList.remove("active");b.classList.add("active");render()};
 document.querySelector(".tag-cloud").onclick=e=>{const b=e.target.closest("[data-tag]");if(!b)return;filter=b.dataset.tag;page=1;document.querySelectorAll("#filters button").forEach(x=>x.classList.remove("active"));render();scrollTo({top:280,behavior:reduceMotion.matches?"auto":"smooth"})};
 $("#menuBtn").setAttribute("aria-expanded","false");$("#menuBtn").onclick=()=>{const open=!document.querySelector("nav").classList.contains("open");document.querySelector("nav").classList.toggle("open",open);document.body.classList.toggle("nav-open",open);$("#menuBtn").textContent=open?"×":"☰";$("#menuBtn").setAttribute("aria-expanded",String(open))};$("#navBackdrop").onclick=closeMenu;
-let navTouchX=0;document.addEventListener("touchstart",e=>{navTouchX=e.touches[0]?.clientX||0},{passive:true});document.addEventListener("touchend",e=>{const end=e.changedTouches[0]?.clientX||0;if(navTouchX<24&&end-navTouchX>70){if(window.blogMobileShell?.setDrawer)window.blogMobileShell.setDrawer(true);else{document.querySelector("nav")?.classList.add("open");document.body.classList.add("nav-open");$("#menuBtn").textContent="×"}}else if(document.querySelector("nav")?.classList.contains("open")&&navTouchX<330&&navTouchX-end>70)closeMenu()},{passive:true});
+// Pointer gestures are owned by mobile-shell.js; a second touch handler would
+// override its velocity-based landing and intercept taps on drawer controls.
 const setTheme=d=>{document.body.classList.toggle("dark",d);document.querySelector('meta[name="theme-color"]').content=d?"#080b0e":"#f4f7fa";localStorage.setItem("yu-theme",d?"dark":"light")};setTheme(localStorage.getItem("yu-theme")==="dark"||(!localStorage.getItem("yu-theme")&&matchMedia("(prefers-color-scheme:dark)").matches));$("#themeBtn").onclick=e=>animateThemeChange(!document.body.classList.contains("dark"),e);
-$("#searchBtn").onclick=()=>{openDialogManaged($("#searchDialog"));$("#searchInput").value="";search("");setTimeout(()=>$("#searchInput").focus(),50)};$("#searchInput").oninput=e=>search(e.target.value);
-async function search(q){let l=q?posts.filter(p=>(p.title+p.desc+p.tags).toLowerCase().includes(q.toLowerCase())):posts.slice(0,4);$("#searchResults").innerHTML=l.map(p=>`<div class="search-result" data-id="${p.id}"><small>${esc(formatPostTime(p.date))} · ${p.tags.map(esc).join(" / ")}</small><div>${esc(p.title)}</div></div>`).join("")||`<p class="search-hint">${posts.length?"没有找到相关文章":"暂时还没有发布文章"}</p>`;const users=q?await window.blogAuth?.searchUsers?.(q):[];$("#userSearchResults").innerHTML=users?.length?`<div class="user-search-heading">社区用户</div>`+users.map(user=>`<div class="user-search-item"><div><strong>${esc(user.username)}</strong><span>UID ${esc(user.user_uid)} · ${esc(user.display_title||"社区成员")}</span></div><div><button type="button" class="follow-button" data-follow-user="${esc(user.id)}">关注</button><button type="button" class="chat-button" data-chat-user="${esc(user.id)}" data-chat-name="${esc(user.username)}">私聊</button></div></div>`).join(""):q?`<p class="search-hint">没有找到用户</p>`:"";document.querySelectorAll("#userSearchResults [data-follow-user]").forEach(button=>window.hydrateFollowButton?.(button))}
+$("#searchBtn").onclick=()=>{openDialogManaged($("#searchDialog"));$("#searchInput").value="";search("");$("#searchInput").focus()};
+let searchRequest = 0;
+$("#searchInput").oninput = e => search(e.target.value, { delay: 180, composing: e.isComposing });
+$("#searchInput").addEventListener("compositionend", e => search(e.target.value, { delay: 180 }));
+$("#searchDialog").addEventListener("close", () => { searchRequest += 1; $("#userSearchResults").removeAttribute("aria-busy"); });
+async function search(value, { delay = 0, composing = false } = {}) {
+ const request = ++searchRequest;
+ const q = String(value || "").trim();
+ const list = q ? posts.filter(p => (p.title + p.desc + p.tags).toLowerCase().includes(q.toLowerCase())).slice(0, 20) : posts.slice(0, 4);
+ $("#searchResults").innerHTML = list.map(p => `<button type="button" class="search-result" data-id="${p.id}"><small>${esc(formatPostTime(p.date))} · ${p.tags.map(esc).join(" / ")}</small><span>${esc(p.title)}</span></button>`).join("") || `<p class="search-hint">${posts.length ? "没有找到相关文章" : "暂时还没有发布文章"}</p>`;
+ const target = $("#userSearchResults");
+ target.setAttribute("aria-busy", String(Boolean(q && !composing)));
+ target.innerHTML = q ? `<p class="search-hint">${composing ? "完成输入后搜索用户" : "正在搜索用户…"}</p>` : "";
+ if (!q || composing) return;
+ if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+ if (request !== searchRequest) return;
+ try {
+  const users = await window.blogAuth?.searchUsers?.(q) || [];
+  if (request !== searchRequest) return;
+  target.innerHTML = users.length ? `<div class="user-search-heading">社区用户</div>` + users.map(user => `<div class="user-search-item"><button type="button" class="search-user-identity" data-user-profile="${esc(user.id)}"><strong>${esc(user.username)}</strong><span>UID ${esc(user.user_uid)} · ${esc(user.display_title || "社区成员")}</span></button><div><button type="button" class="follow-button" data-follow-user="${esc(user.id)}">关注</button><button type="button" class="chat-button" data-chat-user="${esc(user.id)}" data-chat-name="${esc(user.username)}">私聊</button></div></div>`).join("") : `<p class="search-hint">没有找到用户，试试用户名或 UID</p>`;
+  target.querySelectorAll("[data-follow-user]").forEach(button => window.hydrateFollowButton?.(button));
+ } catch {
+  if (request === searchRequest) target.innerHTML = `<p class="search-hint">用户搜索暂时不可用，请稍后重新输入。</p>`;
+ } finally {
+  if (request === searchRequest) target.setAttribute("aria-busy", "false");
+ }
+}
+window.search = search;
 window.onscroll=()=>$("#toTop").classList.toggle("show",scrollY>500);$("#toTop").onclick=()=>scrollTo({top:0,behavior:reduceMotion.matches?"auto":"smooth"});
 let currentPost;
 function openArticle(id){currentPost=posts.find(p=>p.id===id);if(!currentPost)return;window.currentPost=currentPost;const body=window.blogMarkdown?window.blogMarkdown.render(currentPost.body):esc(currentPost.body);$("#articleContent").innerHTML=`<div class="article-body"><div class="article-meta">${esc(currentPost.type)} · <time datetime="${esc(postTimeAttribute(currentPost.date))}">${esc(formatPostTime(currentPost.date))}</time> · ${esc(currentPost.read)}</div><h1>${esc(currentPost.title)}</h1><p class="lead">${esc(currentPost.lead)}</p><div class="article-text">${body}<p>感谢你读到这里。如果这篇文章对你有帮助，欢迎在评论区留下想法。</p></div></div>`;openDialogManaged($("#articleDialog"));$("#articleDialog").scrollTop=0;renderComments()}

@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "dev": "node tools/serve.mjs",
+    "build": "node tools/build-assets.mjs",
+    "test": "node tools/browser-self-check.mjs"
+  },
   "devDependencies": {
     "esbuild": "^0.28.1"
   }

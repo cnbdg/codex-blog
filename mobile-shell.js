@@ -46,7 +46,7 @@
     const width = drawerWidth();
     const rect = drawer.getBoundingClientRect();
     // Drawer is anchored left (translateX(-105%) closed, 0 open).
-    return Math.max(0, Math.min(1, 1 + rect.left / width));
+    return Math.max(0, Math.min(1, 1 + rect.left / (width * 1.05)));
   }
 
   function setDrawerProgress(progress) {
@@ -56,7 +56,6 @@
     // The closed drawer style uses transform !important, so the drag
     // transform must be set with !important too to win the cascade.
     drawer.style.setProperty("transform", `translate3d(${(-(1 - progress) * width * 1.05).toFixed(2)}px, 0, 0)`, "important");
-    document.body.style.setProperty("--drawer-progress", progress.toFixed(3));
     const backdrop = $("#navBackdrop");
     if (backdrop) {
       backdrop.style.opacity = String(progress * .6);
@@ -73,7 +72,6 @@
       backdrop.style.removeProperty("opacity");
       backdrop.style.removeProperty("visibility");
     }
-    document.body.style.removeProperty("--drawer-progress");
   }
 
   function snapDrawer(open, velocity = 0) {
@@ -82,8 +80,8 @@
     const width = drawerWidth();
     const progress = drawerOpenProgress();
     // Apple momentum projection: decide by velocity first, distance second.
-    const projected = progress + (velocity * 0.18) / width;
-    const shouldOpen = projected > .42 || (Math.abs(velocity) < .05 && progress > .5);
+    const projected = progress + (velocity * 180) / width;
+    const shouldOpen = projected > .5;
     if (open === undefined) open = shouldOpen;
     clearDrawerProgress();
     setDrawer(open);
@@ -94,6 +92,13 @@
     const mobile = isMobile();
     const nextOpen = Boolean(open && mobile && !isDialogOpen());
     if (!drawer) return;
+    if (trackedPointer !== null) {
+      try { drawer.releasePointerCapture?.(trackedPointer); } catch { /* pointer already released */ }
+      trackedPointer = null;
+      drawerDrag.active = false;
+      drawer.classList.remove("is-dragging");
+      clearDrawerProgress();
+    }
 
     drawer.classList.toggle("open", nextOpen);
     document.body.classList.toggle("nav-open", nextOpen);
@@ -147,8 +152,11 @@
     const buttonRect = button.getBoundingClientRect();
     const x = Math.round((buttonRect.left - dockRect.left + 2) * 100) / 100;
     const width = Math.max(44, Math.round((buttonRect.width - 4) * 100) / 100);
+    // Capture the visible indicator before changing its layout destination.
+    const presentation = getComputedStyle(indicator).transform;
     const previousX = dockState.x;
-    const previousWidth = dockState.width || width;
+    const previousWidth = dockState.width;
+    const interrupted = Boolean(dockState.animation);
 
     dock.style.setProperty("--liquid-x", `${x}px`);
     dock.style.setProperty("--liquid-width", `${width}px`);
@@ -161,18 +169,19 @@
     const distance = x - previousX;
     const direction = Math.sign(distance) || 1;
     const stretch = Math.min(1.28, 1 + Math.abs(distance) / 420);
-    indicator.style.transformOrigin = direction > 0 ? "right center" : "left center";
-    dockState.animation = indicator.animate([
-      { transform: `translate3d(${previousX}px, 0, 0) scaleX(${previousWidth / width})` },
+    indicator.style.transformOrigin = "left center";
+    const animation = indicator.animate([
+      { transform: interrupted ? presentation : `translate3d(${previousX}px, 0, 0) scaleX(${previousWidth / width})` },
       { transform: `translate3d(${x - direction * 5}px, 0, 0) scaleX(${stretch}) scaleY(.9)`, offset: .56 },
       { transform: `translate3d(${x + direction * 2}px, 0, 0) scaleX(.985) scaleY(1.015)`, offset: .82 },
       { transform: `translate3d(${x}px, 0, 0) scale(1)` }
     ], {
-      duration: 520,
+      duration: 340,
       easing: "cubic-bezier(.2, .82, .22, 1)"
     });
-    dockState.animation.finished.catch(() => {}).finally(() => {
-      if (dockState.animation?.playState === "finished") dockState.animation = null;
+    dockState.animation = animation;
+    animation.finished.catch(() => {}).finally(() => {
+      if (dockState.animation === animation) dockState.animation = null;
     });
     dockState.moves += 1;
   }
@@ -297,11 +306,17 @@
     dockState.lastScrollY = Math.max(0, window.scrollY || 0);
     setDrawer(false);
     query.addEventListener?.("change", () => {
+      dockState.animation?.cancel();
+      dockState.animation = null;
       setDrawer(false);
       setDockMinimized(false);
       syncDock();
     });
     window.addEventListener("blog-page-change", syncDock);
+    reduceMotion.addEventListener?.("change", () => {
+      dockState.animation?.cancel();
+      dockState.animation = null;
+    });
 
     const dock = $("#mobileDock");
     dock?.addEventListener("pointermove", updateLiquidLight, { passive: true });
@@ -337,43 +352,51 @@
     });
 
     document.addEventListener("pointerdown", event => {
-      trackedPointer = null;
-      if (!isMobile() || event.pointerType === "mouse" || isDialogOpen()) return;
+      if (trackedPointer !== null || event.isPrimary === false || !isMobile() || event.pointerType === "mouse" || isDialogOpen()) return;
       const drawer = nav();
       const edgeStart = event.clientX <= 34;
       const insideDrawer = drawer?.classList.contains("open") && event.clientX <= drawerWidth() + 8;
       if (!edgeStart && !insideDrawer) return;
       trackedPointer = event.pointerId;
-      drawerDrag.active = true;
+      drawerDrag.active = false;
       drawerDrag.startX = event.clientX;
+      drawerDrag.startY = event.clientY;
+      drawerDrag.progress = drawerOpenProgress();
       drawerDrag.lastX = event.clientX;
       drawerDrag.lastTime = performance.now();
       drawerDrag.velocity = 0;
       drawerDrag.width = drawerWidth();
       drawerDrag.open = Boolean(drawer?.classList.contains("open"));
-      drawerDrag.history = [];
-      drawer?.classList.add("is-dragging");
-      try { drawer?.setPointerCapture?.(event.pointerId); } catch { /* synthetic or released pointer */ }
+      drawerDrag.history = [{ x: event.clientX, t: drawerDrag.lastTime }];
     }, { passive: true });
     document.addEventListener("pointermove", event => {
-      if (!drawerDrag.active || trackedPointer !== event.pointerId) return;
+      if (trackedPointer !== event.pointerId) return;
       const drawer = nav();
       if (!drawer) return;
+      const travel = event.clientX - drawerDrag.startX;
+      const verticalTravel = event.clientY - drawerDrag.startY;
+      if (!drawerDrag.active) {
+        if (Math.abs(verticalTravel) > 10 && Math.abs(verticalTravel) > Math.abs(travel)) {
+          trackedPointer = null;
+          return;
+        }
+        if (Math.abs(travel) < 10) return;
+        drawerDrag.active = true;
+        drawer.classList.add("is-dragging");
+        try { drawer.setPointerCapture?.(event.pointerId); } catch { /* synthetic pointer */ }
+      }
       const now = performance.now();
       const dt = Math.max(1, now - drawerDrag.lastTime);
       const dx = event.clientX - drawerDrag.lastX;
       drawerDrag.velocity = .7 * (dx / dt) + .3 * drawerDrag.velocity;
       drawerDrag.history.push({ x: event.clientX, t: now });
-      if (drawerDrag.history.length > 8) drawerDrag.history.shift();
+      drawerDrag.history = drawerDrag.history.filter(sample => now - sample.t <= 90);
       drawerDrag.lastX = event.clientX;
       drawerDrag.lastTime = now;
 
-      const travel = event.clientX - drawerDrag.startX;
       const width = drawerDrag.width;
       // Closed drawer dragged right opens; open drawer dragged left closes.
-      let progress;
-      if (drawerDrag.open) progress = 1 + travel / width;
-      else progress = travel / width;
+      let progress = drawerDrag.progress + travel / (width * 1.05);
       // Rubber-band at the far edge: resist past the boundary.
       if (progress > 1) progress = 1 + (progress - 1) * .18;
       if (progress < 0) progress = progress * .25;
@@ -392,7 +415,7 @@
       // Velocity from the last ~90ms window, Apple-style handoff.
       const history = drawerDrag.history;
       let velocity = 0;
-      if (history.length >= 2) {
+      if (history.length >= 2 && performance.now() - drawerDrag.lastTime < 100) {
         const tail = history[history.length - 1];
         const head = history[0];
         const elapsed = Math.max(1, tail.t - head.t);
@@ -401,10 +424,11 @@
       snapDrawer(undefined, velocity);
       drawerDrag.history = [];
     }, { passive: true });
-    document.addEventListener("pointercancel", () => {
+    document.addEventListener("pointercancel", event => {
+      if (trackedPointer !== event.pointerId) return;
+      trackedPointer = null;
       if (!drawerDrag.active) return;
       drawerDrag.active = false;
-      trackedPointer = null;
       nav()?.classList.remove("is-dragging");
       snapDrawer(drawerDrag.open);
     }, { passive: true });

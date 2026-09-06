@@ -630,10 +630,8 @@
     if (!user && !recovering) setMode(nextMode);
     updateAuthUI();
     const dialog = $("#authDialog");
-    if (!dialog?.open) {
-      if (window.blogUI?.openDialog) window.blogUI.openDialog(dialog);
-      else dialog?.showModal();
-    }
+    if (window.blogUI?.openDialog) window.blogUI.openDialog(dialog);
+    else if (!dialog?.open) dialog?.showModal();
   }
 
   function applySession(session, event = "SESSION_RESTORED") {

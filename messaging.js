@@ -2,6 +2,7 @@
   "use strict";
 
   const $ = selector => document.querySelector(selector);
+  const compactComposer = window.matchMedia("(max-width: 1023px)");
   let targetUser = null;
   let targetGroup = null;
   let targetGroupMeta = null;
@@ -10,7 +11,6 @@
   let stopMessageSync = null;
   let messagePoll = null;
   let renderedMessageKey = null;
-  let renderedMessageCount = 0;
   let renderedMessages = [];
   let hasRenderedMessages = false;
   let chatOwner = null;
@@ -18,6 +18,20 @@
   let selectedImagePreviewUrl = "";
   let signedImageRefreshAt = 0;
   let replyTarget = null;
+  let conversationRequest = 0;
+  let chatEpoch = 0;
+  let messageRequest = 0;
+  let activeSend = null;
+  let unreadInView = 0;
+  let followLatest = true;
+  const messageNodes = new Map();
+  let signedMediaUrls = new Map();
+  const draftKey = "cnbdg-chat-drafts-v1";
+  let drafts = {};
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(draftKey) || "{}");
+    if (saved && typeof saved === "object" && !Array.isArray(saved)) drafts = saved;
+  } catch { /* Session storage is optional, including private browsing. */ }
 
   const messageMediaTypes = new Set([
     "image/jpeg", "image/png", "image/gif", "image/webp", "image/avif",
@@ -36,6 +50,80 @@
   const isMessagesPage = () => document.getElementById("messages")?.classList.contains("active");
   const isChatVisible = () => Boolean((targetUser || targetGroup) && isMessagesPage() && !$("#messageThread")?.hidden);
   const currentChatKey = () => targetGroup ? `group:${targetGroup}` : targetUser ? `direct:${targetUser}` : "";
+
+  function storeDraft(owner = chatOwner, key = currentChatKey(), value = $("#messageForm textarea")?.value || "") {
+    if (!owner || !key) return;
+    const id = `${owner}:${key}`;
+    if (value.trim()) drafts[id] = { text: value.slice(0, 2000), updated: Date.now() };
+    else delete drafts[id];
+    persistDrafts();
+  }
+
+  function persistDrafts() {
+    drafts = Object.fromEntries(Object.entries(drafts)
+      .filter(([, draft]) => typeof draft?.text === "string" && Date.now() - draft.updated < 86400000)
+      .sort((a, b) => b[1].updated - a[1].updated).slice(0, 20));
+    try { sessionStorage.setItem(draftKey, JSON.stringify(drafts)); } catch { /* Keep in-memory drafts. */ }
+  }
+
+  function restoreDraft() {
+    persistDrafts();
+    const input = $("#messageForm textarea");
+    if (input) input.value = drafts[`${chatOwner}:${currentChatKey()}`]?.text || "";
+    updateComposer();
+  }
+
+  function updateComposer() {
+    const input = $("#messageForm textarea");
+    const count = $("#messageCharacterCount");
+    if (count && input) {
+      count.textContent = `${input.value.length} / 2000`;
+      count.classList.toggle("near-limit", input.value.length >= 1800);
+    }
+    const draft = $("#messageDraftStatus");
+    if (draft) draft.hidden = !input?.value.trim();
+  }
+
+  function updateLatestButton() {
+    const button = $("#messageLatestBtn");
+    if (!button) return;
+    button.hidden = followLatest || !hasRenderedMessages;
+    button.textContent = unreadInView ? `↓ ${unreadInView} 条新消息` : "↓ 回到最新消息";
+  }
+
+  function scrollToLatest() {
+    const list = $("#messageList");
+    if (!list) return;
+    list.scrollTop = list.scrollHeight;
+    followLatest = true;
+    unreadInView = 0;
+    updateLatestButton();
+  }
+
+  function resetConversationView() {
+    chatEpoch += 1;
+    messageRequest += 1;
+    messageNodes.clear();
+    signedMediaUrls = new Map();
+    followLatest = true;
+    unreadInView = 0;
+    activeSend = null;
+    setSending(false);
+    updateLatestButton();
+  }
+
+  function setSending(busy) {
+    const form = $("#messageForm");
+    if (!form) return;
+    form.dataset.sending = String(busy);
+    form.setAttribute("aria-busy", String(busy));
+    form.classList.toggle("is-uploading", busy);
+    const button = form.querySelector("[data-send-message]");
+    if (button) { button.disabled = busy; button.textContent = busy ? "…" : "➤"; }
+    // Keep focus/the mobile keyboard in place while the request is in flight.
+    if (form.elements.content) form.elements.content.disabled = false;
+    if ($("#messageImageInput")) $("#messageImageInput").disabled = busy;
+  }
 
   function announceMessage(message = "") {
     const announcer = $("#messageAnnouncement");
@@ -124,8 +212,16 @@
     if (context) context.innerHTML = group
       ? `群组 <span>消息仅对当前群成员可见</span>`
       : `今天 <span>消息仅对你们双方可见</span>`;
+    syncComposerHint();
+  }
+
+  function syncComposerHint() {
     const hint = $("#messageComposerHint");
-    if (hint) hint.textContent = "Enter 发送 · 图片/GIF ≤ 10MB · 视频 ≤ 30MB";
+    if (hint) hint.textContent = compactComposer.matches
+      ? "回车换行 · 点击箭头发送"
+      : "Enter 发送 · Shift + Enter 换行";
+    const input = $("#messageForm textarea");
+    if (input) input.placeholder = compactComposer.matches ? "写一条消息…" : "输入消息，按 Enter 发送…";
   }
 
   function renderMessageMedia(path, url, label = "聊天媒体") {
@@ -311,7 +407,7 @@
       : window.blogAuth?.subscribeDirectMessages?.bind(window.blogAuth, peer);
     stopMessageSync = subscribe?.(async row => {
       if (currentChatKey() !== conversationKey || window.blogAuth?.user?.id !== viewer || !isChatVisible()) return;
-      await renderMessages({ forceScroll: true });
+      await renderMessages();
       if (row.sender_id !== viewer) await markCurrentChatRead(peer, group);
     }, status => {
       if (currentChatKey() !== conversationKey || window.blogAuth?.user?.id !== viewer || !isChatVisible()) return;
@@ -409,12 +505,20 @@
     if (!window.blogAuth?.user) return window.blogAuth?.openAuth("login");
     if (!userId) return;
     const viewer = window.blogAuth.user.id;
+    const request = ++conversationRequest;
+    if (targetUser === userId && chatOwner === viewer) {
+      window.blogUI?.navigate("messages");
+      activateMessages();
+      return;
+    }
     window.setMessageInboxTab?.("direct");
     const state = await window.blogAuth.getFollowState(userId);
-    if (viewer !== window.blogAuth?.user?.id) return;
+    if (request !== conversationRequest || viewer !== window.blogAuth?.user?.id) return;
     if (!state?.mutual) return window.toast?.("只有互相关注后才能私聊");
 
+    storeDraft();
     stopChatSync();
+    resetConversationView();
     closeDialog($("#groupChatInfoDialog"));
     targetGroup = null;
     targetGroupMeta = null;
@@ -422,12 +526,12 @@
     targetName = name || "社区用户";
     chatOwner = viewer;
     renderedMessageKey = null;
-    renderedMessageCount = 0;
     renderedMessages = [];
     hasRenderedMessages = false;
     clearReplyTarget();
     signedImageRefreshAt = 0;
     $("#messageForm")?.reset();
+    restoreDraft();
     clearImageSelection();
     setConversationMode(false);
     $("#messageTitle").textContent = targetName;
@@ -450,6 +554,14 @@
     if (!window.blogAuth?.user) return window.blogAuth?.openAuth("login");
     if (!groupId) return;
     const viewer = window.blogAuth.user.id;
+    const request = ++conversationRequest;
+    if (targetGroup === groupId && chatOwner === viewer) {
+      window.blogUI?.navigate("messages");
+      activateMessages();
+      return;
+    }
+    storeDraft();
+    resetConversationView();
     window.setMessageInboxTab?.("groups");
     stopChatSync();
     targetUser = null;
@@ -458,17 +570,21 @@
     targetGroupMeta = metadata || null;
     chatOwner = viewer;
     renderedMessageKey = null;
-    renderedMessageCount = 0;
     renderedMessages = [];
     hasRenderedMessages = false;
     clearReplyTarget();
     signedImageRefreshAt = 0;
     $("#messageForm")?.reset();
+    restoreDraft();
     clearImageSelection();
     closeDialog($("#groupChatInfoDialog"));
+    setConversationMode(true);
+    $("#messageTitle").textContent = targetName;
+    setConversationAvatar(targetName, targetGroupMeta?.group_avatar_url, true);
+    $("#messageList").innerHTML = `<p class="forum-empty">正在加载群消息…</p>`;
     if (!targetGroupMeta) {
       const groups = await window.blogAuth.listGroupChats();
-      if (targetGroup !== groupId || viewer !== window.blogAuth?.user?.id) return;
+      if (request !== conversationRequest || targetGroup !== groupId || viewer !== window.blogAuth?.user?.id) return;
       targetGroupMeta = (groups || []).find(group => group.group_id === groupId) || null;
       if (targetGroupMeta?.group_name) targetName = targetGroupMeta.group_name;
     }
@@ -487,6 +603,9 @@
   }
 
   function closeChat() {
+    storeDraft();
+    conversationRequest += 1;
+    resetConversationView();
     stopChatSync();
     targetUser = null;
     targetGroup = null;
@@ -494,12 +613,12 @@
     targetName = "社区用户";
     chatOwner = null;
     renderedMessageKey = null;
-    renderedMessageCount = 0;
     renderedMessages = [];
     hasRenderedMessages = false;
     clearReplyTarget();
     signedImageRefreshAt = 0;
     $("#messageForm")?.reset();
+    updateComposer();
     clearImageSelection();
     setConversationMode(false);
     showMessageThread(false);
@@ -524,26 +643,38 @@
     const group = targetGroup;
     const conversationKey = currentChatKey();
     if ((!peer && !group) || !viewer || viewer !== window.blogAuth?.user?.id || !isChatVisible()) return;
+    const request = ++messageRequest;
+    const epoch = chatEpoch;
+    const isCurrent = () => request === messageRequest && epoch === chatEpoch && conversationKey === currentChatKey() && viewer === window.blogAuth?.user?.id && isChatVisible();
     const messages = group
       ? await window.blogAuth.listGroupChatMessages(group)
       : await window.blogAuth.listDirectMessages(peer);
-    if (!messages || conversationKey !== currentChatKey() || viewer !== window.blogAuth?.user?.id || !isChatVisible()) return;
-    renderedMessages = messages;
-    const key = messages.length ? messages.map(message => `${message.id}:${message.created_at}:${message.media_path || message.image_path || ""}:${message.revoked_at || ""}`).join("|") : "empty";
+    if (!messages || !isCurrent()) return;
+    const key = JSON.stringify(messages);
     const imagePaths = messages.map(message => group ? message.media_path : message.image_path).filter(Boolean);
     const shouldRefreshImages = imagePaths.length && Date.now() >= signedImageRefreshAt;
-    if (hasRenderedMessages && key === renderedMessageKey && !shouldRefreshImages) return;
+    if (hasRenderedMessages && key === renderedMessageKey && !shouldRefreshImages) {
+      if (forceScroll) scrollToLatest();
+      return;
+    }
     const list = $("#messageList");
-    const isNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
-    const imageUrls = imagePaths.length
+    const pathsToSign = imagePaths.filter(path => shouldRefreshImages || !signedMediaUrls.has(path));
+    const newImageUrls = pathsToSign.length
       ? (group
-        ? (await window.blogAuth?.getGroupChatMediaUrls?.(imagePaths)) || new Map()
-        : (await window.blogAuth?.getDirectMessageImageUrls?.(imagePaths)) || new Map())
+        ? (await window.blogAuth?.getGroupChatMediaUrls?.(pathsToSign)) || new Map()
+        : (await window.blogAuth?.getDirectMessageImageUrls?.(pathsToSign)) || new Map())
       : new Map();
-    if (conversationKey !== currentChatKey() || viewer !== window.blogAuth?.user?.id || !isChatVisible()) return;
+    if (!isCurrent()) return;
+    const imageUrls = new Map(imagePaths.filter(path => newImageUrls.has(path) || signedMediaUrls.has(path))
+      .map(path => [path, newImageUrls.get(path) || signedMediaUrls.get(path)]));
+    signedMediaUrls = imageUrls;
+    const isNearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
+    const anchor = [...list.children].find(node => node.getBoundingClientRect().bottom > list.getBoundingClientRect().top);
+    const anchorTop = anchor?.getBoundingClientRect().top;
+    const oldIds = new Set(renderedMessages.map(message => String(message.id)));
+    renderedMessages = messages;
     const wasRendered = hasRenderedMessages;
-    const previousCount = renderedMessageCount;
-    list.innerHTML = messages.length ? messages.map(message => {
+    const markup = messages.map(message => {
       const own = message.sender_id === window.blogAuth.user?.id;
       const revoked = Boolean(message.revoked_at);
       const content = String(message.content || "").trim();
@@ -573,25 +704,57 @@
       const imageUrl = message.image_path ? imageUrls.get(message.image_path) : "";
       const image = revoked ? "" : renderMessageMedia(message.image_path, imageUrl, "私信媒体");
       return `<article class="dm-message ${own ? "own" : "other"}${revoked ? " is-revoked" : ""}" data-message-id="${escapeText(String(message.id))}">${bodyContent}${image}<time>${new Date(message.created_at).toLocaleString("zh-CN", { hour12: false })}</time>${quoteAction}${revokeAction}</article>`;
-    }).join("") : `<p class="forum-empty">还没有消息，打个招呼吧。</p>`;
+    });
+    // Reconcile by message ID. Unchanged media, focus and text selection stay
+    // mounted when Realtime/polling adds another message or updates a quote.
+    const nextNodes = new Map();
+    const template = document.createElement("template");
+    messages.forEach((message, index) => {
+      const id = String(message.id);
+      let entry = messageNodes.get(id);
+      if (!entry || entry.markup !== markup[index]) {
+        template.innerHTML = markup[index];
+        entry = { node: template.content.firstElementChild, markup: markup[index] };
+      }
+      nextNodes.set(id, entry);
+    });
+    const keep = new Set([...nextNodes.values()].map(entry => entry.node));
+    [...list.children].forEach(node => { if (!keep.has(node)) node.remove(); });
+    let cursor = list.firstElementChild;
+    nextNodes.forEach(entry => {
+      if (cursor === entry.node) cursor = cursor.nextElementSibling;
+      else list.insertBefore(entry.node, cursor);
+    });
+    messageNodes.clear();
+    nextNodes.forEach((entry, id) => messageNodes.set(id, entry));
+    if (!messages.length) list.innerHTML = `<p class="forum-empty">还没有消息，打个招呼吧。</p>`;
     renderedMessageKey = key;
-    renderedMessageCount = messages.length;
     hasRenderedMessages = true;
-    signedImageRefreshAt = imagePaths.length
-      ? Date.now() + (imagePaths.every(path => imageUrls.has(path)) ? 45 * 60 * 1000 : 60 * 1000)
-      : 0;
-    if (wasRendered && messages.length > previousCount) {
-      const incoming = messages.slice(previousCount).filter(message => group
+    if (pathsToSign.length) {
+      const allSigned = imagePaths.every(path => imageUrls.has(path));
+      const nextRefresh = Date.now() + (allSigned ? 45 * 60 * 1000 : 60 * 1000);
+      // Newly uploaded media must not indefinitely extend older URLs' expiry.
+      signedImageRefreshAt = shouldRefreshImages || !signedImageRefreshAt
+        ? nextRefresh : Math.min(signedImageRefreshAt, nextRefresh);
+    }
+    if (wasRendered) {
+      const incoming = messages.filter(message => !oldIds.has(String(message.id))).filter(message => group
         ? message.sender_id !== viewer
         : message.sender_id === peer);
       if (incoming.length) {
+        if (!isNearBottom && !forceScroll) unreadInView += incoming.length;
         announceMessage(group
           ? `${targetName} 有 ${incoming.length} 条新消息`
           : `收到 ${incoming.length} 条来自 ${targetName} 的新私信`);
         if (group) markCurrentChatRead(null, group);
       }
     }
-    if (forceScroll || isNearBottom) list.scrollTop = list.scrollHeight;
+    if (forceScroll || isNearBottom || !wasRendered) scrollToLatest();
+    else {
+      followLatest = false;
+      if (anchor?.isConnected) list.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
+      updateLatestButton();
+    }
   }
 
   async function sendMessage(event) {
@@ -603,23 +766,20 @@
     const sender = chatOwner || window.blogAuth?.user?.id;
     if (!sender || sender !== window.blogAuth?.user?.id) return;
     const form = event.currentTarget;
-    const content = form.elements.content.value.trim();
+    const submittedText = form.elements.content.value;
+    const content = submittedText.trim();
     const image = selectedImageFile;
     if (!content && !image) return;
     const button = form.querySelector("[data-send-message]");
     if (!button) return;
     if (form.dataset.sending === "true") return;
-    const normalText = button.textContent;
-    const contentInput = form.elements.content;
-    const imageInput = $("#messageImageInput");
+    const operation = { epoch: chatEpoch };
+    activeSend = operation;
+    const isCurrent = () => activeSend === operation && chatEpoch === operation.epoch && sender === window.blogAuth?.user?.id;
     const replyId = replyTarget?.id || null;
     let imagePath = null;
-    form.dataset.sending = "true";
-    form.setAttribute("aria-busy", "true");
-    button.disabled = true;
-    if (contentInput) contentInput.disabled = true;
-    if (imageInput) imageInput.disabled = true;
-    form.classList.add("is-uploading");
+    storeDraft();
+    setSending(true);
     try {
       if (image && recipient) {
         button.textContent = "…";
@@ -630,7 +790,7 @@
         imagePath = await window.blogAuth.uploadGroupChatMedia(group, image);
         if (!imagePath) return;
       }
-      if (currentChatKey() !== conversationKey || sender !== window.blogAuth?.user?.id) {
+      if (!isCurrent()) {
         if (imagePath) await (group
           ? window.blogAuth.deleteGroupChatMedia(imagePath)
           : window.blogAuth.deleteDirectMessageImage(imagePath));
@@ -646,19 +806,20 @@
           : window.blogAuth.deleteDirectMessageImage(imagePath));
         return;
       }
-      form.reset();
-      clearImageSelection();
-      clearReplyTarget();
-      signedImageRefreshAt = 0;
+      if (sender === window.blogAuth?.user?.id && drafts[`${sender}:${conversationKey}`]?.text.trim() === content) storeDraft(sender, conversationKey, "");
+      if (!isCurrent()) return;
+      if (form.elements.content.value === submittedText) form.elements.content.value = "";
+      updateComposer();
+      if (selectedImageFile === image) clearImageSelection();
+      if ((replyTarget?.id || null) === replyId) clearReplyTarget();
       await renderMessages({ forceScroll: true });
+    } catch {
+      if (isCurrent()) window.toast?.("发送未完成，文字和媒体已保留，请检查网络后重试。");
     } finally {
-      delete form.dataset.sending;
-      form.removeAttribute("aria-busy");
-      button.disabled = false;
-      if (contentInput) contentInput.disabled = false;
-      if (imageInput) imageInput.disabled = false;
-      button.textContent = normalText;
-      form.classList.remove("is-uploading");
+      if (isCurrent()) {
+        activeSend = null;
+        setSending(false);
+      }
     }
   }
 
@@ -669,9 +830,9 @@
   }
 
   function openDialog(dialog) {
-    if (!dialog || dialog.open) return;
+    if (!dialog) return;
     if (window.blogUI?.openDialog) window.blogUI.openDialog(dialog);
-    else dialog.showModal();
+    else if (!dialog.open) dialog.showModal();
   }
 
   function closeDialog(dialog) {
@@ -889,12 +1050,27 @@
   }
 
   function init() {
+    syncComposerHint();
+    compactComposer.addEventListener?.("change", syncComposerHint);
+    $("#messageForm textarea")?.addEventListener("input", () => { storeDraft(); updateComposer(); });
+    $("#messageLatestBtn")?.addEventListener("click", scrollToLatest);
+    $("#messageList")?.addEventListener("scroll", () => {
+      const list = $("#messageList");
+      followLatest = list.scrollHeight - list.scrollTop - list.clientHeight < 72;
+      if (followLatest) unreadInView = 0;
+      updateLatestButton();
+    }, { passive: true });
+    ["load", "loadedmetadata"].forEach(type => $("#messageList")?.addEventListener(type, () => {
+      if (followLatest && isChatVisible()) scrollToLatest();
+    }, true));
+    window.addEventListener("pagehide", () => storeDraft());
     $("#messageForm")?.addEventListener("submit", sendMessage);
     $("#messageImageInput")?.addEventListener("change", selectMessageImage);
     $("#removeMessageImageBtn")?.addEventListener("click", clearImageSelection);
     $("#removeMessageReplyBtn")?.addEventListener("click", clearReplyTarget);
     $("#messageForm textarea")?.addEventListener("keydown", event => {
-      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing && event.keyCode !== 229
+        && (!compactComposer.matches || event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         $("#messageForm").requestSubmit();
       }
@@ -910,6 +1086,8 @@
     window.addEventListener("blog-page-change", event => {
       if (event.detail?.page === "messages") activateMessages();
       else {
+        storeDraft();
+        messageRequest += 1;
         stopChatSync();
         document.body.classList.remove("message-thread-open");
       }
@@ -917,7 +1095,11 @@
     window.addEventListener("blog-auth-change", () => {
       const currentUserId = window.blogAuth?.user?.id || null;
       if (!currentUserId || (chatOwner && chatOwner !== currentUserId)) {
+        const previousOwner = chatOwner;
         closeChat();
+        // Shared devices must not retain the previous account's private drafts.
+        drafts = Object.fromEntries(Object.entries(drafts).filter(([key]) => currentUserId && !key.startsWith(`${previousOwner}:`)));
+        persistDrafts();
         return;
       }
       if (isMessagesPage()) window.renderMessageFriends?.();

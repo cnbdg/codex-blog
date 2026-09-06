@@ -39,9 +39,9 @@
   }
 
   function openDialog(dialog) {
-    if (!dialog || dialog.open) return;
+    if (!dialog) return;
     if (window.blogUI?.openDialog) window.blogUI.openDialog(dialog);
-    else dialog.showModal();
+    else if (!dialog.open) dialog.showModal();
   }
 
   function setFormError(id, message = "") {

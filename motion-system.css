@@ -23,6 +23,22 @@
   --mac-pointer-y: 0px;
 }
 
+/* Managed panels use a single retargetable WAAPI controller. Do not combine
+   keyframes, blur repainting and JS transforms on the same surface. */
+:root.motion-enabled.motion-platform-macos dialog[open][data-motion-managed],
+:root.motion-enabled.motion-platform-ios dialog[open][data-motion-managed] {
+  animation: none !important;
+  transition: none !important;
+  filter: none !important;
+  transform-origin: center center;
+  will-change: auto !important;
+}
+
+:root.motion-enabled.motion-platform-macos dialog[open][data-motion-managed]::backdrop,
+:root.motion-enabled.motion-platform-ios dialog[open][data-motion-managed]::backdrop {
+  animation: none !important;
+}
+
 html.motion-enabled .page.active {
   animation: none !important;
   will-change: auto;
@@ -40,7 +56,7 @@ html.motion-view-transition body {
 }
 
 @supports (view-transition-name: page-content) {
-  html.motion-enabled.motion-platform-macos .page.active { view-transition-name: page-content; }
+  html.motion-enabled.motion-platform-macos .page.active { view-transition-name: none; }
 
   ::view-transition-group(page-content) {
     z-index: 4;

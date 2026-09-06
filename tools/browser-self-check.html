@@ -19,6 +19,10 @@
         frame.style.height = "844px";
       }
       const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+      const until = async (condition, timeout = 1500) => {
+        const start = Date.now();
+        while (!condition() && Date.now() - start < timeout) await wait(20);
+      };
       const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
       function finish(status, detail) {
@@ -88,10 +92,7 @@
           assert(w.blogUI.openDialog(searchDialog) && w.blogUI.state.overlay === "searchDialog", "统一弹窗调度没有记录打开状态");
           // Headless Chrome dispatches animationend later than a 24ms sheet
           // suggests; poll for the settled state instead of assuming timing.
-          const settledAt = Date.now();
-          while (!searchDialog.classList.contains("motion-dialog-settled") && Date.now() - settledAt < 600) {
-            await wait(25);
-          }
+          await until(() => searchDialog.classList.contains("motion-dialog-settled") || !baseChecks.motionEnabled, 1800);
           const overlayLifecycle = {
             settled: !baseChecks.motionEnabled || searchDialog.classList.contains("motion-dialog-settled"),
             settledLayer: getComputedStyle(searchDialog).willChange,
@@ -334,8 +335,8 @@
             assert(groupInfo.open && groupInfo.members === 3, "群资料或成员列表渲染失败");
             assert(groupInfo.editable && groupInfo.removeButtons === 2, "群主管理控件权限错误");
             w.blogUI.closeDialog(d.querySelector("#groupChatInfoDialog"));
-            await wait(320);
-            assert(!d.querySelector("#groupChatInfoDialog").open, "弹窗没有成功关闭");
+            await until(() => !d.querySelector("#groupChatInfoDialog").open);
+            assert(!d.querySelector("#groupChatInfoDialog").open, `弹窗没有成功关闭：${JSON.stringify(d.querySelector("#groupChatInfoDialog").getAnimations().map(animation => ({ state: animation.playState, time: animation.currentTime })))}`);
             if (baseChecks.motionEnabled) assert(w.blogMotion.state.dialogTransitions >= 1 && w.blogMotion.state.lastDialogStrategy === "macos-panel", "macOS 面板退场动画没有完成");
             else assert(w.blogMotion.state.dialogTransitions === 0, "减少动态效果模式仍启动了弹窗位移动画");
             w.__selfCheckNotification?.({ kind: "group_message", actor_id: friend.id, actor_username: friend.username, payload: { group_id: group.group_id, group_name: group.group_name, preview: "当前会话消息" } });
@@ -474,12 +475,13 @@
           mobileMotion.coalescedDockMoves = w.blogMobileShell.state.moves - dockMovesBeforeBurst;
           const layoutFlushesBeforeBurst = w.blogMobileShell.state.layoutFlushes;
           for (let index = 0; index < 8; index += 1) w.dispatchEvent(new Event("resize"));
-          await wait(40);
+          await until(() => w.blogMobileShell.state.layoutFlushes > layoutFlushesBeforeBurst && !w.blogMobileShell.state.layoutFrame);
           mobileMotion.coalescedResizeFlushes = w.blogMobileShell.state.layoutFlushes - layoutFlushesBeforeBurst;
           const expectedDockMoves = baseChecks.motionEnabled ? 1 : 0;
           assert(mobileMotion.coalescedDockMoves === expectedDockMoves && mobileMotion.coalescedResizeFlushes === 1, `手机快速切页或缩放仍排队重复动画帧：${JSON.stringify(mobileMotion)}`);
           w.blogUI.navigate("home", { history: false, animate: false });
           await wait(40);
+          w.scrollTo({ top: 0, behavior: "instant" });
           const topbarRect = d.querySelector(".topbar")?.getBoundingClientRect();
           const heroRect = d.querySelector("#home .social-hero")?.getBoundingClientRect();
           const dock = d.querySelector("#mobileDock");

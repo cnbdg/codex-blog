@@ -8,6 +8,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { createHash } from "node:crypto";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const htmlPath = join(root, "index.html");
@@ -47,6 +48,8 @@ if (!localJs.length || !localCss.length) {
 const jsSource = (await Promise.all(localJs.map(file => readFile(file, "utf8")))).join("\n;\n");
 const cssSource = (await Promise.all(localCss.map(file => readFile(file, "utf8")))).join("\n");
 
+let jsVersion;
+let cssVersion;
 await build({
   stdin: { contents: jsSource, sourcefile: "app.js", loader: "js" },
   bundle: false,
@@ -57,6 +60,7 @@ await build({
   target: ["es2020"]
 }).then(async result => {
   const out = result.outputFiles[0].text;
+  jsVersion = createHash("sha256").update(out).digest("hex").slice(0, 12);
   await writeFile(join(root, "app.min.js"), out);
   console.log(`app.min.js  ${(out.length / 1024).toFixed(1)} KB (from ${(jsSource.length / 1024).toFixed(1)} KB source)`);
 });
@@ -70,27 +74,21 @@ await build({
   target: ["es2020"]
 }).then(async result => {
   const out = result.outputFiles[0].text;
+  cssVersion = createHash("sha256").update(out).digest("hex").slice(0, 12);
   await writeFile(join(root, "style.min.css"), out);
   console.log(`style.min.css  ${(out.length / 1024).toFixed(1)} KB (from ${(cssSource.length / 1024).toFixed(1)} KB source)`);
 });
 
-// Cache-busting version uses Beijing time (Asia/Shanghai), matching the site's
-// own publishing timezone, so a same-day UTC date never collides across days.
-const version = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Shanghai",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit"
-}).format(new Date()).replace(/-/g, "");
+// Content hashes also invalidate caches for multiple deployments on one day.
 const nextHtml = html
   // Collapse every run of local scripts (anything not on a CDN) into one
   // reference to the bundled output; keep CDN tags untouched.
   .replace(/(?:<script src="(?!https:\/\/)[^"]+\.js[^"]*"><\/script>\s*)+/g,
-    `<script src="app.min.js?v=${version}"></script>`)
+    `<script src="app.min.js?v=${jsVersion}"></script>`)
   // Same for local stylesheets.
   .replace(/(?:<link rel="stylesheet" href="(?!https:\/\/)[^"]+\.css[^"]*">\s*)+/g,
-    `<link rel="stylesheet" href="style.min.css?v=${version}">`);
+    `<link rel="stylesheet" href="style.min.css?v=${cssVersion}">`);
 
 await writeFile(htmlPath, nextHtml);
-console.log(`index.html rewritten -> app.min.js + style.min.css (v${version})`);
+console.log(`index.html rewritten -> app.min.js (${jsVersion}) + style.min.css (${cssVersion})`);
 console.log("Remember to commit the built assets along with source changes.");

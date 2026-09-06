@@ -4,6 +4,7 @@
   const state = { page: "home", overlay: null, menuOpen: false, navigationId: 0 };
   const $ = selector => document.querySelector(selector);
   const validPage = value => document.getElementById(value)?.classList.contains("page");
+  const readingPositions = new Map();
 
   function emit(name, detail) {
     window.dispatchEvent(new CustomEvent(name, { detail }));
@@ -22,12 +23,15 @@
     $("#menuBtn")?.setAttribute("aria-expanded", "false");
   }
 
-  function navigate(page, { history = true, focus = false, animate = true } = {}) {
+  function navigate(page, { history = true, focus = false, animate = true, restoreScroll = true } = {}) {
     if (!validPage(page)) return false;
     const previous = state.page;
     const changed = previous !== page;
     const navigationId = changed ? ++state.navigationId : state.navigationId;
-    if (changed) state.page = page;
+    if (changed) {
+      readingPositions.set(previous, window.scrollY);
+      state.page = page;
+    }
     closeMenu();
     if (history && location.hash !== `#${page}`) window.history.pushState({ page }, "", `#${page}`);
     const update = () => {
@@ -39,17 +43,20 @@
         if (active) node.setAttribute("aria-current", "page");
         else node.removeAttribute("aria-current");
       });
-      window.scrollTo({ top: 0, behavior: "instant" });
       if (changed) emit("blog-page-change", { page, previous });
+      if (changed) window.scrollTo({ top: restoreScroll ? readingPositions.get(page) || 0 : 0, behavior: "instant" });
       if (focus) document.getElementById(page)?.focus?.({ preventScroll: true });
     };
     if (changed && animate && window.blogMotion?.transitionPage) {
       window.blogMotion.transitionPage({ from: previous, to: page, update });
+    } else if (changed && window.blogMotion?.transitionPage) {
+      window.blogMotion.transitionPage({ from: page, to: page, update });
     } else update();
     return true;
   }
 
   function syncDialogClosed(dialog) {
+    if (dialog?.open) return;
     dialog?.classList.remove("motion-dialog-settled");
     if (!dialog || state.overlay !== dialog.id) return;
     state.overlay = null;
@@ -59,18 +66,20 @@
   function openDialog(dialog) {
     if (!(dialog instanceof HTMLDialogElement) || !dialog.isConnected) return false;
     closeMenu();
-    dialog.classList.remove("motion-dialog-settled");
     if (dialog.open) {
+      window.blogMotion?.openDialog?.(dialog);
       state.overlay = dialog.id;
       return true;
     }
     document.querySelectorAll("dialog[open]").forEach(node => {
       if (node === dialog) return;
+      window.blogMotion?.cancelDialog?.(node);
       node.close();
       syncDialogClosed(node);
     });
     try {
-      dialog.showModal();
+      if (window.blogMotion?.openDialog) window.blogMotion.openDialog(dialog);
+      else dialog.showModal();
     } catch (error) {
       console.error("Dialog open failed", error);
       return false;
@@ -116,7 +125,7 @@
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") {
         const open = document.querySelector("dialog[open]");
-        if (open) closeDialog(open); else closeMenu();
+        if (open) { event.preventDefault(); closeDialog(open); } else closeMenu();
       }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();

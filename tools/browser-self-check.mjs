@@ -201,10 +201,12 @@ async function main() {
   const origin = `http://127.0.0.1:${server.address().port}`;
   if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_SERVER ${origin}`);
   try {
+    const uxDesktop = await runChrome(`${origin}/tools/ux-self-check.html?mode=desktop`, 1440, 900);
+    const uxMobile = await runChrome(`${origin}/tools/ux-self-check.html?mode=mobile`, 500, 980);
     const desktop = await runChrome(`${origin}/tools/browser-self-check.html?mode=desktop`, 1440, 900);
     const mobile = await runChrome(`${origin}/tools/browser-self-check.html?mode=mobile`, 500, 980);
     const authentication = await runChrome(`${origin}/tools/auth-self-check.html`, 1100, 800);
-    console.log(JSON.stringify({ status: "PASS", ownerSecurity, desktop, mobile, authentication }, null, 2));
+    console.log(JSON.stringify({ status: "PASS", ownerSecurity, uxDesktop, uxMobile, desktop, mobile, authentication }, null, 2));
   } finally {
     await new Promise(resolveClose => {
       server.close(resolveClose);

@@ -758,3 +758,113 @@ body.has-wallpaper .forum-hero { backdrop-filter: blur(15px) saturate(1.08); }
   .hero-node, .hero-orbit, .hero-visual { animation: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* Reading and composing share one quiet utility layer on desktop and mobile. */
+#searchDialog[open] {
+  display: flex;
+  flex-direction: column;
+  max-height: min(760px, calc(100dvh - 32px));
+  overflow: hidden;
+}
+#searchDialog > :is(.dialog-title, .search-box, .search-hint) { flex-shrink: 0; }
+#searchDialog .dialog-title { align-items: center; }
+#searchDialog .dialog-title button { min-width: 44px; min-height: 44px; }
+.search-results-scroll {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  scrollbar-width: thin;
+}
+.search-results-scroll:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 12px; }
+.message-reading-tools {
+  position: relative;
+  flex: 0 0 0;
+  height: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+#messageLatestBtn {
+  position: absolute;
+  bottom: 12px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line));
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--blue);
+  box-shadow: var(--ds-shadow-md);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 650;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 150ms ease, transform 150ms ease-out;
+}
+#messageLatestBtn[hidden] { display: none; }
+#messageLatestBtn:active { transform: scale(.97); }
+.message-writing-status {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 2px 2px 6px;
+  color: var(--muted);
+  font-size: .72rem;
+}
+.message-writing-status > small,
+.message-composer .dm-composer-foot small { font-size: .6875rem; }
+.message-list .dm-message > p { font-size: .875rem; line-height: 1.65; }
+.message-list .dm-message > time { font-size: .6875rem; line-height: 1.5; }
+.message-list .message-quote { font-size: .8125rem; }
+#messageDraftStatus { margin-right: auto; }
+#messageCharacterCount { font-variant-numeric: tabular-nums; }
+#messageCharacterCount.near-limit { color: var(--blue); }
+#searchResults .search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 14px;
+  padding: 14px;
+}
+.search-user-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.search-user-identity :is(strong, span) { overflow-wrap: anywhere; }
+#searchResults .search-result:focus-visible,
+.search-user-identity:focus-visible,
+#messageLatestBtn:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  #searchResults .search-result:hover,
+  .search-user-identity:hover { background: var(--soft); }
+}
+@media (max-width: 1023px) {
+  #mainNav { touch-action: pan-y; }
+  .message-writing-status { padding: 0 2px 3px; }
+  .message-list .dm-message > p { font-size: .9375rem; }
+  #searchDialog .user-search-item { gap: 8px; }
+  #searchDialog :is(.follow-button, .chat-button) { min-height: 44px; }
+}
