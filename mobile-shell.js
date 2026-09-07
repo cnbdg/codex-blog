@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+  if (document.body.dataset.readerKind) return;
 
   const query = window.matchMedia("(max-width: 1023px)");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");

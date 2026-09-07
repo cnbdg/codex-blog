@@ -1092,6 +1092,14 @@
     return data || [];
   }
 
+  async function getPublishedPost(id) {
+    if (!client) return { row: null, error: "登录组件或网络尚未就绪，请刷新后重试。" };
+    const { data, error } = await client.from("posts")
+      .select("id,title,description,type,tags,read_time,lead,body,published_at")
+      .eq("id", id).eq("status", "published").maybeSingle();
+    return { row: data || null, error: error ? "文章暂时无法加载，请检查网络后重试。" : "" };
+  }
+
   async function savePost(post, id = null) {
     if (!client || !user || !profile?.is_admin) {
       notify("只有管理员可以保存文章");
@@ -1188,6 +1196,17 @@
       return null;
     }
     return data;
+  }
+
+  async function getForumThread(id) {
+    if (!client) return { row: null, error: "社区服务尚未连接，请刷新后重试。" };
+    const base = "id,title,content,likes,created_at,updated_at,author_id,profiles!forum_posts_author_id_fkey(user_uid,username,avatar_url,display_title,created_at,is_admin),forum_replies(count)";
+    let { data, error } = await client.from("forum_posts").select(`${base},topic_type,is_pinned,is_featured,view_count`).eq("id", id).maybeSingle();
+    if (error && /topic_type|is_pinned|is_featured|view_count/i.test(error.message || "")) {
+      ({ data, error } = await client.from("forum_posts").select(base).eq("id", id).maybeSingle());
+    }
+    return { row: data ? { topic_type: "discussion", is_pinned: false, is_featured: false, view_count: 0, ...data } : null,
+      error: error ? "帖子暂时无法加载，请检查网络后重试。" : "" };
   }
 
   function makeStorageObjectId() {
@@ -1990,8 +2009,8 @@
 
   window.blogAuth = {
     init, configured, openAuth, listComments, addComment, likeComment, deleteComment,
-    listPublishedPosts, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
-    listForumThreads, saveForumThread, uploadCommunityImage, uploadDirectMessageImage, getDirectMessageImageUrls, deleteDirectMessageImage,
+    listPublishedPosts, getPublishedPost, listAllPosts, savePost, importPosts, deletePost, refreshProfile,
+    listForumThreads, getForumThread, saveForumThread, uploadCommunityImage, uploadDirectMessageImage, getDirectMessageImageUrls, deleteDirectMessageImage,
     uploadGroupChatMedia, getGroupChatMediaUrls, deleteGroupChatMedia, deleteForumThread,
     listForumReplies, addForumReply, deleteForumReply, toggleForumLike,
     listForumBookmarks, toggleForumBookmark, recordForumView, getForumThreadState, adminSetForumPostStatus,

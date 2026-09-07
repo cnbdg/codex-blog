@@ -9,10 +9,12 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
+import { prepareContentIndex, buildContentPages } from "./build-content-pages.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const htmlPath = join(root, "index.html");
 const html = await readFile(htmlPath, "utf8");
+const content = await prepareContentIndex(root, { refresh: process.argv.includes("--refresh-content") });
 
 // Source order is load-order sensitive (files talk through window.* globals).
 // Keep this list in the same order index.html loads the scripts.
@@ -22,6 +24,8 @@ const jsSources = [
   "config.js",
   "auth.js",
   "update-log.js",
+  "content-index.js",
+  "content-links.js",
   "script.js",
   "wallpaper.js",
   "forum.js",
@@ -32,9 +36,10 @@ const jsSources = [
   "motion-system.js",
   "interaction.js",
   "mobile-shell.js",
-  "desktop-shell.js"
+  "desktop-shell.js",
+  "reader.js"
 ];
-const cssSources = ["style.css", "design-system.css", "motion-system.css"];
+const cssSources = ["style.css", "design-system.css", "motion-system.css", "reader.css"];
 const localJs = jsSources.map(name => join(root, name));
 const localCss = cssSources.map(name => join(root, name));
 
@@ -90,5 +95,6 @@ const nextHtml = html
     `<link rel="stylesheet" href="style.min.css?v=${cssVersion}">`);
 
 await writeFile(htmlPath, nextHtml);
+await buildContentPages(root, nextHtml, content);
 console.log(`index.html rewritten -> app.min.js (${jsVersion}) + style.min.css (${cssVersion})`);
 console.log("Remember to commit the built assets along with source changes.");

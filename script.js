@@ -1,5 +1,5 @@
 const seedPosts=[{title:"社区更新：图片上传与桌面布局优化",description:"本次更新增加社区图片上传、优化桌面三栏布局，并持续完善社区互动体验。",type:"更新日志",tags:["更新","社区","功能"],read_time:"1 分钟",lead:"感谢大家使用 cnbdg 博客。本次更新重点改善社区发布和桌面端浏览体验。",body:"## 本次更新\n\n- 社区发帖支持上传图片。\n- 桌面端右侧区域重新规划。\n- 统一窗口、按钮和内容卡片风格。\n- 持续修复移动端体验。",status:"published",published_at:"2026-07-31"}];
-const localUpdatePosts=()=>Array.from(window.LOCAL_UPDATE_POSTS||[],(post,index)=>({...post,id:9000000+index,desc:post.description,date:post.published_at,read:post.read_time}));
+const localUpdatePosts=()=>Array.from(window.LOCAL_UPDATE_POSTS||[],(post,index)=>({...post,id:window.blogContentLinks?.localId(post,9000000+index)??9000000+index,key:window.blogContentLinks?.localKey(post),desc:post.description,date:post.published_at,read:post.read_time}));
 let posts=localUpdatePosts();if(!posts.length)posts=[...seedPosts];
 let filter="全部",page=1;const perPage=4,$=s=>document.querySelector(s);
 const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
@@ -108,7 +108,7 @@ function filtered(){return posts.filter(p=>filter==="全部"||p.type===filter||p
 function render(){
  syncBlogMeta();
  const list=filtered(),totalPages=Math.ceil(list.length/perPage);page=Math.max(1,Math.min(page,totalPages||1));const start=(page-1)*perPage;
- $("#postList").innerHTML=list.slice(start,start+perPage).map(p=>`<article class="post-item" data-id="${p.id}" tabindex="0"><div class="post-top"><span class="type">${esc(p.type)}</span><span>·</span><span>${esc(p.read)}</span></div><h2><a>${esc(p.title)}</a></h2><p>${esc(p.desc)}</p><div class="post-bottom"><div class="tags">${(p.tags||[]).map(t=>`<span>#${esc(t)}</span>`).join("")}</div><time datetime="${esc(postTimeAttribute(p.date))}" title="北京时间">${esc(formatPostTime(p.date))}</time></div></article>`).join("")||`<article class="empty-post"><span>✦</span><h2>新的内容正在整理中</h2><p>这里不再展示模板示例文章。你可以先去<a href="https://xsf.indevs.in/" target="_blank" rel="noopener">旧博客</a>看看以前的记录。</p></article>`;
+ $("#postList").innerHTML=list.slice(start,start+perPage).map(p=>`<article class="post-item" data-id="${p.id}" tabindex="0"><div class="post-top"><span class="type">${esc(p.type)}</span><span>·</span><span>${esc(p.read)}</span></div><h2><a href="${esc(window.blogContentLinks.article(p))}">${esc(p.title)}</a></h2><p>${esc(p.desc)}</p><div class="post-bottom"><div class="tags">${(p.tags||[]).map(t=>`<span>#${esc(t)}</span>`).join("")}</div><time datetime="${esc(postTimeAttribute(p.date))}" title="北京时间">${esc(formatPostTime(p.date))}</time></div></article>`).join("")||`<article class="empty-post"><span>✦</span><h2>新的内容正在整理中</h2><p>这里不再展示模板示例文章。你可以先去<a href="https://xsf.indevs.in/" target="_blank" rel="noopener">旧博客</a>看看以前的记录。</p></article>`;
  renderPagination(list.length);
  gridAnimate();
 }
@@ -134,7 +134,7 @@ window.addEventListener("blog-auth-change",refreshRemotePosts);
 setTimeout(refreshRemotePosts,0);
 document.addEventListener("click",e=>{
  const nav=e.target.closest("[data-page]");if(nav&&!e.defaultPrevented){e.preventDefault();showPage(nav.dataset.page,true)}
- const post=e.target.closest(".post-item,.search-result");if(post?.dataset.id)openArticle(Number(post.dataset.id));
+ const post=e.target.closest(".post-item,.search-result");if(post?.dataset.id&&!e.target.closest("a,button"))openArticle(Number(post.dataset.id));
  const close=e.target.closest("[data-close]");if(close)closeDialogAnimated(document.getElementById(close.dataset.close));
  const p=e.target.closest("[data-page-num]");if(p&&!p.disabled){const nextPage=Number(p.dataset.pageNum);if(nextPage===page)return;page=nextPage;render();const top=Math.max(0,$("#postList").getBoundingClientRect().top+scrollY-(document.querySelector(".topbar")?.offsetHeight||0)-16);scrollTo({top,behavior:reduceMotion.matches?"auto":"smooth"});requestAnimationFrame(()=>$("#pagination .pagination-page[aria-current=page]")?.focus({preventScroll:true}))}
 });
@@ -172,7 +172,7 @@ async function search(value, { delay = 0, composing = false } = {}) {
  const request = ++searchRequest;
  const q = String(value || "").trim();
  const list = q ? posts.filter(p => (p.title + p.desc + p.tags).toLowerCase().includes(q.toLowerCase())).slice(0, 20) : posts.slice(0, 4);
- $("#searchResults").innerHTML = list.map(p => `<button type="button" class="search-result" data-id="${p.id}"><small>${esc(formatPostTime(p.date))} · ${p.tags.map(esc).join(" / ")}</small><span>${esc(p.title)}</span></button>`).join("") || `<p class="search-hint">${posts.length ? "没有找到相关文章" : "暂时还没有发布文章"}</p>`;
+ $("#searchResults").innerHTML = list.map(p => `<a class="search-result" data-id="${p.id}" href="${esc(window.blogContentLinks.article(p))}"><small>${esc(formatPostTime(p.date))} · ${p.tags.map(esc).join(" / ")}</small><span>${esc(p.title)}</span></a>`).join("") || `<p class="search-hint">${posts.length ? "没有找到相关文章" : "暂时还没有发布文章"}</p>`;
  const target = $("#userSearchResults");
  target.setAttribute("aria-busy", String(Boolean(q && !composing)));
  target.innerHTML = q ? `<p class="search-hint">${composing ? "完成输入后搜索用户" : "正在搜索用户…"}</p>` : "";
@@ -193,10 +193,29 @@ async function search(value, { delay = 0, composing = false } = {}) {
 window.search = search;
 window.onscroll=()=>$("#toTop").classList.toggle("show",scrollY>500);$("#toTop").onclick=()=>scrollTo({top:0,behavior:reduceMotion.matches?"auto":"smooth"});
 let currentPost;
-function openArticle(id){currentPost=posts.find(p=>p.id===id);if(!currentPost)return;window.currentPost=currentPost;const body=window.blogMarkdown?window.blogMarkdown.render(currentPost.body):esc(currentPost.body);$("#articleContent").innerHTML=`<div class="article-body"><div class="article-meta">${esc(currentPost.type)} · <time datetime="${esc(postTimeAttribute(currentPost.date))}">${esc(formatPostTime(currentPost.date))}</time> · ${esc(currentPost.read)}</div><h1>${esc(currentPost.title)}</h1><p class="lead">${esc(currentPost.lead)}</p><div class="article-text">${body}<p>感谢你读到这里。如果这篇文章对你有帮助，欢迎在评论区留下想法。</p></div></div>`;openDialogManaged($("#articleDialog"));$("#articleDialog").scrollTop=0;renderComments()}
+function openArticle(id){const post=posts.find(p=>p.id===id);if(post)location.assign(window.blogContentLinks.article(post))}
+function renderArticle(post){
+ currentPost=post;window.currentPost=post;
+ const body=window.blogMarkdown?window.blogMarkdown.render(post.body):esc(post.body);
+ $("#articleContent").innerHTML=`<div class="article-body"><div class="article-meta">${esc(post.type)} · <time datetime="${esc(postTimeAttribute(post.date))}">${esc(formatPostTime(post.date))}</time> · ${esc(post.read)}</div><h1>${esc(post.title)}</h1>${String(post.lead||"").trim()?`<p class="lead">${esc(String(post.lead).trim())}</p>`:""}<div class="article-text">${body}</div></div>`;
+ openDialogManaged($("#articleDialog"));
+ renderComments();
+}
+window.blogArticles={localPosts:localUpdatePosts,render:renderArticle};
 function getComments(){return JSON.parse(localStorage.getItem(`yu-comments-${currentPost.id}`)||"null")||[]}function saveComments(v){localStorage.setItem(`yu-comments-${currentPost.id}`,JSON.stringify(v))}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
-async function renderComments(){let l;if(window.blogAuth?.configured){$("#commentList").innerHTML=`<p class="search-hint">正在加载评论…</p>`;l=await window.blogAuth.listComments(currentPost.id)}else{l=getComments()}$("#commentCount").textContent=l.length;$("#commentList").innerHTML=l.length?l.map(c=>`<article class="comment"><div class="avatar">${esc(c.name[0].toUpperCase())}</div><div><div class="comment-head"><strong>${esc(c.name)}</strong><time>${c.time}</time></div><p>${esc(c.text)}</p><button class="like-btn" data-like="${c.id}" data-likes="${c.likes||0}">♡ ${c.likes||0}</button>${c.own?`<button class="comment-delete" data-delete="${c.id}">删除</button>`:""}<button class="comment-report" data-report-type="blog_comment" data-report-id="${c.id}">举报</button></div></article>`).join(""):`<p class="search-hint">还没有评论，来留下第一条吧。</p>`}
+let commentRequest=0;
+async function renderComments(){
+ if(!currentPost)return;
+ const id=currentPost.id,request=++commentRequest;
+ let l;
+ try{if(window.blogAuth?.configured){$("#commentList").innerHTML=`<p class="search-hint">正在加载评论…</p>`;l=await window.blogAuth.listComments(id)}else{l=getComments()}}
+ catch{if(request===commentRequest)$("#commentList").innerHTML=`<p class="search-hint">评论暂时无法加载。<button type="button" data-retry-comments>重试</button></p>`;return}
+ if(request!==commentRequest||currentPost?.id!==id)return;
+ if(!Array.isArray(l)){$("#commentList").innerHTML=`<p class="search-hint">评论暂时无法加载。<button type="button" data-retry-comments>重试</button></p>`;return}
+ $("#commentCount").textContent=l.length;$("#commentList").innerHTML=l.length?l.map(c=>`<article class="comment"><div class="avatar">${esc(String(c.name||"访客")[0].toUpperCase())}</div><div><div class="comment-head"><strong>${esc(c.name)}</strong><time>${esc(c.time)}</time></div><p>${esc(c.text)}</p><button class="like-btn" data-like="${c.id}" data-likes="${c.likes||0}">♡ ${c.likes||0}</button>${c.own?`<button class="comment-delete" data-delete="${c.id}">删除</button>`:""}<button class="comment-report" data-report-type="blog_comment" data-report-id="${c.id}">举报</button></div></article>`).join(""):`<p class="search-hint">还没有评论，来留下第一条吧。</p>`;
+}
+document.addEventListener("click",event=>{if(event.target.closest("[data-retry-comments]"))renderComments()});
 window.renderComments=renderComments;
 $("#commentForm textarea").oninput=e=>$("#charCount").textContent=e.target.value.length;
 $("#commentForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),content=f.get("content").trim();if(window.blogAuth?.configured){const ok=await window.blogAuth.addComment(currentPost.id,content);if(!ok)return}else{const l=getComments();l.unshift({id:Date.now(),name:"本地访客",text:content,time:new Date().toLocaleString("zh-CN",{hour12:false}),likes:0});saveComments(l)}e.target.reset();$("#charCount").textContent=0;await renderComments();toast("评论发表成功")};
@@ -204,5 +223,5 @@ $("#commentList").onclick=async e=>{const like=e.target.closest("[data-like]"),d
 function toast(t){const target=$("#toast");target.textContent=t;target.classList.add("show");clearTimeout(toast.timer);toast.timer=setTimeout(()=>target.classList.remove("show"),1800)}window.toast=toast;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()});
 window.addEventListener("popstate",()=>{if(!window.blogUI?.navigate)showPage(location.hash.slice(1)||"home")});
-if(location.hash&&document.querySelector(location.hash+".page"))showPage(location.hash.slice(1));else history.replaceState({page:"home"},"","#home");
+if(!document.body.dataset.readerKind){if(document.getElementById(location.hash.slice(1))?.classList.contains("page"))showPage(location.hash.slice(1));else history.replaceState({page:"home"},"","#home")}
 requestAnimationFrame(()=>document.body.classList.add("motion-ready"));

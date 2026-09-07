@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>独立帖子页面回归测试</title>
+<style>html,body,iframe{width:100%;height:100%;margin:0;border:0}pre{position:fixed;inset:0;background:white;white-space:pre-wrap;z-index:9}pre:empty{display:none}</style></head>
+<body><pre id="result"></pre><iframe id="site" title="被测博客"></iframe>
+<script>
+// All database calls are doubles. The test server removes the Supabase SDK
+// from both the home page and reader pages, including after navigation/reload.
+const params = new URLSearchParams(location.search);
+const mode = params.get('mode') === 'mobile' ? 'mobile' : 'desktop';
+const frame = document.querySelector('#site');
+if (mode === 'mobile') { frame.style.width = '390px'; frame.style.height = '844px'; }
+const checks = [];
+const assert = (value, label) => { if (!value) throw new Error(label); checks.push(label); };
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(test, label, timeout = 2500) {
+  const start = Date.now();
+  while (!test() && Date.now() - start < timeout) await wait(20);
+  assert(test(), label);
+}
+const load = url => new Promise(resolve => {
+  frame.addEventListener('load', resolve, { once: true });
+  frame.src = url;
+});
+const title = '发布后立即打开的独立帖子';
+const content = '## 新帖正文\n\n无需等待列表刷新或静态构建。';
+const threadId = 987654321;
+async function renderMockReader() {
+  const w = frame.contentWindow;
+  const d = w.document;
+  assert(w.blogReader?.active && d.body.dataset.readerKind === 'thread', 'destination is the standalone reader');
+  assert(d.querySelector('#threadDialog').tagName === 'SECTION', 'thread is inline, not a popup');
+  let reads = 0;
+  w.blogAuth = {
+    ...w.blogAuth,
+    getForumThread: async id => {
+      reads++;
+      assert(id === threadId, 'reader requests the new post directly by ID');
+      return { row: { id, title, content, author_id: 'test-author', created_at: '2026-09-07T01:02:03Z',
+        profiles: { username: '测试用户', user_uid: 10 }, forum_replies: [{ count: 0 }] } };
+    },
+    listForumThreads: () => { throw new Error('reader must not depend on the feed'); },
+    listForumReplies: async () => [],
+    getForumThreadState: async () => ({ liked_reply_ids: [] }),
+    recordForumView: async () => null
+  };
+  await w.blogReader.reload();
+  assert(reads === 1 && d.querySelector('#threadContent h1')?.textContent === title, 'new post renders without a generated per-ID HTML file');
+  assert(!d.querySelector('#threadDialog').hidden && d.querySelector('#readerState').hidden, 'body is visible and loading state is gone');
+  assert(d.documentElement.scrollWidth <= w.innerWidth + 1, 'reader has no horizontal overflow');
+}
+async function run() {
+  for (const scenario of ['pending-feed', 'missing-from-feed', 'edit']) {
+    await load('/__self-check-index.html?reader-check');
+    const w = frame.contentWindow;
+    const d = w.document;
+    const $ = selector => d.querySelector(selector);
+    let feedCalls = 0;
+    let saves = 0;
+    let finishSave;
+    const saved = new Promise(resolve => { finishSave = resolve; });
+    w.blogAuth = {
+      ...w.blogAuth, user: { id: 'test-author' },
+      saveForumThread: async () => { saves++; return saves === 1 ? null : saved; },
+      listForumBookmarks: async () => [],
+      listForumThreads: () => { feedCalls++; return scenario === 'pending-feed' ? new Promise(() => {}) : Promise.resolve({ rows: [] }); }
+    };
+    w.blogUI.navigate('forum', { history: false, animate: false });
+    $('#newThreadBtn').click();
+    const form = $('#threadForm');
+    form.elements.title.value = title;
+    form.elements.content.value = content;
+    if (scenario === 'edit') form.elements.id.value = String(threadId);
+    form.elements.content.dispatchEvent(new w.Event('input', { bubbles: true }));
+    assert(form.checkValidity(), 'publish form is valid');
+    form.requestSubmit();
+    await until(() => !$('#saveThreadBtn').disabled, 'failed save restores publish button');
+    assert(frame.contentWindow.location.pathname === '/__self-check-index.html' && form.elements.content.value === content, 'failed save preserves editor and does not navigate');
+    const callsBeforeSave = feedCalls;
+    form.requestSubmit();
+    assert($('#saveThreadBtn').disabled, 'publish stays disabled until save completes');
+    form.requestSubmit();
+    assert(saves === 2, 'repeated submit cannot create duplicate posts');
+    finishSave({ id: threadId });
+    await until(() => frame.contentWindow.location.pathname === '/thread.html', scenario + ': saved post opens immediately');
+    await until(() => Boolean(frame.contentWindow.blogReader), 'reader bundle loaded');
+    assert(feedCalls === callsBeforeSave, 'publishing does not refresh the feed');
+    assert(new URL(frame.contentWindow.location.href).searchParams.get('id') === String(threadId), 'share URL identifies the saved post');
+    if (scenario !== 'edit') assert(!frame.contentWindow.localStorage.getItem('cnbdg-forum-thread-draft-v2'), 'successful publication clears the draft');
+    await renderMockReader();
+    if (scenario === 'pending-feed') {
+      await load(frame.contentWindow.location.href);
+      await renderMockReader();
+      assert(true, 'shared URL also works on refresh/direct entry');
+      const readerWindow = frame.contentWindow;
+      const readerDocument = readerWindow.document;
+      readerWindow.blogAuth.getForumThread = async () => { throw new Error('simulated offline'); };
+      await readerWindow.blogReader.reload();
+      assert(!readerDocument.querySelector('#readerState').hidden && readerDocument.querySelector('[data-reader-retry]'), 'network exception offers retry instead of permanent loading');
+      await renderMockReader();
+      assert(true, 'reader recovers after retry');
+      let shared;
+      Object.defineProperty(readerWindow.navigator, 'share', { configurable: true, value: async value => { shared = value; } });
+      readerWindow.history.replaceState(null, '', '/thread.html?id=' + threadId + '&test_tracking=value#access_token=FAKE_TEST_TOKEN');
+      await readerWindow.blogReader.share();
+      assert(shared?.url === location.origin + '/thread.html?id=' + threadId, 'public share link excludes transient query and auth hash');
+    }
+  }
+  return { mode, checks };
+}
+(async () => {
+  let report;
+  try { report = { status: 'pass', detail: await run() }; }
+  catch (error) { report = { status: 'fail', detail: { mode, checks, error: error.stack || String(error) } }; }
+  document.querySelector('#result').textContent = JSON.stringify(report, null, 2);
+  fetch('/__self-check-report?run=' + encodeURIComponent(params.get('run') || ''), {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(report), keepalive: true
+  }).catch(() => {});
+})();
+</script></body></html>

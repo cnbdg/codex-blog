@@ -274,7 +274,7 @@
         ${avatarMarkup(thread)}
         <div class="thread-main"><div class="thread-card-kicker"><span>${threadBadges(thread)}</span><time>${activeAt}</time></div>
           <div class="thread-author"><strong>${escapeText(authorName(thread))}</strong>${titleMarkup(thread)}</div>
-          <h2>${escapeText(thread.title)}${feed.bookmarkIds.has(Number(thread.id)) ? `<span class="bookmarked-mark" title="已收藏">★</span>` : ""}</h2>
+          <h2><a href="${escapeText(window.blogContentLinks.thread(thread.id))}">${escapeText(thread.title)}</a>${feed.bookmarkIds.has(Number(thread.id)) ? `<span class="bookmarked-mark" title="已收藏">★</span>` : ""}</h2>
           <p>${escapeText(excerpt)}</p>
           <div class="thread-meta"><span>💬 ${replies} 回复</span><span>♡ ${thread.likes || 0} 赞</span><span>◉ ${thread.view_count || 0} 浏览</span>${thread.profiles?.user_uid ? `<span>UID ${thread.profiles.user_uid}</span>` : ""}</div>
         </div></article>`;
@@ -310,6 +310,7 @@
     const data = new FormData(form);
     const id = Number(data.get("id")) || null;
     const button = $("#saveThreadBtn");
+    if (button.disabled) return;
     button.disabled = true;
     button.textContent = id ? "正在保存…" : "正在发布…";
     let content = String(data.get("content") || "").trim();
@@ -328,14 +329,18 @@
         title: data.get("title"), content, topic_type: data.get("topic_type")
       }, id);
       if (!saved) return;
-      localStorage.removeItem(DRAFT_KEY);
-      localStorage.removeItem(LEGACY_DRAFT_KEY);
+      // Storage can be blocked in private browsers. A successful database save
+      // must still open the post, without suggesting that it needs republishing.
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+        localStorage.removeItem(LEGACY_DRAFT_KEY);
+      } catch {}
       clearImagePreview();
       if (window.closeDialog) window.closeDialog($("#threadEditorDialog")); else $("#threadEditorDialog").close();
       window.toast(id ? "帖子已更新" : "帖子发布成功");
-      await loadThreads({ followDeepLink: false });
-      const fresh = threads.find(thread => Number(thread.id) === Number(saved.id));
-      if (fresh) openThread(fresh);
+      // Use the saved ID, not a filtered/limited feed. The generic reader exists
+      // already, so even a brand-new post opens before any static build runs.
+      location.assign(window.blogContentLinks.thread(saved.id));
     } catch (error) {
       console.error("Forum media or post save failed", error);
       setThreadFormError("发布失败，请检查网络或媒体存储配置后重试。");
@@ -346,6 +351,7 @@
   }
 
   function syncThreadUrl(id = null) {
+    if (window.blogReader?.active) return;
     const url = new URL(location.href);
     if (id) { url.searchParams.set("thread", id); url.hash = "forum"; }
     else url.searchParams.delete("thread");
@@ -363,8 +369,9 @@
     </div>`;
   }
 
-  async function openThread(thread, { updateUrl = true } = {}) {
+  async function openThread(thread, { updateUrl = true, inline = false } = {}) {
     if (!thread) return;
+    if (!inline) { location.assign(window.blogContentLinks.thread(thread.id)); return; }
     currentThread = thread;
     currentReplies = [];
     feed.onlyOwner = false;
@@ -377,6 +384,7 @@
     hydrateForumSocial($("#threadContent"));
     updateReplyAccess();
     openDialog($("#threadDialog"));
+    window.blogReader?.contentReady?.({ title: thread.title, description: String(thread.content || "").replace(/[#>*_`\[\]()~-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 150) });
     $("#threadDialog").scrollTop = 0;
     if (updateUrl) syncThreadUrl(thread.id);
     rememberThread(thread);
@@ -398,6 +406,7 @@
       if (state.bookmarked) feed.bookmarkIds.add(Number(openedId));
     }
     renderThreadDetail(currentThread);
+    window.blogReader?.contentReady?.({ title: currentThread.title, description: String(currentThread.content || "").replace(/[#>*_`\[\]()~-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 150) });
     renderReplies(false);
     renderThreads();
     hydrateForumSocial($("#threadDialog"));
@@ -405,19 +414,22 @@
 
   async function openThreadById(id, options = {}) {
     const numericId = Number(id);
-    if (!numericId) return;
-    window.showPage?.("forum", true);
-    if (!threads.length) await loadThreads({ followDeepLink: false });
-    const thread = threads.find(row => Number(row.id) === numericId);
-    if (!thread) return window.toast?.("帖子不存在或已经被删除");
-    return openThread(thread, options);
+    if (!window.blogContentLinks.positiveId(id)) return { row: null, error: "帖子链接无效" };
+    if (!options.inline) { location.assign(window.blogContentLinks.thread(numericId)); return; }
+    const result = await window.blogAuth.getForumThread(numericId);
+    if (options.isCurrent && !options.isCurrent()) return result;
+    if (result.row) await openThread(result.row, { ...options, inline: true });
+    return result;
   }
 
   async function renderReplies(fetch = true) {
     if (!currentThread) return;
     if (fetch) {
+      const openedId = currentThread.id;
       $("#replyList").innerHTML = `<p class="forum-empty">正在加载回复…</p>`;
-      currentReplies = await window.blogAuth.listForumReplies(currentThread.id);
+      const replies = await window.blogAuth.listForumReplies(openedId);
+      if (currentThread?.id !== openedId) return;
+      currentReplies = Array.isArray(replies) ? replies : [];
     }
     const all = currentReplies;
     const liked = new Set((threadState.liked_reply_ids || []).map(Number));
@@ -483,6 +495,7 @@
     if ($("#threadDialog").open) window.closeDialog ? window.closeDialog($("#threadDialog")) : $("#threadDialog").close();
     currentThread = null;
     syncThreadUrl();
+    window.blogReader?.fail?.("帖子已经删除", "可以返回社区，看看其他讨论。", false);
     window.toast?.("帖子已删除");
     await loadThreads({ followDeepLink: false });
   }
@@ -573,9 +586,8 @@
 
   async function shareThread(id) {
     const thread = threads.find(row => Number(row.id) === Number(id)) || currentThread;
-    const url = new URL(location.href);
-    url.searchParams.set("thread", id);
-    url.hash = "forum";
+    const url = new URL(window.blogContentLinks.thread(id));
+    if (window.blogReader?.active) return window.blogReader.share();
     try {
       if (navigator.share) await navigator.share({ title: thread?.title || "社区帖子", url: url.href });
       else { await navigator.clipboard.writeText(url.href); window.toast?.("帖子链接已复制"); }
@@ -710,7 +722,7 @@
       if (clear) { localStorage.removeItem(HISTORY_KEY); renderHistory(); }
     });
     window.addEventListener("blog-auth-change", syncAuthState);
-    loadThreads();
+    if (!document.body.dataset.readerKind) loadThreads();
     updateReplyAccess();
   }
 

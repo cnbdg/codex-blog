@@ -25,6 +25,7 @@
 
   function navigate(page, { history = true, focus = false, animate = true, restoreScroll = true } = {}) {
     if (!validPage(page)) return false;
+    if (window.blogReader?.active && window.blogReader.ready) return window.blogReader.navigate(page);
     const previous = state.page;
     const changed = previous !== page;
     const navigationId = changed ? ++state.navigationId : state.navigationId;
@@ -64,6 +65,7 @@
   }
 
   function openDialog(dialog) {
+    if (window.blogReader?.owns(dialog)) return window.blogReader.mount(dialog);
     if (!(dialog instanceof HTMLDialogElement) || !dialog.isConnected) return false;
     closeMenu();
     if (dialog.open) {
@@ -101,8 +103,8 @@
     const initial = location.hash.slice(1);
     navigate(validPage(initial) ? initial : "home", { history: false, animate: false });
 
-    window.addEventListener("popstate", () => navigate(location.hash.slice(1) || "home", { history: false }));
-    window.addEventListener("hashchange", () => navigate(location.hash.slice(1) || "home", { history: false }));
+    window.addEventListener("popstate", () => { if (!window.blogReader?.active) navigate(location.hash.slice(1) || "home", { history: false }); });
+    window.addEventListener("hashchange", () => { if (!window.blogReader?.active) navigate(location.hash.slice(1) || "home", { history: false }); });
 
     document.querySelectorAll("dialog").forEach(dialog => {
       dialog.addEventListener("close", () => syncDialogClosed(dialog));

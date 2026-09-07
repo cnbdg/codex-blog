@@ -1049,6 +1049,22 @@
     }
   }
 
+  let pendingConversationHandled = false;
+  function openPendingConversation() {
+    if (pendingConversationHandled || !window.blogAuth?.initialized || !window.blogAuth.user) return;
+    const url = new URL(location.href);
+    const peer = url.searchParams.get("chat") || "";
+    const group = url.searchParams.get("group") || "";
+    const uuid = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i;
+    if (!uuid.test(peer) && !uuid.test(group)) return;
+    pendingConversationHandled = true;
+    url.searchParams.delete("chat");
+    url.searchParams.delete("group");
+    history.replaceState(history.state, "", url);
+    if (uuid.test(peer)) openChat(peer);
+    else openGroupChat(group);
+  }
+
   function init() {
     syncComposerHint();
     compactComposer.addEventListener?.("change", syncComposerHint);
@@ -1103,6 +1119,7 @@
         return;
       }
       if (isMessagesPage()) window.renderMessageFriends?.();
+      openPendingConversation();
     });
     document.addEventListener("click", event => {
       const follow = event.target.closest("[data-follow-user]");
@@ -1173,6 +1190,7 @@
         else window.blogAuth?.openAuth?.();
       }
     });
+    openPendingConversation();
   }
 
   window.hydrateFollowButton = hydrateFollowButton;

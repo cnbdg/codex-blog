@@ -2,9 +2,11 @@
   "scripts": {
     "dev": "node tools/serve.mjs",
     "build": "node tools/build-assets.mjs",
-    "test": "node tools/browser-self-check.mjs"
+    "build:pages": "node tools/build-assets.mjs --refresh-content",
+    "test": "node tools/content-pages-self-check.mjs && node tools/browser-self-check.mjs"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "linkedom": "^0.18.13"
   }
 }

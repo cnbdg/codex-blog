@@ -53,8 +53,8 @@ function startStaticServer() {
       }
       const relative = decodeURIComponent(url.pathname === "/" ? "index.html" : url.pathname)
         .replace(/^[/\\]+/, "");
-      if (relative === "__self-check-index.html") {
-        const source = await readFile(resolve(root, "index.html"), "utf8");
+      if (relative === "__self-check-index.html" || relative === "thread.html" || /^threads\/\d+\.html$/.test(relative)) {
+        const source = await readFile(resolve(root, relative === "__self-check-index.html" ? "index.html" : relative), "utf8");
         let body = source
           .replace(/<link\b[^>]*href="https:\/\/fonts\.[^"]+"[^>]*>/g, "")
           .replace(/<script\s+src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/, "")
@@ -62,7 +62,13 @@ function startStaticServer() {
         if (process.env.SELF_CHECK_THEME === "dark") {
           body = body.replace("</head>", `<script>localStorage.setItem("yu-theme","dark")</script></head>`);
         }
-        response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        const headers = { "content-type": "text/html; charset=utf-8" };
+        if (url.searchParams.has("reader-check") || relative !== "__self-check-index.html") {
+          // Reader tests reload multiple pages. Do not let remote wallpapers
+          // delay iframe load events or permit accidental production requests.
+          headers["content-security-policy"] = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'";
+        }
+        response.writeHead(200, headers);
         response.end(body);
         return;
       }
@@ -201,12 +207,18 @@ async function main() {
   const origin = `http://127.0.0.1:${server.address().port}`;
   if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_SERVER ${origin}`);
   try {
+    const readerDesktop = await runChrome(`${origin}/tools/reader-self-check.html?mode=desktop`, 1440, 900);
+    const readerMobile = await runChrome(`${origin}/tools/reader-self-check.html?mode=mobile`, 500, 980);
+    if (process.env.SELF_CHECK_ONLY === "reader") {
+      console.log(JSON.stringify({ status: "PASS", readerDesktop, readerMobile }, null, 2));
+      return;
+    }
     const uxDesktop = await runChrome(`${origin}/tools/ux-self-check.html?mode=desktop`, 1440, 900);
     const uxMobile = await runChrome(`${origin}/tools/ux-self-check.html?mode=mobile`, 500, 980);
     const desktop = await runChrome(`${origin}/tools/browser-self-check.html?mode=desktop`, 1440, 900);
     const mobile = await runChrome(`${origin}/tools/browser-self-check.html?mode=mobile`, 500, 980);
     const authentication = await runChrome(`${origin}/tools/auth-self-check.html`, 1100, 800);
-    console.log(JSON.stringify({ status: "PASS", ownerSecurity, uxDesktop, uxMobile, desktop, mobile, authentication }, null, 2));
+    console.log(JSON.stringify({ status: "PASS", ownerSecurity, readerDesktop, readerMobile, uxDesktop, uxMobile, desktop, mobile, authentication }, null, 2));
   } finally {
     await new Promise(resolveClose => {
       server.close(resolveClose);
