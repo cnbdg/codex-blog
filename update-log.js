@@ -1,4 +1,15 @@
 window.LOCAL_UPDATE_POSTS = [{
+  permalink: "txt-reader-link",
+  title: "链接更新：加入 TXT 阅读器",
+  description: "在链接页面新增 TXT 阅读器入口，方便前往 read.cnbdg.co。",
+  type: "更新日志",
+  tags: ["站点链接", "阅读器"],
+  read_time: "1 分钟",
+  lead: "现在可以从博客的链接页面打开我的 TXT 阅读器。",
+  body: "## 新增阅读器入口\n\n在“链接”页面加入 [TXT 阅读器](https://read.cnbdg.co)，点击卡片会在新标签页打开，保留当前博客页面。",
+  status: "published",
+  published_at: "2026-09-08T20:00:50+08:00"
+}, {
   permalink: "home-published-articles-fix",
   title: "首页文章修复：新发布的博客按时间显示",
   description: "修复内置更新日志始终排在云端文章前面的问题，完善发布后的列表定位、返回首页刷新与网络失败重试。",
