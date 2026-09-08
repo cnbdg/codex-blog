@@ -33,7 +33,10 @@ async function run() {
     const form=$('#postEditor');
     const fill=(name,value)=>{form.elements[name].value=value;form.elements[name].dispatchEvent(new w.Event('input',{bubbles:true}));};
     fill('title','跨设备公开文章'); fill('description','匿名读者应该看到本文'); fill('type','测试'); fill('lead','设备之间不共享本机缓存。'); fill('body','## 云端正文\n\n这段正文来自另一台设备发布的文章。'); fill('status','published');
+    fill('published_at','2099-01-01T12:00:00');
     assert(form.checkValidity(),'publisher form is valid');
+    $('#filters [data-filter="更新日志"]').click();
+    $('#pagination [data-page-num="2"]').click();
     form.requestSubmit(); form.requestSubmit();
     assert(form.elements.body.disabled && form.getAttribute('aria-busy')==='true','pending save prevents editing a different version');
     await until(()=>$('#postPublicationStatus').dataset.state==='public','publication is confirmed using anonymous read');
@@ -41,6 +44,8 @@ async function run() {
     assert(form.elements.id.value==='900019','saved database ID is retained');
     assert($('#publishedPostUrl').value.includes('article.html?key=post-900019'),'new article exposes an immediate stable URL');
     assert(!$('#publicationTools').hidden && $('#viewPublishedPost').target==='_blank','published article can be opened separately');
+    await until(()=>$('#postList').textContent.includes('跨设备公开文章'),'publishing reveals the article in the home feed despite the previous page and filter');
+    assert($('#filters .active').dataset.filter==='全部','publication clears the old blog category');
     frame.style.width='390px'; await wait(100);
     assert(d.documentElement.scrollWidth<=w.innerWidth+1,'mobile publishing workspace fits the viewport');
     frame.style.width='100%';
@@ -72,6 +77,9 @@ async function run() {
   await load('/article.html?key=post-900020');
   await until(()=>frame.contentDocument.querySelector('#readerState').textContent.includes('文章暂时打不开'),'guest cannot read an unpublished draft');
   assert(frame.contentDocument.querySelector('#articleDialog').hidden,'private content is not rendered');
+  await load('/__self-check-index.html?publication-check');
+  await until(()=>frame.contentDocument.querySelector('#postList').textContent.includes('跨设备公开文章'),'fresh guest sees the published article on the first home page');
+  assert(!frame.contentDocument.querySelector('#postList').textContent.includes('仅管理员可见的草稿'),'home feed never renders private drafts');
   return {role,mode,checks};
 }
 (async()=>{let report;try{report={status:'pass',detail:await run()};}catch(error){report={status:'fail',detail:{role,mode,checks,error:error.stack||String(error)}};}document.querySelector('#result').textContent=JSON.stringify(report,null,2);fetch('/__self-check-report?run='+encodeURIComponent(params.get('run')||''),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(report)}).catch(()=>{});})();

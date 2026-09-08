@@ -3,7 +3,7 @@
     "dev": "node tools/serve.mjs",
     "build": "node tools/build-assets.mjs",
     "build:pages": "node tools/build-assets.mjs --refresh-content",
-    "test": "node tools/public-posts-self-check.mjs && node tools/content-pages-self-check.mjs && node tools/browser-self-check.mjs"
+    "test": "node tools/home-feed-self-check.mjs && node tools/public-posts-self-check.mjs && node tools/content-pages-self-check.mjs && node tools/browser-self-check.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "2.115.0",

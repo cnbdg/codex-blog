@@ -1,6 +1,6 @@
 const seedPosts=[{title:"社区更新：图片上传与桌面布局优化",description:"本次更新增加社区图片上传、优化桌面三栏布局，并持续完善社区互动体验。",type:"更新日志",tags:["更新","社区","功能"],read_time:"1 分钟",lead:"感谢大家使用 cnbdg 博客。本次更新重点改善社区发布和桌面端浏览体验。",body:"## 本次更新\n\n- 社区发帖支持上传图片。\n- 桌面端右侧区域重新规划。\n- 统一窗口、按钮和内容卡片风格。\n- 持续修复移动端体验。",status:"published",published_at:"2026-07-31"}];
 const localUpdatePosts=()=>Array.from(window.LOCAL_UPDATE_POSTS||[],(post,index)=>({...post,id:window.blogContentLinks?.localId(post,9000000+index)??9000000+index,key:window.blogContentLinks?.localKey(post),desc:post.description,date:post.published_at,read:post.read_time}));
-let posts=localUpdatePosts();if(!posts.length)posts=[...seedPosts];
+let posts=sortFeedPosts(localUpdatePosts());if(!posts.length)posts=[...seedPosts];
 let filter="全部",page=1;const perPage=4,$=s=>document.querySelector(s);
 const reduceMotion=matchMedia("(prefers-reduced-motion: reduce)");
 const compactPagination=matchMedia("(max-width: 520px)");
@@ -13,6 +13,11 @@ function normalizePostTimestamp(value){
  return text;
 }
 function postDate(value){return new Date(normalizePostTimestamp(value))}
+function sortFeedPosts(items){
+ return [...items].sort((a,b)=>
+  (postDate(b.date||b.published_at).getTime()||0)-(postDate(a.date||a.published_at).getTime()||0)
+  || (Number(b.dbId)||0)-(Number(a.dbId)||0));
+}
 function postTimeParts(value){
  const date=postDate(value);if(Number.isNaN(date.getTime()))return null;
  return Object.fromEntries(postTimeFormatter.formatToParts(date).filter(part=>part.type!=="literal").map(part=>[part.type,part.value]));
@@ -115,24 +120,48 @@ function render(){
 function gridAnimate(){if(reduceMotion.matches)return;$("#postList").classList.remove("is-refreshing");requestAnimationFrame(()=>$("#postList").classList.add("is-refreshing"))}
 render();
 let postRefreshRequest = 0;
-function applyPostRefresh(nextPosts) {
- if (JSON.stringify(posts) === JSON.stringify(nextPosts)) return;
+let lastPostRefresh = 0;
+function applyPostRefresh(nextPosts, revealId = null) {
+ const reveal = revealId != null && nextPosts.some(post => Number(post.dbId) === Number(revealId));
+ if (JSON.stringify(posts) === JSON.stringify(nextPosts) && !reveal) return;
  posts = nextPosts;
+ if(reveal){filter="全部";page=Math.floor(posts.findIndex(post=>Number(post.dbId)===Number(revealId))/perPage)+1}
  render(); // render clamps the page only if the new list is actually shorter.
 }
-async function refreshRemotePosts(){
+function showPostFeedError(failed){
+ let status=$("#postFeedStatus");
+ if(!status){
+  status=document.createElement("div");status.id="postFeedStatus";status.className="search-hint";
+  status.setAttribute("role","status");status.setAttribute("aria-live","polite");
+  $("#postList").before(status);
+ }
+ status.hidden=!failed;
+ status.innerHTML=failed?'云端文章暂时未能加载，当前列表可能不完整。<button type="button" class="text-button" data-retry-posts>重新加载</button>':"";
+}
+async function refreshRemotePosts({revealId=null}={}){
  const request = ++postRefreshRequest;
  const localLogs=localUpdatePosts();
- if(!window.blogAuth?.listPublishedPosts){applyPostRefresh(localLogs.length?localLogs:[...seedPosts]);return}
- const rows=await window.blogAuth.listPublishedPosts();
- if(request !== postRefreshRequest || rows===null)return;
+ if(!window.blogAuth?.listPublishedPosts){applyPostRefresh(sortFeedPosts(localLogs.length?localLogs:[...seedPosts]));return}
+ let rows;
+ try{rows=await window.blogAuth.listPublishedPosts()}catch{rows=null}
+ if(request !== postRefreshRequest)return;
+ showPostFeedError(!Array.isArray(rows));
+ if(!Array.isArray(rows))return;
+ lastPostRefresh=Date.now();
  const remote=rows.map(p=>({id:1000000+Number(p.id),dbId:p.id,title:p.title,desc:p.description,date:p.published_at,type:p.type,tags:p.tags||[],read:p.read_time||"5 分钟",lead:p.lead,body:p.body}));
- applyPostRefresh([...localLogs,...remote]);
+ // Bundled logs and database articles share one chronological feed.
+ applyPostRefresh(sortFeedPosts([...localLogs,...remote]),revealId);
 }
 window.refreshRemotePosts=refreshRemotePosts;
 window.addEventListener("blog-auth-change",refreshRemotePosts);
+window.addEventListener("blog-page-change",event=>{if(event.detail?.page==="home")return refreshRemotePosts()});
+window.addEventListener("online",()=>refreshRemotePosts());
+document.addEventListener("visibilitychange",()=>{
+ if(document.visibilityState==="visible"&&$("#home")?.classList.contains("active")&&Date.now()-lastPostRefresh>30000)refreshRemotePosts();
+});
 setTimeout(refreshRemotePosts,0);
 document.addEventListener("click",e=>{
+ if(e.target.closest("[data-retry-posts]"))refreshRemotePosts();
  const nav=e.target.closest("a[data-page],button[data-page]");if(nav&&!e.defaultPrevented){e.preventDefault();showPage(nav.dataset.page,true)}
  const post=e.target.closest(".post-item,.search-result");if(post?.dataset.id&&!e.target.closest("a,button"))openArticle(Number(post.dataset.id));
  const close=e.target.closest("[data-close]");if(close)closeDialogAnimated(document.getElementById(close.dataset.close));

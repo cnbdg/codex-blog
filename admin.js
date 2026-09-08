@@ -586,7 +586,9 @@
     setCloudState("online", saved.status === "published" ? "文章已发布" : "草稿已保存");
     window.toast(saved.status === "published" ? "文章已发布" : "草稿已保存");
     editPost(saved.id);
-    Promise.resolve().then(() => window.refreshRemotePosts?.()).catch(() => {});
+    Promise.resolve().then(() => window.refreshRemotePosts?.({
+      revealId: saved.status === "published" ? saved.id : null
+    })).catch(() => {});
   }
 
   function updateSaveButton() {
