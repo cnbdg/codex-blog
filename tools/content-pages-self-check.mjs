@@ -30,6 +30,9 @@ for (const [file, kind, nested] of expected) {
   assert(!document.querySelector(`dialog#${targetId}`), `${file}: target content still uses modal semantics`);
   assert(document.querySelector('link[rel="canonical"]')?.href?.startsWith("https://cnbdg.co/"), `${file}: canonical URL is missing`);
   const script = [...document.querySelectorAll("script[src]")].find(node => node.getAttribute("src").includes("app.min.js"));
+  const sdk = document.querySelector('script[src*="vendor/supabase.js"]');
+  assert(sdk?.getAttribute("src").startsWith(nested ? "../vendor/" : "./vendor/"), `${file}: login SDK must use a correctly prefixed first-party path`);
+  assert(!document.querySelector('script[src*="cdn.jsdelivr.net/npm/@supabase"]'), `${file}: reader startup still depends on an external SDK CDN`);
   const style = [...document.querySelectorAll("link[href]")].find(node => node.getAttribute("href").includes("style.min.css"));
   assert(script?.getAttribute("src").startsWith(nested ? "../" : "./"), `${file}: script path is incorrect`);
   assert(style?.getAttribute("href").startsWith(nested ? "../" : "./"), `${file}: stylesheet path is incorrect`);
@@ -53,6 +56,7 @@ assert(/schedule:[\s\S]*cron:\s*"3-59\/10 \* \* \* \*"/.test(workflow), "automat
 assert(/contents:\s*write/.test(workflow) && /pages:\s*write/.test(workflow) && /id-token:\s*write/.test(workflow), "workflow permissions are incomplete");
 assert(workflow.includes("npm run build:pages") && workflow.includes("actions/deploy-pages@v4"), "workflow does not build and deploy Pages");
 assert(workflow.includes("path: _site") && workflow.includes("touch _site/.nojekyll"), "workflow artifact is not isolated");
+assert(workflow.includes("cp -R articles threads admin vendor _site/"), "first-party login SDK is missing from the deployment artifact");
 assert(!/sb_secret_|service_role/i.test(workflow), "workflow must not contain a privileged database key");
 
 console.log(`Content pages PASS: ${articleFiles.length} articles, ${threadFiles.length} threads, 2 fallbacks, automatic deployment.`);

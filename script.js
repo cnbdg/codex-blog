@@ -133,7 +133,7 @@ window.refreshRemotePosts=refreshRemotePosts;
 window.addEventListener("blog-auth-change",refreshRemotePosts);
 setTimeout(refreshRemotePosts,0);
 document.addEventListener("click",e=>{
- const nav=e.target.closest("[data-page]");if(nav&&!e.defaultPrevented){e.preventDefault();showPage(nav.dataset.page,true)}
+ const nav=e.target.closest("a[data-page],button[data-page]");if(nav&&!e.defaultPrevented){e.preventDefault();showPage(nav.dataset.page,true)}
  const post=e.target.closest(".post-item,.search-result");if(post?.dataset.id&&!e.target.closest("a,button"))openArticle(Number(post.dataset.id));
  const close=e.target.closest("[data-close]");if(close)closeDialogAnimated(document.getElementById(close.dataset.close));
  const p=e.target.closest("[data-page-num]");if(p&&!p.disabled){const nextPage=Number(p.dataset.pageNum);if(nextPage===page)return;page=nextPage;render();const top=Math.max(0,$("#postList").getBoundingClientRect().top+scrollY-(document.querySelector(".topbar")?.offsetHeight||0)-16);scrollTo({top,behavior:reduceMotion.matches?"auto":"smooth"});requestAnimationFrame(()=>$("#pagination .pagination-page[aria-current=page]")?.focus({preventScroll:true}))}

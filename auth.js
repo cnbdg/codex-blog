@@ -71,6 +71,7 @@
   let adminCaptchaSolvedAt = 0;
   let adminCaptchaWidgetId = null;
   let adminCaptchaRenderRequest = 0;
+  let lastAdminPostsError = "";
 
   const messages = [
     [/invalid login credentials/i, "邮箱或密码不正确"],
@@ -1070,34 +1071,71 @@
     meter.querySelector("em").textContent = levels[score][2];
   }
 
+  async function readPublicPosts(id = null) {
+    if (!configured) return { rows: null, error: "文章服务未配置，请联系站长。" };
+    if (id !== null && (!Number.isSafeInteger(Number(id)) || Number(id) < 1)) return { rows: null, error: "文章编号无效。" };
+    const controller = new AbortController();
+    let timer;
+    try {
+      const url = new URL("/rest/v1/posts", config.supabaseUrl);
+      url.search = new URLSearchParams({
+        select: "id,title,description,type,tags,read_time,lead,body,published_at",
+        status: "eq.published",
+        ...(id === null ? { order: "published_at.desc" } : { id: `eq.${Number(id)}`, limit: "1" })
+      });
+      // Published content is public. Never make it wait for session recovery,
+      // an auth lock, or the publisher's local credentials. RLS still applies.
+      const request = (async () => {
+        const response = await fetch(url, {
+          headers: { apikey: config.supabasePublishableKey, Accept: "application/json" },
+          credentials: "omit", cache: "no-store", signal: controller.signal
+        });
+        if (!response.ok) return { rows: null, error: response.status === 401 || response.status === 403
+          ? "暂时没有公开读取权限，请联系站长检查文章访问设置。"
+          : "文章服务暂时不可用，请稍后重试。" };
+        const rows = await response.json();
+        if (!Array.isArray(rows)) return { rows: null, error: "文章服务返回异常，请稍后重试。" };
+        return { rows, error: "" };
+      })();
+      const timeout = new Promise(resolve => {
+        timer = setTimeout(() => {
+          resolve({ rows: null, error: "连接文章服务超时，请检查网络后重新加载。" });
+          controller.abort();
+        }, 12000);
+      });
+      return await Promise.race([request, timeout]);
+    } catch {
+      return { rows: null, error: "无法连接文章服务，请检查网络后重新加载。" };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function listPublishedPosts() {
-    if (!client) return null;
-    const { data, error } = await client.from("posts")
-      .select("id,title,description,type,tags,read_time,lead,body,published_at")
-      .eq("status", "published")
-      .order("published_at", { ascending: false });
-    if (error) return null;
-    return data || [];
+    const result = await readPublicPosts();
+    return result.rows;
   }
 
   async function listAllPosts() {
-    if (!client || !profile?.is_admin) return [];
+    lastAdminPostsError = "";
+    if (!client || !profile?.is_admin) {
+      lastAdminPostsError = "文章服务尚未就绪或管理员权限未确认";
+      return [];
+    }
     const { data, error } = await client.from("posts")
       .select("id,title,description,type,tags,read_time,lead,body,status,published_at,updated_at")
       .order("updated_at", { ascending: false });
     if (error) {
-      notify("文章加载失败：" + friendlyError(error));
+      lastAdminPostsError = friendlyError(error);
+      notify("文章加载失败：" + lastAdminPostsError);
       return [];
     }
     return data || [];
   }
 
   async function getPublishedPost(id) {
-    if (!client) return { row: null, error: "登录组件或网络尚未就绪，请刷新后重试。" };
-    const { data, error } = await client.from("posts")
-      .select("id,title,description,type,tags,read_time,lead,body,published_at")
-      .eq("id", id).eq("status", "published").maybeSingle();
-    return { row: data || null, error: error ? "文章暂时无法加载，请检查网络后重试。" : "" };
+    const result = await readPublicPosts(id);
+    return { row: result.rows?.[0] || null, error: result.error };
   }
 
   async function savePost(post, id = null) {
@@ -2029,6 +2067,7 @@
     get adminCaptchaReady() { return !captchaRequiredForAuth || Boolean(adminCaptchaToken && adminCaptchaSolvedAt && Date.now() - adminCaptchaSolvedAt <= captchaMaxAge); },
     get initialized() { return initialized; },
     get sessionPersistent() { return storagePersistent; },
+    get lastAdminPostsError() { return lastAdminPostsError; },
     get lastAuthEvent() { return lastAuthEvent; }
   };
   document.addEventListener("DOMContentLoaded", init, { once: true });

@@ -2,15 +2,16 @@
 body.reader-page {
   --reader-panel: color-mix(in srgb, var(--surface) 94%, transparent);
   --reader-ink: var(--text);
-  --reader-accent: #0875db;
-  --reader-action: #0875db;
+  --reader-accent: #246bce;
+  --reader-action: #246bce;
+  --reader-border: color-mix(in srgb, var(--line) 86%, transparent);
   margin: 0;
   min-height: 100dvh;
   background-attachment: fixed;
 }
 
 body.reader-page.has-wallpaper { --reader-panel: color-mix(in srgb, var(--surface) 56%, color-mix(in srgb, var(--surface) var(--panel-opacity), transparent)); }
-body.reader-page.dark { --reader-accent: #78bdff; }
+body.reader-page.dark { --reader-accent: #91c4ff; }
 body.reader-page > .topbar,
 body.reader-page > #app,
 body.reader-page > footer:not(.reader-footer),
@@ -26,7 +27,7 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
   align-items: center;
   justify-content: space-between;
   min-height: 68px;
-  padding: 0 max(22px, calc((100vw - 1240px) / 2));
+  padding: 0 max(24px, calc((100vw - 1200px) / 2));
   border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
   background: color-mix(in srgb, var(--surface) 82%, transparent);
   backdrop-filter: blur(18px) saturate(1.22);
@@ -42,9 +43,9 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
   height: 34px;
   place-items: center;
   border-radius: 11px;
-  background: linear-gradient(145deg, #1688f2, #56d5e5);
+  background: var(--reader-action);
   color: #fff;
-  box-shadow: 0 7px 18px rgba(22, 136, 242, .22);
+  box-shadow: 0 4px 12px rgba(36, 107, 206, .16);
   font-weight: 850;
 }
 .reader-brand strong { font-size: 15px; letter-spacing: -.02em; }
@@ -52,7 +53,7 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
 .reader-topbar nav { gap: 7px; }
 .reader-topbar nav a,
 .reader-topbar nav button {
-  min-height: 38px;
+  min-height: 44px;
   margin: 0;
   padding: 0 13px;
   border: 0;
@@ -71,19 +72,19 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
 .reader-topbar nav button:active { transform: scale(.97); }
 
 .reader-progress { position: fixed; z-index: 80; inset: 67px 0 auto; height: 2px; pointer-events: none; }
-.reader-progress i { display: block; width: 100%; height: 100%; transform: scaleX(0); transform-origin: 0 50%; background: linear-gradient(90deg, #1688f2, #56d5e5); will-change: transform; }
+.reader-progress i { display: block; width: 100%; height: 100%; transform: scaleX(0); transform-origin: 0 50%; background: var(--reader-accent); will-change: transform; }
 
 .reader-layout {
   display: grid;
-  grid-template-columns: minmax(0, 820px) minmax(240px, 290px);
-  gap: clamp(34px, 5vw, 70px);
-  width: min(1240px, calc(100% - 44px));
+  grid-template-columns: minmax(0, 1fr) 264px;
+  gap: 32px;
+  width: min(1200px, calc(100% - 48px));
   margin: 0 auto;
-  padding: 44px 0 82px;
+  padding: 32px 0 64px;
   outline: none;
 }
 .reader-column { min-width: 0; }
-.reader-breadcrumb { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 5px 18px; color: var(--muted); font-size: 12px; }
+.reader-breadcrumb { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 38px; margin: 0 4px 12px; color: var(--muted); font-size: 12px; }
 .reader-breadcrumb a { color: var(--reader-accent); font-weight: 720; text-decoration: none; }
 .reader-breadcrumb a:hover { text-decoration: underline; text-underline-offset: 4px; }
 
@@ -95,10 +96,10 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
   margin: 0;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
-  border-radius: 30px;
+  border-radius: 24px;
   background: var(--reader-panel);
   color: var(--reader-ink);
-  box-shadow: 0 24px 70px rgba(25, 42, 60, .09);
+  box-shadow: 0 12px 44px rgba(25, 42, 60, .055);
   overflow: clip;
   backdrop-filter: blur(18px) saturate(1.08);
 }
@@ -110,7 +111,7 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
 .reader-state a { display: inline-flex; align-items: center; min-height: 44px; margin-top: 24px; padding: 0 18px; border: 0; border-radius: 14px; background: var(--reader-action); color: #fff; font: inherit; font-weight: 750; text-decoration: none; cursor: pointer; }
 
 .reader-document > #articleContent,
-.reader-document > #threadContent { padding: clamp(34px, 7vw, 72px) clamp(24px, 8vw, 78px) clamp(38px, 7vw, 68px); }
+.reader-document > #threadContent { padding: clamp(28px, 4vw, 48px) clamp(24px, 4.5vw, 56px) 40px; }
 .reader-document .article-body { padding: 0; }
 .reader-document .article-meta {
   margin: 0 0 21px;
@@ -124,18 +125,19 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
   margin: 0;
   color: var(--reader-ink);
   font-family: ui-serif, "Noto Serif SC", "Songti SC", Georgia, serif;
-  font-size: clamp(34px, 5.6vw, 58px);
+  font-size: clamp(30px, 3.6vw, 44px);
   font-weight: 760;
-  letter-spacing: -.045em;
-  line-height: 1.14;
+  letter-spacing: -.025em;
+  line-height: 1.38;
+  overflow-wrap: anywhere;
   text-wrap: balance;
 }
 .reader-document .lead { max-width: 46em; margin: 24px 0 0; color: var(--muted); font-size: clamp(16px, 2vw, 19px); line-height: 1.82; }
-.reader-document .article-text { margin-top: 42px; color: var(--reader-ink); font-size: clamp(16px, 1.4vw, 18px); line-height: 1.95; overflow-wrap: anywhere; }
+.reader-document .article-text { margin-top: 34px; color: var(--reader-ink); font-size: 17px; line-height: 1.95; overflow-wrap: anywhere; }
 .reader-document .article-text > :first-child { margin-top: 0; }
 .reader-document .article-text h2,
 .reader-document .article-text h3 { scroll-margin-top: 94px; color: var(--reader-ink); text-wrap: balance; }
-.reader-document .article-text h2 { margin: 2.6em 0 .75em; font-size: clamp(25px, 3.2vw, 34px); letter-spacing: -.035em; line-height: 1.3; }
+.reader-document .article-text h2 { margin: 2.1em 0 .75em; font-size: clamp(23px, 2.4vw, 28px); letter-spacing: -.025em; line-height: 1.5; }
 .reader-document .article-text h3 { margin: 2.1em 0 .65em; font-size: 21px; }
 .reader-document .article-text p { margin: 1.1em 0; }
 .reader-document .article-text a { color: var(--reader-accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
@@ -147,7 +149,7 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
 
 .reader-document .comments {
   margin: 0;
-  padding: clamp(30px, 6vw, 58px) clamp(24px, 8vw, 78px) clamp(40px, 7vw, 68px);
+  padding: 32px clamp(24px, 4.5vw, 56px) 42px;
   border-top: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface) 62%, transparent);
 }
@@ -155,15 +157,15 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
 .reader-document .comment { font-size: 14px; }
 
 .reader-aside { min-width: 0; }
-.reader-guide { position: sticky; top: 96px; padding: 22px; border: 1px solid color-mix(in srgb, var(--line) 84%, transparent); border-radius: 22px; background: var(--reader-panel); box-shadow: 0 15px 44px rgba(25, 42, 60, .06); backdrop-filter: blur(16px); }
+.reader-guide { position: sticky; top: 92px; max-height: calc(100dvh - 116px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 22px 18px 16px; border: 1px solid var(--reader-border); border-radius: 20px; background: var(--reader-panel); backdrop-filter: blur(16px); }
 .reader-eyebrow { color: var(--reader-accent); font-size: 10px; font-weight: 850; letter-spacing: .18em; }
 .reader-guide h2 { margin: 9px 0 8px; font-size: 21px; letter-spacing: -.025em; }
 .reader-guide > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
-#readerToc { display: grid; gap: 4px; margin: 20px -8px 0; padding-top: 16px; border-top: 1px solid var(--line); }
-#readerToc a,
-#readerToc span { padding: 8px 10px; border-radius: 9px; color: var(--muted); font-size: 12px; line-height: 1.45; text-decoration: none; }
-#readerToc a:hover { background: var(--soft); color: var(--blue); }
-#readerToc .reader-toc-h3 { padding-left: 22px; font-size: 11px; }
+.reader-toc { display: grid; gap: 3px; margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.reader-toc a { display: flex; align-items: center; min-height: 40px; padding: 8px 10px; border-left: 2px solid transparent; border-radius: 0 9px 9px 0; color: var(--muted); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; text-decoration: none; }
+.reader-toc a:hover { background: var(--soft); color: var(--reader-accent); }
+.reader-toc a[aria-current="location"] { border-left-color: var(--reader-accent); background: color-mix(in srgb, var(--reader-accent) 9%, transparent); color: var(--reader-accent); font-weight: 700; }
+.reader-toc .reader-toc-h3 { padding-left: 22px; font-size: 12px; }
 .reader-guide-actions { display: grid; gap: 8px; margin-top: 18px; }
 .reader-guide-actions button,
 .reader-bottom-actions button,
@@ -175,12 +177,12 @@ body.reader-page > .mobile-bottom-nav { display: none !important; }
 .reader-guide-actions button:active,
 .reader-bottom-actions button:active,
 .reader-bottom-actions a:active { transform: scale(.98); }
-.reader-aside-note { margin: 18px 4px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+.reader-aside-note { margin: 18px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
 
 .reader-bottom-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; }
 .reader-bottom-actions button,
 .reader-bottom-actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding-inline: 17px; background: var(--reader-panel); backdrop-filter: blur(14px); }
-.reader-footer { display: flex !important; justify-content: space-between; width: min(1240px, calc(100% - 44px)); min-height: 0; margin: 0 auto; padding: 0 0 34px; border: 0; border-radius: 0; background: transparent !important; box-shadow: none; color: var(--muted); font-size: 12px; }
+.reader-footer { display: flex !important; justify-content: space-between; width: min(1200px, calc(100% - 48px)); min-height: 0; margin: 0 auto; padding: 0 0 34px; border: 0; border-radius: 0; background: transparent !important; box-shadow: none; color: var(--muted); font-size: 12px; }
 body.reader-page .reader-footer { background: transparent !important; backdrop-filter: none; }
 .reader-footer a { color: var(--reader-ink); font-weight: 760; text-decoration: none; }
 
@@ -191,6 +193,86 @@ body.reader-page .reader-footer { background: transparent !important; backdrop-f
 .reader-share-fallback[hidden], .reader-document[hidden], .reader-state[hidden] { display: none !important; }
 .reader-noscript { width: min(760px, calc(100% - 32px)); margin: 20px auto; color: var(--muted); text-align: center; }
 
+/* The reader has its own controls and type scale, independent of old dialogs. */
+.reader-skip { position: fixed; top: 8px; left: 16px; z-index: 300; padding: 12px 18px; border-radius: 12px; background: var(--surface); color: var(--reader-accent); transform: translateY(-160%); }
+.reader-skip:focus { transform: none; }
+body.reader-page :is(a,button,input,textarea,select):focus-visible { outline: 2px solid var(--reader-accent); outline-offset: 3px; }
+#readerMount, #readerDiscussion, .reader-document [data-floor], .reader-document .article-text :is(h2,h3) { scroll-margin-top: 94px; }
+.reader-topbar nav button[data-reader-account] { max-width: min(200px, 35vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--soft); color: var(--reader-ink); font-weight: 650; }
+.reader-topbar nav button[data-reader-theme] { display: grid; place-items: center; width: 44px; padding: 0; }
+.reader-topbar svg, .reader-guide-actions svg, .reader-tools-heading svg, .reader-mobile-actions svg { flex-shrink: 0; width: 20px; height: 20px; }
+.reader-guide-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.reader-guide { display: flex; flex-direction: column; }
+.reader-guide > :not(.reader-toc) { flex-shrink: 0; }
+.reader-guide .reader-toc { flex: 1 1 auto; min-height: 80px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.reader-guide-heading .reader-eyebrow { letter-spacing: .05em; }
+.reader-page-progress { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.reader-page-progress b { color: var(--reader-ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+.reader-guide #readerSummary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.reader-guide-actions button { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; }
+.reader-document .article-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; line-height: 1.8; }
+.reader-document .article-meta time { font-variant-numeric: tabular-nums; }
+.reader-document .article-text :is(ul,ol) { padding-left: 1.5em; }
+.reader-document .article-text li { margin: .5em 0; }
+.reader-document :is(.article-text,.reply-content) table { display: block; width: max-content; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.reader-document :is(.article-text,.reply-content) :is(th,td) { padding: 10px 14px; border: 1px solid var(--line); min-width: 88px; }
+.reader-document .forum-thread-body > h1 { margin: 26px 0 0; font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; font-size: clamp(26px, 3vw, 36px); font-weight: 750; line-height: 1.5; letter-spacing: -.025em; }
+.reader-document .thread-detail-author { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding-bottom: 22px; border-bottom: 1px solid var(--reader-border); }
+.reader-document .thread-detail-author > div { min-width: 0; gap: 6px; }
+.reader-document .thread-detail-author strong { font-size: 15px; overflow-wrap: anywhere; }
+.reader-document .thread-detail-author time { font-size: 12px; font-variant-numeric: tabular-nums; }
+.reader-document .thread-detail-author .social-actions { display: flex; flex-wrap: wrap; gap: 6px; width: auto; margin: 0; }
+.reader-document .thread-detail-author .social-actions button { min-height: 40px; padding: 0 12px; font-size: 12px; border-radius: 12px; }
+.reader-document .thread-floor-mark { float: none; position: static; display: inline-flex; margin: 0 0 16px; padding: 5px 10px; border: 1px solid var(--reader-border); border-radius: 8px; background: var(--soft); color: var(--muted); font-size: 11px; }
+.reader-document .thread-detail-flags:empty { display: none; }
+.reader-document .thread-detail-flags:not(:empty) { display: inline-flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px 8px; }
+.reader-document .forum-avatar { width: 44px; height: 44px; border: 1px solid var(--reader-border); font-size: 13px; }
+.reader-document .user-title { max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 10px; }
+.reader-document .thread-engagement { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--reader-border); }
+.reader-document .thread-engagement button { min-height: 42px; padding: 0 14px; border-radius: 12px; font-size: 13px; }
+.reader-document .thread-view-total { margin-left: auto; font-size: 12px; color: var(--muted); }
+.reader-document .thread-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding: 0; border: 0; }
+.reader-document .thread-actions button { min-height: 38px; font-size: 12px; background: transparent; }
+.reader-document .comment-heading { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+.reader-document .comment-heading h2 { margin: 5px 0 0; font-size: 23px; }
+.reader-document .comment-heading small { font-size: 10px; letter-spacing: .1em; color: var(--reader-accent); }
+.reader-document .comment-heading p { margin: 0; font-size: 12px; color: var(--muted); }
+.reader-document .comments :is(textarea,input) { border: 1px solid var(--reader-border); border-radius: 14px; background: color-mix(in srgb, var(--surface) 88%, transparent); font-size: 16px; }
+.reader-document .comments textarea { min-height: 118px; padding: 14px; line-height: 1.8; resize: vertical; }
+.reader-document .comments label { font-size: 13px; }
+.reader-document .form-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; }
+.reader-document .form-foot button { min-height: 44px; padding: 0 20px; border-radius: 12px; background: var(--reader-action); color: #fff; box-shadow: none; }
+.reader-document .comment-login-tip { padding: 16px; border-radius: 14px; background: var(--soft); font-size: 13px; line-height: 1.8; }
+.reader-document .comment-login-tip button { min-height: 44px; margin-left: 8px; }
+.reader-document .reply-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.reader-document .comment { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; padding: 22px 0; border-bottom: 1px solid var(--reader-border); }
+.reader-document .comment > div { min-width: 0; }
+.reader-document .comment .forum-avatar { width: 38px; height: 38px; }
+.reader-document .comment-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; }
+.reader-document .comment-head strong { font-size: 14px; overflow-wrap: anywhere; }
+.reader-document .comment-head time { font-size: 11px; color: var(--muted); }
+.reader-document .reply-author { min-width: 0; flex-wrap: wrap; gap: 5px; }
+.reader-document .reply-floor { flex-wrap: wrap; gap: 8px; margin-left: 0; }
+.reader-document .reply-floor b { font-size: 11px; }
+.reader-document :is(.reply-content,.comment p) { font-size: 15px; line-height: 1.85; overflow-wrap: anywhere; }
+.reader-document .reply-content :is(pre,img,video) { max-width: 100%; }
+.reader-document .reply-content pre { overflow: auto; }
+.reader-document .reply-context { display: block; margin: 9px 0; padding-left: 10px; border-left: 2px solid var(--reader-border); font-size: 12px; color: var(--muted); }
+.reader-document .reply-tools { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 8px; }
+.reader-document .reply-tools .social-actions { display: inline-flex; flex-wrap: wrap; width: auto; margin: 0; gap: 6px; }
+.reader-document .reply-tools button { min-height: 36px; margin: 0; padding: 0 10px; border-radius: 10px; font-size: 12px; }
+.reader-document .nested-replies { margin: 12px 0 0; padding: 0 0 0 14px; border-left: 2px solid color-mix(in srgb, var(--reader-accent) 25%, var(--line)); background: transparent; border-radius: 0; }
+.reader-document .nested-replies .nested-replies { padding-left: 0; border-left: 0; }
+.reader-document .is-nested { padding: 16px 0; }
+.reader-document .reply-toggle { min-height: 40px; margin-top: 6px; color: var(--reader-accent); font-size: 12px; }
+.reader-document .forum-empty { padding: 32px 16px; font-size: 13px; }
+.reader-mobile-actions { display: none; }
+body.reader-page #readerToolsDialog { width: min(500px, calc(100vw - 24px)); max-height: min(660px, calc(100dvh - 132px)); padding: 22px; border: 1px solid var(--reader-border); border-radius: 24px; background: var(--surface); color: var(--reader-ink); overflow-y: auto; overscroll-behavior: contain; }
+.reader-tools-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.reader-tools-heading h2 { margin: 6px 0 0; font-size: 23px; }
+.reader-tools-heading button { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--soft); color: var(--reader-ink); cursor: pointer; }
+#readerMobileToc a { min-height: 44px; font-size: 14px; }
+
 body.reader-page:not(.reader-ready) .reader-state h1::after { content: ""; display: inline-block; width: .62em; height: .62em; margin-left: .3em; border: 2px solid var(--line); border-top-color: var(--blue); border-radius: 50%; animation: readerSpin .7s linear infinite; }
 body.reader-page.reader-ready .reader-document { animation: readerEnter .42s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes readerSpin { to { transform: rotate(1turn); } }
@@ -199,8 +281,20 @@ body.reader-page.reader-ready .reader-document { animation: readerEnter .42s cub
 @media (max-width: 900px) {
   .reader-layout { display: block; width: min(780px, calc(100% - 28px)); padding-top: 26px; }
   .reader-aside { display: none; }
+  body.reader-page { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
   .reader-document, .reader-state { border-radius: 24px; }
   .reader-bottom-actions { margin-inline: 2px; }
+  .reader-mobile-actions { position: fixed; z-index: 70; bottom: max(10px, env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: min(420px, calc(100% - 24px)); padding: 6px; border: 1px solid var(--reader-border); border-radius: 22px; background: color-mix(in srgb, var(--surface) 95%, transparent); box-shadow: 0 6px 26px rgba(25, 42, 60, .13); backdrop-filter: blur(18px); }
+  .reader-mobile-actions button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 52px; padding: 4px; border: 0; border-radius: 16px; background: transparent; color: var(--reader-ink); font: inherit; font-size: 11px; cursor: pointer; touch-action: manipulation; }
+  .reader-mobile-actions button:active { background: var(--soft); color: var(--reader-accent); }
+  .reader-mobile-actions button[data-reader-comments] { background: var(--soft); color: var(--reader-accent); }
+  body.reader-page #readerToolsDialog { margin: auto; }
+  .reader-document .thread-detail-author { grid-template-columns: 44px minmax(0, 1fr); }
+  .reader-document .thread-detail-author .social-actions { grid-column: 2; }
+  .reader-document .thread-detail-author .social-actions button { min-height: 44px; }
+  .reader-document .reply-tools button, .reader-document .thread-engagement button { min-height: 44px; }
+  .reader-document .is-nested { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .reader-document .is-nested > .forum-avatar { display: none; }
 }
 
 @media (max-width: 560px) {
@@ -208,25 +302,28 @@ body.reader-page.reader-ready .reader-document { animation: readerEnter .42s cub
   .reader-brand > span { width: 31px; height: 31px; border-radius: 10px; }
   .reader-brand strong span,
   .reader-topbar nav > a { display: none; }
-  .reader-topbar nav button { min-height: 40px; padding-inline: 11px; }
-  .reader-topbar nav button[data-reader-theme] { font-size: 0; }
-  .reader-topbar nav button[data-reader-theme]::after { content: "◐"; font-size: 17px; }
+  .reader-topbar nav button { min-height: 44px; padding-inline: 10px; }
   .reader-progress { top: 57px; }
   .reader-layout { width: calc(100% - 20px); padding: 18px 0 54px; }
   .reader-breadcrumb { margin: 0 5px 12px; }
   .reader-document, .reader-state { border-radius: 20px; }
   .reader-document > #articleContent,
   .reader-document > #threadContent { padding: 30px 19px 36px; }
-  .reader-document .article-body > h1 { font-size: clamp(31px, 10vw, 42px); }
+  .reader-document .article-body > h1 { font-size: clamp(26px, 7.4vw, 32px); }
   .reader-document .lead { margin-top: 18px; font-size: 16px; }
   .reader-document .article-text { margin-top: 32px; font-size: 16px; line-height: 1.9; }
-  .reader-document .comments { padding: 28px 16px 38px; }
+  .reader-document .comments { padding: 26px 18px 32px; }
   .reader-bottom-actions { display: grid; grid-template-columns: 1fr; }
   .reader-footer { width: calc(100% - 28px); padding: 0 0 max(22px, env(safe-area-inset-bottom)); }
   .reader-footer span { display: none; }
-  .reader-share-fallback { right: 10px; bottom: max(10px, env(safe-area-inset-bottom)); width: calc(100% - 20px); }
+  .reader-share-fallback { right: 10px; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); width: calc(100% - 20px); }
   .reader-document .thread-detail-author { align-items: flex-start; }
   .reader-document .thread-engagement { gap: 7px; }
+  .reader-document .thread-view-total { flex-basis: 100%; margin: 4px 0 0; }
+  .reader-document .comment { grid-template-columns: 30px minmax(0, 1fr); gap: 9px; }
+  .reader-document .comment .forum-avatar { width: 30px; height: 30px; font-size: 10px; }
+  .reader-document .is-nested { grid-template-columns: minmax(0, 1fr); }
+  .reader-document .comment-heading p { flex-basis: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

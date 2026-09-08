@@ -4,7 +4,141 @@
   let records = [];
   let activeId = null;
   let selectedMember = null;
+  let publicationRequest = 0;
+  let listRequest = 0;
+  let savedPublication = null;
+  let saving = false;
+  let dirty = false;
+  let recoveryTimer = 0;
+  const recoveryPrefix = "cnbdg-admin-draft-v2";
   const postDateKey = value => (window.blogPostTime?.format?.(value) || String(value || "")).slice(0, 10);
+
+  function recoveryKey() {
+    return `${recoveryPrefix}:${window.blogAuth?.user?.id || "admin"}`;
+  }
+
+  function setCloudState(state, message) {
+    const target = $("#adminCloudState");
+    if (!target) return;
+    target.dataset.state = state;
+    const copy = target.querySelector("span");
+    if (copy) copy.textContent = message;
+  }
+
+  function setAdminView(view = "content", { focus = false } = {}) {
+    const workspace = $("#adminWorkspace");
+    if (!workspace || !window.blogAuth?.isAdmin) return;
+    const next = view === "governance" ? "governance" : "content";
+    workspace.dataset.adminView = next;
+    $("#adminContentArea").hidden = next !== "content";
+    $("#moderationPanel").hidden = next !== "governance";
+    document.querySelectorAll(".admin-quick-actions [data-admin-jump]").forEach(button => {
+      const selected = button.dataset.adminJump === (next === "content" ? "adminContentArea" : "moderationPanel");
+      if (selected) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
+    if (next === "governance") window.refreshGovernance?.();
+    if (focus) (next === "content" ? $("#adminContentArea") : $("#moderationPanel"))?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function setEditorPane(pane = "write") {
+    const workspace = $("#adminWorkspace");
+    if (!workspace) return;
+    workspace.dataset.editorPane = pane === "preview" ? "preview" : "write";
+    document.querySelectorAll(".editor-pane-switch [data-editor-pane]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.editorPane === workspace.dataset.editorPane)));
+  }
+
+  function updateEditorInsights() {
+    const source = $("#postBody")?.value || "";
+    const readable = source.replace(/```[\s\S]*?```/g, " ").replace(/[`*_>#\[\]()!~-]/g, " ").replace(/https?:\/\/\S+/g, " ");
+    const characters = [...readable].filter(char => !/\s/.test(char)).length;
+    if ($("#editorCharacterCount")) $("#editorCharacterCount").textContent = characters.toLocaleString("zh-CN");
+    if ($("#editorReadingTime")) $("#editorReadingTime").textContent = Math.max(1, Math.ceil(characters / 400));
+  }
+
+  function captureRecovery() {
+    const form = $("#postEditor");
+    if (!form) return null;
+    const fields = {};
+    ["id", "title", "published_at", "description", "type", "tags", "read_time", "lead", "body", "status"].forEach(name => { fields[name] = form.elements[name]?.value || ""; });
+    if (!fields.title.trim() && !fields.body.trim() && !fields.description.trim()) return null;
+    return { version: 2, activeId, savedAt: Date.now(), fields };
+  }
+
+  function saveRecovery() {
+    if (!dirty || !window.blogAuth?.isAdmin) return;
+    const snapshot = captureRecovery();
+    try {
+      if (snapshot) localStorage.setItem(recoveryKey(), JSON.stringify(snapshot));
+    } catch {}
+  }
+
+  function scheduleRecovery() {
+    clearTimeout(recoveryTimer);
+    recoveryTimer = setTimeout(saveRecovery, 450);
+  }
+
+  function readRecovery() {
+    try {
+      const snapshot = JSON.parse(localStorage.getItem(recoveryKey()) || "null");
+      return snapshot?.version === 2 && snapshot.fields ? snapshot : null;
+    } catch { return null; }
+  }
+
+  function clearRecovery() {
+    clearTimeout(recoveryTimer);
+    try { localStorage.removeItem(recoveryKey()); } catch {}
+    $("#adminDraftRecovery")?.setAttribute("hidden", "");
+  }
+
+  function updateRecoveryBanner() {
+    const panel = $("#adminDraftRecovery");
+    const snapshot = readRecovery();
+    if (!panel) return;
+    panel.hidden = !snapshot;
+    if (!snapshot) return;
+    const stamp = formatTime(snapshot.savedAt);
+    $("#adminDraftRecoveryTime").textContent = `${stamp} 自动保存在这台设备，可恢复后继续编辑。`;
+  }
+
+  function restoreRecovery() {
+    const snapshot = readRecovery();
+    if (!snapshot) return updateRecoveryBanner();
+    const form = $("#postEditor");
+    Object.entries(snapshot.fields).forEach(([name, value]) => { if (form.elements[name]) form.elements[name].value = value; });
+    activeId = snapshot.activeId == null ? null : Number(snapshot.activeId);
+    const cloudPost = records.find(post => Number(post.id) === activeId);
+    $("#editorMode").textContent = "RECOVERED DRAFT";
+    $("#editorTitle").textContent = activeId ? "恢复编辑内容" : "恢复未发布内容";
+    $("#deletePostBtn").hidden = !cloudPost;
+    $("#saveState").textContent = "已恢复本机内容，尚未保存到云端";
+    panelHide("#adminDraftRecovery");
+    dirty = true;
+    renderPreview();
+    showPublication(cloudPost || null);
+    ++publicationRequest;
+    publicationState("warning", "已恢复本机版本", "恢复的修改尚未保存到云端；确认内容后请保存，其他设备才会看到新版本。");
+    updateSaveButton();
+    setEditorPane("write");
+    form.elements.title.focus();
+  }
+
+  function panelHide(selector) {
+    const node = $(selector);
+    if (node) node.hidden = true;
+  }
+
+  function markEditorChanged() {
+    dirty = true;
+    $("#saveState").textContent = "有未保存修改 · 已在本机备份";
+    if (savedPublication) {
+      ++publicationRequest;
+      publicationState("warning", "当前修改尚未保存", "云端仍是上一次保存的版本。完成编辑后请保存，再检查公开访问。");
+    }
+    updateSaveButton();
+    updateEditorInsights();
+    scheduleRecovery();
+  }
 
   function adminError(message = "") {
     const target = $("#memberAdminError");
@@ -157,8 +291,7 @@
       const button = event.target.closest("[data-admin-jump]");
       if (!button) return;
       if (button.dataset.adminJump === "member") return openMemberAdmin();
-      const target = document.getElementById(button.dataset.adminJump);
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setAdminView(button.dataset.adminJump === "moderationPanel" ? "governance" : "content", { focus: true });
     });
     $("#governanceCleanupBtn")?.addEventListener("click", async () => {
       const form = $("#memberAdminForm");
@@ -182,7 +315,8 @@
     });
     $("#newPostBtn").addEventListener("click", () => {
       if (!window.blogAuth?.isAdmin) return window.blogAuth?.openAuth();
-      resetEditor();
+      setAdminView("content");
+      resetEditor(true);
       $("#postEditor input[name=title]").focus();
     });
     $("#adminGateAction").addEventListener("click", async () => {
@@ -195,19 +329,49 @@
       if (!window.blogAuth.isAdmin) window.toast("当前账号没有管理员权限，请确认登录的是“博客主”账号");
     });
     $("#refreshPostsBtn").addEventListener("click", loadPosts);
+    $("#adminPostSearch").addEventListener("input", renderList);
+    $("#adminPostFilter").addEventListener("change", renderList);
+    $("#checkPublishedPostBtn").addEventListener("click", () => verifyPublication(savedPublication));
+    $("#copyPublishedPostBtn").addEventListener("click", async () => {
+      const input = $("#publishedPostUrl");
+      try { await navigator.clipboard.writeText(input.value); window.toast?.("文章链接已复制，可发到其他设备打开"); }
+      catch { input.focus(); input.select(); window.toast?.("请复制已选中的文章地址"); }
+    });
     $("#importPostsBtn").addEventListener("click", importLegacyPosts);
-    $("#cancelEditBtn").addEventListener("click", resetEditor);
+    $("#cancelEditBtn").addEventListener("click", () => resetEditor(true));
+    $("#restoreAdminDraftBtn").addEventListener("click", restoreRecovery);
+    $("#discardAdminDraftBtn").addEventListener("click", () => { clearRecovery(); window.toast?.("已放弃这台设备上的备份"); });
     $("#deletePostBtn").addEventListener("click", removePost);
     $("#postEditor").addEventListener("submit", savePost);
+    $("#postEditor").addEventListener("input", event => {
+      if (event.target.closest("#postPublicationStatus")) return;
+      markEditorChanged();
+    });
+    $("#postEditor").elements.status.addEventListener("change", markEditorChanged);
     $("#postBody").addEventListener("input", renderPreview);
+    $(".editor-pane-switch").addEventListener("click", event => {
+      const button = event.target.closest("[data-editor-pane]");
+      if (button) setEditorPane(button.dataset.editorPane);
+    });
     $(".markdown-toolbar").addEventListener("click", handleMarkdownTool);
     $("#adminPostList").addEventListener("click", event => {
       const item = event.target.closest("[data-admin-id]");
       if (item) editPost(Number(item.dataset.adminId));
     });
     window.addEventListener("blog-auth-change", updateAccess);
+    window.addEventListener("keydown", event => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && $("#admin")?.classList.contains("active")) {
+        event.preventDefault();
+        if (!saving) $("#postEditor").requestSubmit();
+      }
+    });
+    window.addEventListener("beforeunload", event => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    });
+    resetEditor(false);
     updateAccess();
-    resetEditor();
   }
 
   async function importLegacyPosts() {
@@ -225,7 +389,7 @@
     button.textContent = `正在导入 ${pending.length} 篇…`;
     const imported = await window.blogAuth.importPosts(pending.map(post => ({ ...post, published_at: window.blogPostTime?.toStorage?.(post.published_at) || post.published_at })));
     button.disabled = false;
-    button.textContent = "⇣ 导入旧博客（18）";
+    button.textContent = "导入旧文章";
     if (!imported) return;
 
     window.toast(`成功导入 ${imported.length} 篇旧文章`);
@@ -238,6 +402,7 @@
     $("#markdownPreview").innerHTML = source
       ? window.blogMarkdown.render(source)
       : `<p class="preview-empty">预览会随着输入实时更新。</p>`;
+    updateEditorInsights();
   }
 
   function handleMarkdownTool(event) {
@@ -262,6 +427,7 @@
     editor.setRangeText(replacement, start, end, "select");
     editor.focus();
     renderPreview();
+    markEditorChanged();
   }
 
   async function updateAccess() {
@@ -271,31 +437,59 @@
     $("#newPostBtn").hidden = !admin;
     $("#importPostsBtn").hidden = !admin;
     $("#adminMemberBtn").hidden = !admin;
-    if (admin) syncOwnerProtectionUI();
+    if (admin) {
+      syncOwnerProtectionUI();
+      updateRecoveryBanner();
+      setAdminView($("#adminWorkspace").dataset.adminView || "content");
+      setCloudState("syncing", "正在同步云端");
+    }
     if (!admin) {
       const signedIn = Boolean(window.blogAuth?.user);
       $("#adminGateTitle").textContent = signedIn ? "尚未识别管理员权限" : "仅管理员可访问";
       $("#adminGateText").textContent = signedIn ? "当前账号已登录，可以重新读取一次权限。" : "请先使用“博客主”管理员账号登录。";
       $("#adminGateAction").textContent = signedIn ? "重新检查权限" : "登录";
+      setCloudState("idle", signedIn ? "等待权限确认" : "尚未登录");
     }
     if (admin) await loadPosts();
   }
 
   async function loadPosts() {
     if (!window.blogAuth?.isAdmin) return;
+    const request = ++listRequest;
+    setCloudState("syncing", "正在同步文章");
     $("#adminPostList").innerHTML = `<p class="search-hint">正在加载…</p>`;
-    records = await window.blogAuth.listAllPosts();
-    if ($("#adminPostCount")) $("#adminPostCount").textContent = records.length;
-    renderList();
+    try {
+      const rows = await window.blogAuth.listAllPosts();
+      if (request !== listRequest) return;
+      if (window.blogAuth.lastAdminPostsError) throw new Error(window.blogAuth.lastAdminPostsError);
+      records = rows || [];
+      renderList();
+      setCloudState("online", "云端已连接");
+    } catch (error) {
+      if (request === listRequest) {
+        $("#adminPostList").innerHTML = `<p class="search-hint">${escapeText(error?.message || "文章列表加载失败")}。请点击刷新重试，编辑中的内容不会清空。</p>`;
+        setCloudState("error", "同步失败，可重试");
+      }
+    }
   }
 
   function renderList() {
-    $("#adminPostList").innerHTML = records.length
-      ? records.map(post => `<article class="admin-list-item ${activeId===post.id?"active":""}" data-admin-id="${post.id}"><strong>${escapeText(post.title)}</strong><div><span class="status-badge ${post.status}">${post.status==="published"?"已发布":"草稿"}</span><time datetime="${escapeText(window.blogPostTime?.toAttribute?.(post.published_at) || post.published_at)}">${escapeText(window.blogPostTime?.format?.(post.published_at) || post.published_at)}</time></div></article>`).join("")
-      : `<p class="search-hint">还没有云端文章，点击“新建文章”开始写作。</p>`;
+    const query = $("#adminPostSearch").value.trim().toLocaleLowerCase("zh-CN");
+    const status = $("#adminPostFilter").value;
+    const rows = records.filter(post => (status === "all" || post.status === status)
+      && `${post.title} ${post.type}`.toLocaleLowerCase("zh-CN").includes(query));
+    const published = records.filter(post => post.status === "published").length;
+    if ($("#adminPostCount")) $("#adminPostCount").textContent = records.length;
+    if ($("#adminPublishedCount")) $("#adminPublishedCount").textContent = published;
+    if ($("#adminDraftCount")) $("#adminDraftCount").textContent = records.length - published;
+    $("#adminListSummary").textContent = `${published} 篇已发布 · ${records.length - published} 篇草稿 · 当前 ${rows.length} 篇`;
+    $("#adminPostList").innerHTML = rows.length
+      ? rows.map(post => `<button type="button" class="admin-list-item ${activeId===post.id?"active":""}" data-admin-id="${post.id}"${activeId===post.id?' aria-current="true"':""}><strong>${escapeText(post.title)}</strong><span class="admin-item-meta"><span class="status-badge ${post.status === "published" ? "published" : "draft"}">${post.status==="published"?"已发布":"草稿"}</span><time datetime="${escapeText(window.blogPostTime?.toAttribute?.(post.published_at) || post.published_at)}">${escapeText(window.blogPostTime?.format?.(post.published_at) || post.published_at)}</time></span></button>`).join("")
+      : `<p class="search-hint">${records.length ? "没有匹配的文章，可以清空搜索或切换状态。" : "还没有云端文章，点击“新建文章”开始写作。"}</p>`;
   }
 
   function editPost(id) {
+    if (saving) return;
     const post = records.find(item => item.id === id);
     if (!post) return;
     activeId = id;
@@ -314,13 +508,20 @@
     $("#editorTitle").textContent = "编辑文章";
     $("#deletePostBtn").hidden = false;
     $("#saveState").textContent = post.updated_at ? `上次保存 ${formatTime(post.updated_at)}` : "";
+    dirty = false;
     renderList();
     renderPreview();
+    showPublication(post);
+    updateSaveButton();
+    updateRecoveryBanner();
     if (innerWidth < 900) form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function resetEditor() {
+  function resetEditor(clearLocal = false) {
+    if (saving) return;
+    if (clearLocal) clearRecovery();
     activeId = null;
+    dirty = false;
     const form = $("#postEditor");
     form.reset();
     form.elements.id.value = "";
@@ -330,13 +531,17 @@
     $("#editorTitle").textContent = "新建文章";
     $("#deletePostBtn").hidden = true;
     $("#saveState").textContent = "";
+    showPublication(null);
+    updateSaveButton();
     renderList();
     renderPreview();
+    setEditorPane("write");
+    if (!clearLocal) updateRecoveryBanner();
   }
 
   async function savePost(event) {
     event.preventDefault();
-    if (!window.blogAuth?.isAdmin) return;
+    if (saving || !window.blogAuth?.isAdmin) return;
     const form = event.currentTarget;
     if (!form.checkValidity()) return form.reportValidity();
     const data = new FormData(form);
@@ -352,17 +557,81 @@
       published_at: window.blogPostTime?.toStorage?.(data.get("published_at")) || data.get("published_at")
     };
     const button = $("#savePostBtn");
-    button.disabled = true;
+    saving = true;
+    setCloudState("syncing", "正在保存到云端");
+    const controls = [...form.querySelectorAll("input, textarea, select, button")].map(control => [control, control.disabled]);
+    controls.forEach(([control]) => { control.disabled = true; });
+    form.setAttribute("aria-busy", "true");
     button.textContent = "正在保存…";
-    const saved = await window.blogAuth.savePost(payload, activeId);
-    button.disabled = false;
-    button.textContent = "保存文章";
-    if (!saved) return;
-    activeId = saved.id;
+    let saved;
+    try {
+      saved = await window.blogAuth.savePost(payload, activeId);
+      if (!saved) { $("#saveState").textContent = "保存未成功，编辑内容已保留"; setCloudState("error", "保存失败，可重试"); return; }
+    } catch {
+      $("#saveState").textContent = "保存失败，请检查网络。编辑内容已保留。";
+      setCloudState("error", "保存失败，可重试");
+      return;
+    } finally {
+      saving = false;
+      controls.forEach(([control, disabled]) => { control.disabled = disabled; });
+      form.removeAttribute("aria-busy");
+      updateSaveButton();
+    }
+    // Use the confirmed database row immediately. A slow list refresh must not
+    // hide a successful save or prevent sharing the new article.
+    ++listRequest;
+    records = [saved, ...records.filter(post => Number(post.id) !== Number(saved.id))];
+    dirty = false;
+    clearRecovery();
+    setCloudState("online", saved.status === "published" ? "文章已发布" : "草稿已保存");
     window.toast(saved.status === "published" ? "文章已发布" : "草稿已保存");
-    await loadPosts();
     editPost(saved.id);
-    await window.refreshRemotePosts?.();
+    Promise.resolve().then(() => window.refreshRemotePosts?.()).catch(() => {});
+  }
+
+  function updateSaveButton() {
+    if (saving) return;
+    $("#savePostBtn").textContent = $("#postEditor").elements.status.value === "published"
+      ? (activeId ? "保存并更新文章" : "发布文章") : "保存草稿";
+  }
+
+  function publicationState(state, title, description) {
+    $("#postPublicationStatus").dataset.state = state;
+    $("#publicationTitle").textContent = title;
+    $("#publicationDescription").textContent = description;
+  }
+
+  function showPublication(post) {
+    ++publicationRequest;
+    savedPublication = post;
+    $("#publicationTools").hidden = !post || post.status !== "published";
+    $("#checkPublishedPostBtn").disabled = false;
+    if (!post) return publicationState("new", "新文章尚未保存", "编辑内容尚未写入云端，其他设备暂时无法查看。");
+    if (post.status !== "published") return publicationState("draft", "草稿已保存到云端", "草稿仅管理员可见。选择公开发布并保存后，其他设备才可以阅读。");
+    const url = window.blogContentLinks.article({ dbId: post.id });
+    $("#publishedPostUrl").value = url;
+    $("#viewPublishedPost").href = url;
+    verifyPublication(post);
+  }
+
+  async function verifyPublication(post) {
+    if (!post || post.status !== "published") return;
+    const request = ++publicationRequest;
+    $("#checkPublishedPostBtn").disabled = true;
+    publicationState("checking", "文章已保存到云端", "正在以未登录身份检查公开正文，不使用这台设备的登录信息…");
+    try {
+      const result = await window.blogAuth.getPublishedPost(post.id);
+      if (request !== publicationRequest) return;
+      if (result?.row && result.row.body === post.body && result.row.title === post.title) {
+        publicationState("public", "公开访问检查通过", "未登录访客可读取当前正文。可以复制链接到其他设备打开，无需重新构建。");
+      } else {
+        publicationState("warning", "已保存，公开访问仍需检查", result?.error || "暂未读取到当前公开版本。请检查发布状态或稍后重新检查，不要重复新建文章。");
+      }
+    } catch {
+      if (request === publicationRequest) publicationState("warning", "已保存，暂时无法验证公开访问", "请检查网络后重新检查；这不代表云端保存失败，无需重复发布。");
+    } finally {
+      if (request === publicationRequest) $("#checkPublishedPostBtn").disabled = false;
+    }
   }
 
   async function removePost() {
@@ -375,7 +644,8 @@
     button.disabled = false;
     if (!removed) return;
     window.toast("文章已删除");
-    resetEditor();
+    resetEditor(true);
+    setCloudState("online", "文章已删除");
     await loadPosts();
     await window.refreshRemotePosts?.();
   }

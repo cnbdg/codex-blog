@@ -21,6 +21,7 @@ if (!chromePath) {
 }
 if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_CHROME=${chromePath}`);
 const reports = new Map();
+const publicationPosts = new Map();
 const mime = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
@@ -41,6 +42,22 @@ function startStaticServer() {
   const server = createServer(async (request, response) => {
     try {
       const url = new URL(request.url || "/", "http://127.0.0.1");
+      if (url.pathname === "/__publication-posts") {
+        if (request.method === "POST") {
+          let raw = "";
+          for await (const part of request) raw += part;
+          const value = JSON.parse(raw);
+          const id = value.id || (value.status === "draft" ? 900020 : 900019);
+          const saved = { ...value, id, updated_at: "2026-09-07T12:00:00Z" };
+          publicationPosts.set(id, saved);
+          response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(saved));
+          return;
+        }
+        const id = Number((url.searchParams.get("id") || "").replace(/^eq\./, ""));
+        const rows = [...publicationPosts.values()].filter(post => post.status === "published" && (!id || post.id === id));
+        response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(JSON.stringify(rows));
+        return;
+      }
       if (url.pathname === "/__self-check-report" && request.method === "POST") {
         let body = "";
         for await (const chunk of request) body += chunk;
@@ -53,17 +70,20 @@ function startStaticServer() {
       }
       const relative = decodeURIComponent(url.pathname === "/" ? "index.html" : url.pathname)
         .replace(/^[/\\]+/, "");
-      if (relative === "__self-check-index.html" || relative === "thread.html" || /^threads\/\d+\.html$/.test(relative)) {
+      if (relative === "__self-check-index.html" || relative === "thread.html" || relative === "article.html" || /^(?:threads\/\d+|articles\/post-\d+)\.html$/.test(relative)) {
         const source = await readFile(resolve(root, relative === "__self-check-index.html" ? "index.html" : relative), "utf8");
         let body = source
           .replace(/<link\b[^>]*href="https:\/\/fonts\.[^"]+"[^>]*>/g, "")
-          .replace(/<script\s+src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/, "")
+          .replace(/<script\s+src="(?:https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2|(?:\.\/|\.\.\/)?vendor\/supabase\.js[^\"]*)"><\/script>/, "")
           .replace(/(<script src="config\.js[^>]*><\/script>)/, `$1<script>if(window.BLOG_CONFIG?.wallpaperSettings){BLOG_CONFIG.wallpaperSettings.desktop=[];BLOG_CONFIG.wallpaperSettings.mobile=[];BLOG_CONFIG.wallpaperSettings.desktopDefault="";BLOG_CONFIG.wallpaperSettings.mobileDefault=""}</script>`);
+        // Exercise the real anonymous-fetch implementation against a local
+        // in-memory cloud. Never issue test reads/writes to production.
+        body = body.replace("</head>", `<script>(()=>{const nativeFetch=window.fetch.bind(window);window.fetch=(input,options)=>{const url=new URL(typeof input==='string'||input instanceof URL?input:input.url,location.href);if(url.pathname==='/rest/v1/posts')return nativeFetch('/__publication-posts'+url.search,options);return nativeFetch(input,options);};})();</script></head>`);
         if (process.env.SELF_CHECK_THEME === "dark") {
           body = body.replace("</head>", `<script>localStorage.setItem("yu-theme","dark")</script></head>`);
         }
         const headers = { "content-type": "text/html; charset=utf-8" };
-        if (url.searchParams.has("reader-check") || relative !== "__self-check-index.html") {
+        if (url.searchParams.has("reader-check") || url.searchParams.has("publication-check") || relative !== "__self-check-index.html") {
           // Reader tests reload multiple pages. Do not let remote wallpapers
           // delay iframe load events or permit accidental production requests.
           headers["content-security-policy"] = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'";
@@ -123,7 +143,7 @@ async function killProfileProcesses(profile) {
   await new Promise(resolveWait => setTimeout(resolveWait, 800));
 }
 
-async function runChrome(url, width, height, scale = 1) {
+async function runChrome(url, width, height, scale = 1, timeoutMs = 25000) {
   const runId = randomUUID();
   const testUrl = new URL(url);
   testUrl.searchParams.set("run", runId);
@@ -159,7 +179,7 @@ async function runChrome(url, width, height, scale = 1) {
     chrome.once("exit", code => resolveExit({ status: "browser-exit", code }));
   });
   let timeoutId;
-  const timeout = new Promise(resolveTimeout => { timeoutId = setTimeout(() => resolveTimeout({ status: "timeout" }), 25000); });
+  const timeout = new Promise(resolveTimeout => { timeoutId = setTimeout(() => resolveTimeout({ status: "timeout" }), timeoutMs); });
   // Chrome for Testing on Windows spawns a launcher process that exits with
   // code 0 right after handing off to the real browser process. Treating that
   // as "Chrome exited early" aborts every run, so the page report is the only
@@ -206,9 +226,21 @@ async function main() {
   const server = await startStaticServer();
   const origin = `http://127.0.0.1:${server.address().port}`;
   if (process.env.SELF_CHECK_DEBUG) console.error(`SELF_CHECK_SERVER ${origin}`);
+  if (process.argv.includes("--preview")) {
+    console.log(`Offline UI fixtures: ${origin}/tools/reader-self-check.html?mode=mobile`);
+    return;
+  }
   try {
-    const readerDesktop = await runChrome(`${origin}/tools/reader-self-check.html?mode=desktop`, 1440, 900);
-    const readerMobile = await runChrome(`${origin}/tools/reader-self-check.html?mode=mobile`, 500, 980);
+    const publisher = await runChrome(`${origin}/tools/article-publication-self-check.html?role=publisher`, 1440, 900);
+    const guestDesktop = await runChrome(`${origin}/tools/article-publication-self-check.html?role=guest`, 1440, 900);
+    const guestMobile = await runChrome(`${origin}/tools/article-publication-self-check.html?role=guest&mode=mobile`, 500, 980);
+    publicationPosts.clear();
+    if (process.env.SELF_CHECK_ONLY === "publication") {
+      console.log(JSON.stringify({ status: "PASS", publisher, guestDesktop, guestMobile }, null, 2));
+      return;
+    }
+    const readerDesktop = await runChrome(`${origin}/tools/reader-self-check.html?mode=desktop`, 1440, 900, 1, 45000);
+    const readerMobile = await runChrome(`${origin}/tools/reader-self-check.html?mode=mobile`, 500, 980, 1, 45000);
     if (process.env.SELF_CHECK_ONLY === "reader") {
       console.log(JSON.stringify({ status: "PASS", readerDesktop, readerMobile }, null, 2));
       return;
@@ -218,7 +250,7 @@ async function main() {
     const desktop = await runChrome(`${origin}/tools/browser-self-check.html?mode=desktop`, 1440, 900);
     const mobile = await runChrome(`${origin}/tools/browser-self-check.html?mode=mobile`, 500, 980);
     const authentication = await runChrome(`${origin}/tools/auth-self-check.html`, 1100, 800);
-    console.log(JSON.stringify({ status: "PASS", ownerSecurity, readerDesktop, readerMobile, uxDesktop, uxMobile, desktop, mobile, authentication }, null, 2));
+    console.log(JSON.stringify({ status: "PASS", ownerSecurity, publisher, guestDesktop, guestMobile, readerDesktop, readerMobile, uxDesktop, uxMobile, desktop, mobile, authentication }, null, 2));
   } finally {
     await new Promise(resolveClose => {
       server.close(resolveClose);

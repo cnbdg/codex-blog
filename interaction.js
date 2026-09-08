@@ -101,7 +101,9 @@
 
   function init() {
     const initial = location.hash.slice(1);
-    navigate(validPage(initial) ? initial : "home", { history: false, animate: false });
+    // The inline reader owns its initial route, including when its content
+    // becomes ready before this DOMContentLoaded listener runs.
+    if (!window.blogReader?.active) navigate(validPage(initial) ? initial : "home", { history: false, animate: false });
 
     window.addEventListener("popstate", () => { if (!window.blogReader?.active) navigate(location.hash.slice(1) || "home", { history: false }); });
     window.addEventListener("hashchange", () => { if (!window.blogReader?.active) navigate(location.hash.slice(1) || "home", { history: false }); });
@@ -111,7 +113,8 @@
     });
 
     document.addEventListener("click", event => {
-      const pageLink = event.target.closest("[data-page]");
+      // body[data-page] describes layout state; it is not a navigation action.
+      const pageLink = event.target.closest("a[data-page],button[data-page]");
       if (pageLink && validPage(pageLink.dataset.page)) {
         event.preventDefault();
         navigate(pageLink.dataset.page);

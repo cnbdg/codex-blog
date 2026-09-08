@@ -58,12 +58,23 @@ export async function prepareContentIndex(root, { refresh = false } = {}) {
 
 function renderReaderShell(kind, prefix) {
   const type = kind === "thread" ? "社区讨论" : "博客文章";
-  return `<header class="reader-topbar"><a class="reader-brand" href="${prefix}index.html#home"><span>C</span><strong>cnbdg<span>的博客</span></strong></a><nav aria-label="阅读页导航"><a href="${prefix}index.html#forum">社区</a><button type="button" data-reader-theme aria-label="切换深浅色">◐</button><button type="button" data-reader-account>登录 / 我的</button></nav></header>
+  const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${{
+    contents: '<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>',
+    discussion: '<path d="M20 11.5a8 8 0 0 1-8 8H5l-3 2v-10a9 9 0 0 1 18 0Z"/><path d="M7 10h8M7 14h5"/>',
+    share: '<path d="M12 15V3m-4 4 4-4 4 4M5 12v8h14v-8"/>',
+    display: '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="m3 16 5-5 5 5 3-3 5 5"/><circle cx="16" cy="9" r="1"/>',
+    theme: '<path d="M20 14a8 8 0 0 1-10-10 8.2 8.2 0 1 0 10 10Z"/>',
+    close: '<path d="m6 6 12 12M6 18 18 6"/>'
+  }[name]}</svg>`;
+  return `<a class="reader-skip" href="#readerMount">跳到正文</a>
+  <header class="reader-topbar"><a class="reader-brand" href="${prefix}index.html#home"><span>C</span><strong>cnbdg<span>的博客</span></strong></a><nav aria-label="阅读页导航"><a href="${prefix}index.html#forum">社区</a><button type="button" data-reader-theme aria-label="切换深浅色">${icon("theme")}</button><button type="button" data-reader-account>登录 / 我的</button></nav></header>
   <div class="reader-progress" aria-hidden="true"><i id="readerProgress"></i></div>
   <main id="readerMain" class="reader-layout" tabindex="-1"><div class="reader-column"><nav class="reader-breadcrumb" aria-label="当前位置"><a href="${prefix}index.html#${kind === "thread" ? "forum" : "home"}">← ${kind === "thread" ? "返回社区" : "全部文章"}</a><span>${type}</span></nav>
-  <div id="readerState" class="reader-state" role="status"><span class="reader-eyebrow">${kind === "thread" ? "COMMUNITY" : "CNBDG JOURNAL"}</span><h1>正在打开${type}…</h1><p>内容与讨论正在加载，请稍候。</p></div><div id="readerMount"></div>
+  <div id="readerState" class="reader-state" role="status"><span class="reader-eyebrow">${type}</span><h1>正在打开${type}…</h1><p>内容与讨论正在加载，请稍候。</p></div><div id="readerMount" tabindex="-1"></div>
   <div class="reader-bottom-actions"><button type="button" data-reader-share>分享这篇${kind === "thread" ? "帖子" : "文章"} ↗</button><a href="${prefix}index.html#${kind === "thread" ? "forum" : "home"}">继续发现更多内容 →</a></div></div>
-  <aside class="reader-aside" aria-label="阅读工具"><section class="reader-guide"><span class="reader-eyebrow">ON THIS PAGE</span><h2>阅读导航</h2><p id="readerSummary">慢慢读，也欢迎留下你的想法。</p><nav id="readerToc" aria-label="正文目录"></nav><div class="reader-guide-actions"><button type="button" data-reader-comments>参与讨论 ↓</button><button type="button" data-reader-share>分享链接 ↗</button><button type="button" data-reader-display>壁纸与显示</button></div></section><p class="reader-aside-note">相遇在这里，交流从一篇内容开始。</p></aside></main>
+  <aside class="reader-aside" aria-label="阅读工具"><section class="reader-guide"><div class="reader-guide-heading"><span class="reader-eyebrow">${type}</span><span class="reader-page-progress">已浏览 <b id="readerProgressText">0%</b></span></div><h2>本页目录</h2><p id="readerSummary">慢慢读，也欢迎留下你的想法。</p><nav id="readerToc" class="reader-toc" aria-label="正文目录"></nav><div class="reader-guide-actions"><button type="button" data-reader-comments>${icon("discussion")}参与讨论</button><button type="button" data-reader-share>${icon("share")}分享链接</button><button type="button" data-reader-display>${icon("display")}壁纸与显示</button></div><p class="reader-aside-note">尊重彼此，让每一次交流都有意义。</p></section></aside></main>
+  <nav class="reader-mobile-actions" aria-label="阅读快捷操作"><button type="button" data-reader-tools aria-haspopup="dialog" aria-controls="readerToolsDialog">${icon("contents")}<span>目录</span></button><button type="button" data-reader-comments>${icon("discussion")}<span>${kind === "thread" ? "回复" : "评论"}</span></button><button type="button" data-reader-share>${icon("share")}<span>分享</span></button><button type="button" data-reader-display>${icon("display")}<span>外观</span></button></nav>
+  <dialog id="readerToolsDialog" class="reader-tools-dialog" aria-labelledby="readerToolsTitle"><div class="reader-tools-heading"><div><span class="reader-eyebrow">${type}</span><h2 id="readerToolsTitle">本页目录</h2></div><button type="button" data-close="readerToolsDialog" aria-label="关闭目录">${icon("close")}</button></div><nav id="readerMobileToc" class="reader-toc" aria-label="移动端正文目录"></nav></dialog>
   <div id="readerShareFallback" class="reader-share-fallback" hidden><label>复制分享链接<input id="readerShareInput" readonly></label><button type="button" data-reader-share-close>完成</button></div>
   <footer class="reader-footer"><a href="${prefix}index.html#home">cnbdg的博客</a><span>记录生活，也连接彼此。</span></footer>`;
 }
@@ -115,6 +126,7 @@ export async function buildContentPages(root, html, prepared) {
     source.remove();
     document.getElementById("readerMount").append(section);
     section.querySelector(".comments").id = "readerDiscussion";
+    section.querySelector(".comments").setAttribute("tabindex", "-1");
     if (localPost) {
       const dateText = displayDate(localPost.published_at);
       section.querySelector("#articleContent").innerHTML = `<div class="article-body"><div class="article-meta">${escape(localPost.type)} · <time datetime="${escape(localPost.published_at)}">${escape(dateText)}</time> · ${escape(localPost.read_time)}</div><h1>${escape(title)}</h1><p class="lead">${escape(localPost.lead)}</p><div class="article-text">${sandbox.window.blogMarkdown.render(localPost.body)}</div></div>`;

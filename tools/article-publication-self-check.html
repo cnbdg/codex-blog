@@ -1,0 +1,78 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>文章跨设备发布测试</title>
+<style>html,body,iframe{width:100%;height:100%;margin:0;border:0}pre{position:fixed;inset:0;z-index:9;background:white;white-space:pre-wrap}pre:empty{display:none}</style></head>
+<body><pre id="result"></pre><iframe id="site" title="隔离设备"></iframe><script>
+const params = new URLSearchParams(location.search);
+const role = params.get('role');
+const mode = params.get('mode') || 'desktop';
+const frame = document.querySelector('#site');
+if (mode === 'mobile') { frame.style.width = '390px'; frame.style.height = '844px'; }
+const checks = [];
+const assert = (ok, name) => { if (!ok) throw Error(name); checks.push(name); };
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function until(check, label) { const start=Date.now(); while(!check() && Date.now()-start<4000) await wait(20); assert(check(),label); }
+const load = url => new Promise(resolve => { frame.addEventListener('load', resolve, {once:true}); frame.src=url; });
+async function run() {
+  if (role === 'publisher') {
+    await load('/__self-check-index.html?publication-check');
+    const w=frame.contentWindow, d=w.document, $=s=>d.querySelector(s);
+    w.localStorage.setItem('__publication_device', 'publisher-only');
+    let rows=[], calls=0;
+    const original=w.blogAuth;
+    w.blogAuth={...original,user:{id:'publisher-mock'},profile:{username:'站长',is_admin:true},isAdmin:true,
+      listAllPosts:async()=>rows,
+      savePost:async(payload,id)=>{
+        calls++;
+        if(payload.title==='模拟保存失败') throw Error('simulated write failure');
+        const response=await fetch('/__publication-posts',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,id})});
+        const saved=await response.json(); rows=[saved,...rows.filter(row=>row.id!==saved.id)]; return saved;
+      }
+    };
+    w.dispatchEvent(new w.CustomEvent('blog-auth-change'));
+    w.blogUI.navigate('admin',{animate:false,history:false});
+    $('#newPostBtn').click();
+    const form=$('#postEditor');
+    const fill=(name,value)=>{form.elements[name].value=value;form.elements[name].dispatchEvent(new w.Event('input',{bubbles:true}));};
+    fill('title','跨设备公开文章'); fill('description','匿名读者应该看到本文'); fill('type','测试'); fill('lead','设备之间不共享本机缓存。'); fill('body','## 云端正文\n\n这段正文来自另一台设备发布的文章。'); fill('status','published');
+    assert(form.checkValidity(),'publisher form is valid');
+    form.requestSubmit(); form.requestSubmit();
+    assert(form.elements.body.disabled && form.getAttribute('aria-busy')==='true','pending save prevents editing a different version');
+    await until(()=>$('#postPublicationStatus').dataset.state==='public','publication is confirmed using anonymous read');
+    assert(calls===1,'duplicate submit cannot publish twice');
+    assert(form.elements.id.value==='900019','saved database ID is retained');
+    assert($('#publishedPostUrl').value.includes('article.html?key=post-900019'),'new article exposes an immediate stable URL');
+    assert(!$('#publicationTools').hidden && $('#viewPublishedPost').target==='_blank','published article can be opened separately');
+    frame.style.width='390px'; await wait(100);
+    assert(d.documentElement.scrollWidth<=w.innerWidth+1,'mobile publishing workspace fits the viewport');
+    frame.style.width='100%';
+    $('#adminPostSearch').value='不匹配'; $('#adminPostSearch').dispatchEvent(new w.Event('input'));
+    assert(!$('#adminPostList [data-admin-id]'),'article search filters the list');
+    $('#adminPostSearch').value=''; $('#adminPostSearch').dispatchEvent(new w.Event('input'));
+    fill('body',form.elements.body.value+'\n\n本机恢复备份'); await wait(520);
+    assert([...Array(w.localStorage.length)].some((_,i)=>w.localStorage.key(i).startsWith('cnbdg-admin-draft-v2:')),'unsaved article is backed up on this device');
+    assert($('#editorCharacterCount').textContent!=='0' && Number($('#editorReadingTime').textContent)>=1,'editor reports useful reading statistics');
+    $('#newPostBtn').click();
+    assert(![...Array(w.localStorage.length)].some((_,i)=>w.localStorage.key(i).startsWith('cnbdg-admin-draft-v2:')),'starting a clean article discards the old local backup');
+    fill('title','模拟保存失败'); fill('description','草稿'); fill('type','测试'); fill('lead','草稿引导'); fill('body','不应因保存失败丢失的编辑内容');
+    form.requestSubmit(); await until(()=>!$('#savePostBtn').disabled,'failed save restores the button');
+    assert(form.elements.body.value.includes('不应') && $('#saveState').textContent.includes('失败'),'failed save preserves the editor and explains the failure');
+    fill('title','仅管理员可见的草稿'); form.requestSubmit();
+    await until(()=>$('#postPublicationStatus').dataset.state==='draft','draft save has an explicit private status');
+    assert($('#publicationTools').hidden,'draft never offers a public link');
+    $('#adminPostFilter').value='published'; $('#adminPostFilter').dispatchEvent(new w.Event('change'));
+    assert($('#adminPostList').textContent.includes('跨设备公开文章') && !$('#adminPostList').textContent.includes('仅管理员'),'status filter separates published articles and drafts');
+    return {role,checks};
+  }
+  await load('/article.html?key=post-900019');
+  const w=frame.contentWindow,d=w.document,$=s=>d.querySelector(s);
+  assert(!w.localStorage.getItem('__publication_device'),'new browser has none of the publisher storage');
+  assert(!w.blogAuth.user && !w.supabase,'guest has no login session or login SDK');
+  await until(()=>$('#articleContent').textContent.includes('这段正文来自另一台设备'),'fresh device renders published body through real public API code');
+  assert($('#readerState').hidden && !$('#articleDialog').hidden,'loading is replaced by article content');
+  assert(d.documentElement.scrollWidth<=w.innerWidth+1,'article fits the viewport');
+  await load('/article.html?key=post-900020');
+  await until(()=>frame.contentDocument.querySelector('#readerState').textContent.includes('文章暂时打不开'),'guest cannot read an unpublished draft');
+  assert(frame.contentDocument.querySelector('#articleDialog').hidden,'private content is not rendered');
+  return {role,mode,checks};
+}
+(async()=>{let report;try{report={status:'pass',detail:await run()};}catch(error){report={status:'fail',detail:{role,mode,checks,error:error.stack||String(error)}};}document.querySelector('#result').textContent=JSON.stringify(report,null,2);fetch('/__self-check-report?run='+encodeURIComponent(params.get('run')||''),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(report)}).catch(()=>{});})();
+</script></body></html>

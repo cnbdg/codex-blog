@@ -63,7 +63,7 @@ jobs:
         run: |
           git config user.name "cnbdg-content-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html app.min.js style.min.css content-index.js content-pages.json article.html thread.html articles threads
+          git add index.html app.min.js style.min.css content-index.js content-pages.json article.html thread.html articles threads vendor
           if ! git diff --cached --quiet; then
             git commit -m "chore: sync public content pages"
             git push origin HEAD:main
@@ -75,7 +75,7 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html app.min.js style.min.css article.html thread.html CNAME _site/
-          cp -R articles threads admin _site/
+          cp -R articles threads admin vendor _site/
           if [ -f d7851afb375735d6c318cd4d242a96de.txt ]; then
             cp d7851afb375735d6c318cd4d242a96de.txt _site/
           fi

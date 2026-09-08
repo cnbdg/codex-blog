@@ -25,22 +25,40 @@ const load = url => new Promise(resolve => {
 const title = '发布后立即打开的独立帖子';
 const content = '## 新帖正文\n\n无需等待列表刷新或静态构建。';
 const threadId = 987654321;
-async function renderMockReader() {
+const longUsername = '这是一个用于测试窄屏布局的超长用户昵称';
+const longTitle = '认真讨论友善交流的社区资深分享达人';
+const richContent = Array.from({ length: 24 }, (_, index) =>
+  `${index % 3 === 2 ? '###' : '##'} 第 ${index + 1} 节：分享生活中的发现\n\n` +
+  '认真记录生活，也倾听来自不同人的想法。独立阅读页应当清楚呈现正文、作者与讨论，长篇内容也可以顺畅阅读。'
+).join('\n\n');
+const mockReplies = [
+  { id: 701, floor_number: 2, parent_id: null, author_id: 'test-author', content: '楼主补充：欢迎在这里继续讨论。' },
+  { id: 702, floor_number: 3, parent_id: 701, author_id: 'test-friend', content: '楼中楼也应保持清晰。' },
+  { id: 703, floor_number: 4, parent_id: 702, author_id: 'test-author', content: '这是一条再次回复的嵌套内容。' },
+  { id: 704, floor_number: 5, parent_id: null, author_id: 'test-friend', content: '长昵称、长头衔和长字符串都不应该挤出屏幕：' + 'ReadableContent'.repeat(15) },
+  { id: 705, floor_number: 6, parent_id: null, author_id: 'test-reader', content: '最后一条独立楼层，用于检查评论工具。' }
+].map(reply => ({ ...reply, likes: 27, created_at: '2026-09-07T01:12:03Z',
+  profiles: { username: longUsername, display_title: longTitle, user_uid: 123456, is_admin: reply.author_id === 'test-author' } }));
+async function renderMockReader({ rich = false } = {}) {
   const w = frame.contentWindow;
   const d = w.document;
   assert(w.blogReader?.active && d.body.dataset.readerKind === 'thread', 'destination is the standalone reader');
   assert(d.querySelector('#threadDialog').tagName === 'SECTION', 'thread is inline, not a popup');
   let reads = 0;
+  // Keep social hydration local too: this fixture never needs a real session.
+  w.hydrateFollowButton = () => {};
   w.blogAuth = {
     ...w.blogAuth,
+    user: rich ? { id: 'test-reader' } : null,
     getForumThread: async id => {
       reads++;
       assert(id === threadId, 'reader requests the new post directly by ID');
-      return { row: { id, title, content, author_id: 'test-author', created_at: '2026-09-07T01:02:03Z',
-        profiles: { username: '测试用户', user_uid: 10 }, forum_replies: [{ count: 0 }] } };
+      return { row: { id, title, content: rich ? richContent : content, author_id: 'test-author', created_at: '2026-09-07T01:02:03Z',
+        profiles: { username: rich ? longUsername : '测试用户', display_title: rich ? longTitle : '', user_uid: 10 },
+        forum_replies: [{ count: rich ? mockReplies.length : 0 }] } };
     },
     listForumThreads: () => { throw new Error('reader must not depend on the feed'); },
-    listForumReplies: async () => [],
+    listForumReplies: async () => rich ? mockReplies : [],
     getForumThreadState: async () => ({ liked_reply_ids: [] }),
     recordForumView: async () => null
   };
@@ -48,6 +66,116 @@ async function renderMockReader() {
   assert(reads === 1 && d.querySelector('#threadContent h1')?.textContent === title, 'new post renders without a generated per-ID HTML file');
   assert(!d.querySelector('#threadDialog').hidden && d.querySelector('#readerState').hidden, 'body is visible and loading state is gone');
   assert(d.documentElement.scrollWidth <= w.innerWidth + 1, 'reader has no horizontal overflow');
+}
+async function checkReaderUi() {
+  await renderMockReader({ rich: true });
+  const w = frame.contentWindow;
+  const d = w.document;
+  const $ = selector => d.querySelector(selector);
+  const settle = () => new Promise(resolve => w.requestAnimationFrame(() => w.requestAnimationFrame(resolve)));
+  const visible = node => {
+    if (!node || !node.getClientRects().length) return false;
+    const rect = node.getBoundingClientRect();
+    return w.getComputedStyle(node).visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+  };
+  const noOverflow = label => assert(d.documentElement.scrollWidth <= w.innerWidth + 1, label);
+  const clickVisible = (node, label) => {
+    assert(visible(node), label + ': control is rendered');
+    const rect = node.getBoundingClientRect();
+    assert(rect.left >= 0 && rect.right <= w.innerWidth + 1 && rect.top >= 0 && rect.bottom <= w.innerHeight + 1, label + ': control is inside the viewport');
+    const hit = d.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    assert(hit === node || node.contains(hit), label + ': control is not blocked by an overlay');
+    node.click();
+  };
+  assert(d.querySelectorAll('#replyList .forum-reply').length === 5, 'real reply renderer includes root and nested floors');
+  assert($('#replyList .reply-author strong')?.textContent === longUsername && $('#replyList .user-title')?.textContent === longTitle, 'long display names and titles are exercised');
+  await settle();
+  for (const parent of [701, 702]) $(`[data-toggle-replies="${parent}"]`).click();
+  assert(!$('#replyList [data-replies-for="701"]').classList.contains('collapsed') && !$('#replyList [data-replies-for="702"]').classList.contains('collapsed'), 'nested replies expand through both levels');
+  await wait(50);
+  assert(w.location.pathname === '/thread.html', 'ordinary reader buttons do not navigate through body layout state');
+  assert(d.querySelectorAll('#readerToc a').length === 26 && d.querySelectorAll('#readerMobileToc a').length === 26, 'desktop and mobile directories include every section plus body and discussion');
+  assert([...d.querySelectorAll('#readerToc a')].every((link, index) => link.hash === d.querySelectorAll('#readerMobileToc a')[index].hash), 'both directories point to identical heading anchors');
+  for (const dark of [false, true]) {
+    if (d.body.classList.contains('dark') !== dark) $('[data-reader-theme]').click();
+    await until(() => d.body.classList.contains('dark') === dark, (dark ? 'dark' : 'light') + ' reader theme activates');
+    await settle();
+    noOverflow(mode + ': long discussion fits in ' + (dark ? 'dark' : 'light') + ' theme');
+    const toolbar = $('.reader-mobile-actions');
+    assert(Boolean(toolbar), 'mobile shortcut toolbar exists');
+    if (mode === 'mobile') {
+      assert(w.getComputedStyle(toolbar).position === 'fixed', 'mobile shortcuts remain fixed while reading');
+      const shortcuts = [...toolbar.querySelectorAll('button')];
+      assert(shortcuts.length === 4, 'mobile toolbar has four concise actions');
+      for (const attribute of ['tools', 'comments', 'share', 'display']) {
+        const button = toolbar.querySelector(`[data-reader-${attribute}]`);
+        const rect = button?.getBoundingClientRect();
+        assert(visible(button) && rect.width >= 44 && rect.height >= 44, 'mobile ' + attribute + ' action has a visible 44px touch target');
+      }
+      clickVisible(toolbar.querySelector('[data-reader-tools]'), 'open mobile directory');
+      await until(() => $('#readerToolsDialog')?.open, 'mobile directory opens as a native dialog');
+      assert($('#readerToolsDialog').tagName === 'DIALOG', 'directory participates in native modal focus management');
+      clickVisible($('#readerToolsDialog [data-close="readerToolsDialog"]'), 'close mobile directory');
+      await until(() => !$('#readerToolsDialog').open, 'mobile directory closes');
+      await settle();
+      clickVisible(toolbar.querySelector('[data-reader-tools]'), 'reopen mobile directory');
+      await until(() => $('#readerToolsDialog').open, 'mobile directory reopens');
+      const destination = $('#readerMobileToc a');
+      clickVisible(destination, 'choose a directory heading');
+      await until(() => !$('#readerToolsDialog').open && w.location.hash === destination.hash, 'choosing a section closes the directory and updates the anchor');
+      await wait(500);
+      clickVisible(toolbar.querySelector('[data-reader-display]'), 'open appearance settings');
+      await until(() => $('#wallpaperDialog').open, 'wallpaper settings stay reachable from the reader');
+      $('#wallpaperDialog [data-close="wallpaperDialog"]').click();
+      await until(() => !$('#wallpaperDialog').open, 'wallpaper settings close cleanly');
+      await settle();
+      let shared;
+      Object.defineProperty(w.navigator, 'share', { configurable: true, value: async data => { shared = data; } });
+      clickVisible(toolbar.querySelector('[data-reader-share]'), 'share mobile post');
+      await until(() => Boolean(shared), 'mobile share action invokes sharing');
+      assert(shared.url === location.origin + '/thread.html?id=' + threadId, 'mobile share preserves the stable thread URL');
+      clickVisible(toolbar.querySelector('[data-reader-comments]'), 'jump to discussion');
+      await until(() => $('#readerDiscussion').getBoundingClientRect().top < w.innerHeight, 'discussion action scrolls to the replies');
+      // Let smooth scrolling finish before testing unrelated update behavior.
+      await wait(500);
+    } else {
+      assert(w.getComputedStyle(toolbar).display === 'none', 'desktop does not show the mobile shortcut toolbar');
+      w.scrollTo({ top: 200, behavior: 'instant' });
+      await settle();
+      const guide = $('.reader-guide');
+      const rect = guide.getBoundingClientRect();
+      assert(rect.top >= 0 && rect.bottom <= w.innerHeight + 1, 'desktop reading guide stays inside the viewport');
+      assert(['auto', 'scroll'].includes(w.getComputedStyle(guide).overflowY), 'long desktop directory has its own vertical scrolling');
+    }
+  }
+  const reply = $('#replyForm textarea');
+  reply.focus({ preventScroll: true });
+  // A pre-existing hash must not pull the viewport back after a live update.
+  w.history.replaceState(null, '', '/thread.html?id=' + threadId + $('#readerToc a').hash);
+  w.scrollTo({ top: 420, behavior: 'instant' });
+  await settle();
+  const beforeScroll = w.scrollY;
+  w.blogReader.contentReady({ title, description: '后台更新后的内容摘要' });
+  await settle();
+  assert(d.activeElement === reply, 'background content updates preserve the active reply field');
+  assert(Math.abs(w.scrollY - beforeScroll) <= 1, 'background content updates do not repeat anchor scrolling');
+  assert(/^\d{1,3}%$/.test($('#readerProgressText')?.textContent.trim() || ''), 'reading progress includes a numeric percentage');
+  if (mode === 'mobile') {
+    frame.style.width = '320px';
+    await settle();
+    noOverflow('320px: long nicknames, titles and expanded nested replies do not widen the page');
+    for (const button of d.querySelectorAll('.reader-mobile-actions button')) {
+      const rect = button.getBoundingClientRect();
+      assert(visible(button) && rect.width >= 44 && rect.height >= 44 && rect.left >= 0 && rect.right <= w.innerWidth + 1, '320px: each shortcut remains visible with a usable touch target');
+    }
+    $('.reader-mobile-actions [data-reader-tools]').click();
+    await until(() => $('#readerToolsDialog').open, '320px: directory opens');
+    const rect = $('#readerToolsDialog').getBoundingClientRect();
+    assert(rect.left >= 0 && rect.right <= w.innerWidth + 1, '320px: directory dialog fits the screen');
+    $('#readerToolsDialog [data-close="readerToolsDialog"]').click();
+    await until(() => !$('#readerToolsDialog').open, '320px: directory closes');
+    frame.style.width = '390px';
+  }
 }
 async function run() {
   for (const scenario of ['pending-feed', 'missing-from-feed', 'edit']) {
@@ -83,7 +211,7 @@ async function run() {
     assert(saves === 2, 'repeated submit cannot create duplicate posts');
     finishSave({ id: threadId });
     await until(() => frame.contentWindow.location.pathname === '/thread.html', scenario + ': saved post opens immediately');
-    await until(() => Boolean(frame.contentWindow.blogReader), 'reader bundle loaded');
+    await until(() => frame.contentDocument.readyState === 'complete' && frame.contentWindow.blogReader?.ready, 'reader bundle and initialization completed');
     assert(feedCalls === callsBeforeSave, 'publishing does not refresh the feed');
     assert(new URL(frame.contentWindow.location.href).searchParams.get('id') === String(threadId), 'share URL identifies the saved post');
     if (scenario !== 'edit') assert(!frame.contentWindow.localStorage.getItem('cnbdg-forum-thread-draft-v2'), 'successful publication clears the draft');
@@ -106,6 +234,7 @@ async function run() {
       assert(shared?.url === location.origin + '/thread.html?id=' + threadId, 'public share link excludes transient query and auth hash');
     }
   }
+  await checkReaderUi();
   return { mode, checks };
 }
 (async () => {

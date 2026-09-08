@@ -6,7 +6,7 @@
   if (!active) return;
 
   const $ = selector => document.querySelector(selector);
-  const state = { ready: false, request: 0, title: "", description: "" };
+  const state = { ready: false, request: 0, title: "", description: "", positioned: false, interacted: false, sections: [], activeSection: "" };
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
   const expectedId = kind === "thread" ? "threadDialog" : "articleDialog";
   const prefix = document.querySelector('script[src*="app.min.js"]')?.src
@@ -80,17 +80,27 @@
       used.add(id);
       heading.id = id;
     });
-    const toc = $("#readerToc");
-    toc.innerHTML = headings.length
-      ? headings.map(heading => `<a class="reader-toc-${heading.tagName.toLowerCase()}" href="#${encodeURIComponent(heading.id)}">${escapeHtml(heading.textContent)}</a>`).join("")
-      : `<span>这篇内容适合顺序阅读</span>`;
-    toc.querySelectorAll("a").forEach(link => link.addEventListener("click", event => {
-      const target = document.getElementById(decodeURIComponent(link.hash.slice(1)));
-      if (!target) return;
-      event.preventDefault();
-      history.replaceState(history.state, "", link.hash);
-      target.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "start" });
-    }));
+    state.sections = [$("#readerMount"), ...headings, $("#readerDiscussion")];
+    const markup = `<a href="#readerMount">正文</a>`
+      + headings.map(heading => `<a class="reader-toc-${heading.tagName.toLowerCase()}" href="#${encodeURIComponent(heading.id)}">${escapeHtml(heading.textContent)}</a>`).join("")
+      + `<a href="#readerDiscussion">${kind === "thread" ? "楼层回复" : "读者评论"}</a>`;
+    [$("#readerToc"), $("#readerMobileToc")].forEach(toc => {
+      // Preserve focus in an open directory while likes/replies refresh.
+      if (toc.dataset.markup === markup) return;
+      toc.innerHTML = markup;
+      toc.dataset.markup = markup;
+    });
+    state.activeSection = "";
+  }
+
+  async function jumpToSection(target, hash) {
+    if (!target) return;
+    const dialog = $("#readerToolsDialog");
+    if (dialog.open) await window.blogUI.closeDialog(dialog);
+    if (hash) history.replaceState(history.state, "", hash);
+    target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth", block: "start" });
   }
 
   function normalizeContentUrls() {
@@ -115,10 +125,17 @@
     document.body.classList.add("reader-ready");
     state.ready = true;
     requestAnimationFrame(() => {
-      const hashTarget = document.getElementById(decodeHash());
-      if (hashTarget) {
-        hashTarget.scrollIntoView({ block: "start" });
-      } else $("#readerMain")?.focus({ preventScroll: true });
+      // Forum state arrives after its body. Never pull an active reader away
+      // from their reply, directory selection, or current scroll position.
+      if (!state.positioned) {
+        state.positioned = true;
+        if (!state.interacted && (!document.activeElement || document.activeElement === document.body)) {
+          const hashTarget = document.getElementById(decodeHash());
+          if (hashTarget) hashTarget.scrollIntoView({ block: "start" });
+          else $("#readerMain")?.focus({ preventScroll: true });
+        }
+      }
+      updateProgress();
     });
   }
 
@@ -162,6 +179,18 @@
     const max = document.documentElement.scrollHeight - innerHeight;
     const progress = max > 0 ? Math.min(1, Math.max(0, scrollY / max)) : 1;
     $("#readerProgress").style.transform = `scaleX(${progress})`;
+    $("#readerProgressText").textContent = `${Math.round(progress * 100)}%`;
+    let current = state.sections[0]?.id || "";
+    for (const section of state.sections) {
+      if (section.getBoundingClientRect().top <= 130) current = section.id;
+    }
+    if (current !== state.activeSection) {
+      state.activeSection = current;
+      document.querySelectorAll(".reader-toc a").forEach(link => {
+        if (link.hash === `#${encodeURIComponent(current)}`) link.setAttribute("aria-current", "location");
+        else link.removeAttribute("aria-current");
+      });
+    }
   }
 
   function syncAccount() {
@@ -208,9 +237,18 @@
   }
 
   function init() {
+    for (const type of ["pointerdown", "keydown", "wheel", "touchstart"]) {
+      document.addEventListener(type, () => { state.interacted = true; }, { once: true, passive: true, capture: true });
+    }
     document.addEventListener("click", event => {
+      const tocLink = event.target.closest(".reader-toc a");
+      if (tocLink) {
+        event.preventDefault();
+        jumpToSection(document.getElementById(decodeURIComponent(tocLink.hash.slice(1))), tocLink.hash);
+      }
+      if (event.target.closest("[data-reader-tools]")) window.blogUI?.openDialog($("#readerToolsDialog"));
       if (event.target.closest("[data-reader-share]")) share();
-      if (event.target.closest("[data-reader-comments]")) $("#readerDiscussion")?.scrollIntoView({ behavior: reduceMotion.matches ? "auto" : "smooth" });
+      if (event.target.closest("[data-reader-comments]")) jumpToSection($("#readerDiscussion"), "#readerDiscussion");
       if (event.target.closest("[data-reader-display]")) window.blogUI?.openDialog($("#wallpaperDialog"));
       if (event.target.closest("[data-reader-theme]")) $("#themeBtn")?.click();
       if (event.target.closest("[data-reader-account]")) window.blogAuth?.user ? navigate("profile") : window.blogAuth?.openAuth("login");
@@ -221,6 +259,9 @@
       if (!updateProgress.frame) updateProgress.frame = requestAnimationFrame(updateProgress);
     }, { passive: true });
     addEventListener("resize", updateProgress, { passive: true });
+    if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => {
+      if (!updateProgress.frame) updateProgress.frame = requestAnimationFrame(updateProgress);
+    }).observe($("#readerMount"));
     addEventListener("blog-auth-change", syncAccount);
     syncAccount();
     updateProgress();

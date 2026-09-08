@@ -375,13 +375,24 @@
               role: d.querySelector("#adminIdentityRole")?.textContent,
               protection: d.querySelector("#adminProtectionState")?.textContent,
               postCount: d.querySelector("#adminPostCount")?.textContent,
+              publishedCount: d.querySelector("#adminPublishedCount")?.textContent,
+              draftCount: d.querySelector("#adminDraftCount")?.textContent,
+              cloudState: d.querySelector("#adminCloudState")?.dataset.state,
+              activeView: d.querySelector("#adminWorkspace")?.dataset.adminView,
               quickActions: d.querySelectorAll(".admin-quick-actions button").length,
               commandColumns: getComputedStyle(commandCenter).gridTemplateColumns,
               commandWidth: Math.round(commandCenter?.getBoundingClientRect().width || 0)
             };
-            assert(adminUi.workspaceVisible && adminUi.title === "管理中心", "新版管理中心没有正确显示");
+            assert(adminUi.workspaceVisible && adminUi.title === "站长工作台", "新版站长工作台没有正确显示");
             assert(adminUi.identity === "Cnbdg" && adminUi.role === "永久站长" && adminUi.protection === "已锁定", "永久站长身份状态没有显示");
-            assert(adminUi.postCount === "1" && adminUi.quickActions === 3 && adminUi.commandWidth > 700, "管理概览或快捷入口布局异常");
+            assert(adminUi.postCount === "1" && adminUi.publishedCount === "1" && adminUi.draftCount === "0" && adminUi.cloudState === "online", "文章统计或云端状态没有更新");
+            assert(adminUi.quickActions === 3 && adminUi.commandWidth > 700 && adminUi.activeView === "content", "管理概览或快捷入口布局异常");
+            d.querySelector('[data-admin-jump="moderationPanel"]').click();
+            await wait(40);
+            assert(d.querySelector("#adminWorkspace").dataset.adminView === "governance" && getComputedStyle(d.querySelector("#moderationPanel")).display !== "none" && getComputedStyle(d.querySelector("#adminContentArea")).display === "none", "治理工作台切换失败");
+            d.querySelector('[data-admin-jump="adminContentArea"]').click();
+            await wait(40);
+            assert(d.querySelector("#adminWorkspace").dataset.adminView === "content" && getComputedStyle(d.querySelector("#adminContentArea")).display !== "none", "内容工作台切换失败");
             w.openMemberAdmin(1);
             await wait(100);
             const ownerDialog = {
@@ -589,9 +600,11 @@
             role: d.querySelector("#adminIdentityRole")?.textContent,
             commandWidth: Math.round(d.querySelector(".admin-command-center")?.getBoundingClientRect().width || 0),
             quickActions: d.querySelectorAll(".admin-quick-actions button").length,
+            paneSwitch: getComputedStyle(d.querySelector(".editor-pane-switch")).display,
             horizontalScroll: d.documentElement.scrollWidth - d.documentElement.clientWidth
           };
-          assert(mobileAdmin.workspaceVisible && mobileAdmin.title === "管理中心" && mobileAdmin.role === "永久站长", "手机管理中心身份或工作区异常");
+          assert(mobileAdmin.workspaceVisible && mobileAdmin.title === "站长工作台" && mobileAdmin.role === "永久站长", "手机管理中心身份或工作区异常");
+          assert(mobileAdmin.paneSwitch !== "none", "手机文章编辑区缺少编辑与预览切换");
           assert(mobileAdmin.commandWidth <= 380 && mobileAdmin.quickActions === 3 && mobileAdmin.horizontalScroll <= 1, `手机管理中心拥挤或横向溢出：${JSON.stringify(mobileAdmin)}`);
           w.openMemberAdmin(1);
           await wait(100);
