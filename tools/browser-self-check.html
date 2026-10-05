@@ -43,6 +43,7 @@
           await wait(900);
           const sanitizedMarkdown = w.blogMarkdown?.render('<p>安全测试<script>window.__xss=1<\/script><a href="javascript:alert(1)" onclick="alert(2)">链接</a><img src="x" onerror="alert(3)"><video src="https://example.test/clip.mp4" onerror="alert(4)" autoplay></video></p>') || "";
           const renderedVideoMarkdown = w.blogMarkdown?.render('@[视频](https://example.test/clip.mp4)') || "";
+          const renderedMathMarkdown = w.blogMarkdown?.render('速度：(v=\\frac{s}{t})\n\n\\[\nF\\_{\\text{浮}}=\\rho gV\\_{\\text{排}}\\times100%\n\\]\n\n`(x=1)`') || "";
           const baseChecks = {
             modulesLoaded: Boolean(w.blogUI && w.blogAuth && w.blogMarkdown && w.blogMotion),
             motionEnabled: d.documentElement.classList.contains("motion-enabled"),
@@ -52,6 +53,7 @@
             captchaConfigured: Boolean(w.BLOG_CONFIG?.captchaRequiredForAuth && w.BLOG_CONFIG?.turnstileSiteKey),
             markdownSanitized: !/script|javascript:|onerror|onclick|autoplay/i.test(sanitizedMarkdown) && !w.__xss,
             markdownVideo: /<video[^>]+controls[^>]+playsinline/i.test(renderedVideoMarkdown),
+            markdownMath: (renderedMathMarkdown.match(/<math\b/g) || []).length === 2 && /math-inline/.test(renderedMathMarkdown) && /math-display/.test(renderedMathMarkdown) && /<msub>/.test(renderedMathMarkdown) && /<code>\(x=1\)<\/code>/.test(renderedMathMarkdown),
             mediaInputs: /image\/gif/.test(d.querySelector("#messageImageInput")?.accept || "") && /video\/mp4/.test(d.querySelector("#messageImageInput")?.accept || "") && /video\/mp4/.test(d.querySelector('#threadForm input[type="file"]')?.accept || ""),
             unifiedIcons: d.querySelectorAll("#mainNav a .ui-icon").length === d.querySelectorAll("#mainNav a").length,
             noGoogleFontDependency: ![...d.querySelectorAll('link[href]')].some(link => /fonts\.(googleapis|gstatic)\.com/.test(link.href)),
@@ -69,6 +71,7 @@
           assert(baseChecks.modulesLoaded, "页面核心模块没有完整加载");
           assert(baseChecks.captchaConfigured, "登录人机验证配置缺失");
           assert(baseChecks.markdownSanitized && baseChecks.markdownVideo, "Markdown 视频渲染或安全清理未通过测试");
+          assert(baseChecks.markdownMath, `Markdown 数学公式渲染未通过测试：${renderedMathMarkdown}`);
           assert(baseChecks.mediaInputs, "社区或聊天媒体选择器没有接受 GIF/视频");
           assert(baseChecks.unifiedIcons, "主导航图标没有统一");
           assert(baseChecks.noGoogleFontDependency, "页面仍依赖 Google Fonts");
@@ -515,8 +518,8 @@
             heroRadius: parseFloat(getComputedStyle(d.querySelector("#home .social-hero")).borderTopLeftRadius) || 0
           };
           assert(mobileVisual.visibleHeaderActions === 3 && mobileVisual.headerFits, "手机顶部操作区拥挤或溢出");
-          assert(mobileVisual.minHeaderTarget >= 44 && mobileVisual.dockTarget >= 44 && mobileVisual.dockRadius >= 18, "手机触控区域或底栏圆角不符合要求");
-          assert(mobileVisual.liquidIndicator && mobileVisual.liquidWidth >= 44 && mobileVisual.liquidRadius >= 16, "iOS 液态底栏指示器没有正确显示");
+          assert(mobileVisual.minHeaderTarget >= 44 && mobileVisual.dockTarget >= 44 && mobileVisual.dockTarget <= 52 && mobileVisual.dockRadius >= 18, "手机触控区域或底栏比例不符合要求");
+          assert(mobileVisual.liquidIndicator && mobileVisual.liquidWidth >= 44 && mobileVisual.liquidWidth <= 50 && mobileVisual.liquidRadius >= 14, "iOS 液态底栏指示器没有正确显示或比例过大");
           assert(mobileVisual.heroTop >= mobileVisual.headerBottom && mobileVisual.heroRadius >= 18, "手机首屏标题被遮挡或卡片圆角丢失");
 
           const maxScroll = Math.max(0, d.documentElement.scrollHeight - w.innerHeight);

@@ -28,6 +28,7 @@ const sdkVersion = createHash("sha256").update(sdkSource).digest("hex").slice(0,
 await mkdir(join(root, "vendor"), { recursive: true });
 await writeFile(join(root, "vendor", "supabase.js"), sdkSource);
 await writeFile(join(root, "vendor", "SUPABASE-LICENSE.txt"), await readFile(join(root, "node_modules", "@supabase", "supabase-js", "LICENSE")));
+await writeFile(join(root, "vendor", "KATEX-LICENSE.txt"), await readFile(join(root, "node_modules", "katex", "LICENSE")));
 
 // Source order is load-order sensitive (files talk through window.* globals).
 // Keep this list in the same order index.html loads the scripts.
@@ -52,7 +53,7 @@ const jsSources = [
   "desktop-shell.js",
   "reader.js"
 ];
-const cssSources = ["style.css", "design-system.css", "motion-system.css", "reader.css", "admin-editor.css"];
+const cssSources = ["style.css", "design-system.css", "motion-system.css", "reader.css", "admin-editor.css", "ios-glass.css"];
 const localJs = jsSources.map(name => join(root, name));
 const localCss = cssSources.map(name => join(root, name));
 
@@ -63,7 +64,13 @@ if (!localJs.length || !localCss.length) {
 
 // Concatenate in declared order. Every file is a standalone IIFE that talks to
 // siblings via window.* globals, so plain concatenation preserves semantics.
-const jsSource = (await Promise.all(localJs.map(file => readFile(file, "utf8")))).join("\n;\n");
+const mathEngine = await build({
+  stdin: { contents: 'import katex from "katex"; window.katex = katex;', resolveDir: root, loader: "js" },
+  bundle: true, platform: "browser", format: "iife",
+  minify: true, legalComments: "none", write: false, target: ["es2020"]
+});
+const katexSource = mathEngine.outputFiles[0].text;
+const jsSource = [katexSource, ...(await Promise.all(localJs.map(file => readFile(file, "utf8"))))].join("\n;\n");
 const cssSource = (await Promise.all(localCss.map(file => readFile(file, "utf8")))).join("\n");
 
 let jsVersion;

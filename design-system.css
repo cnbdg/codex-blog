@@ -15,7 +15,16 @@
   --shadow: 0 18px 48px rgba(27, 45, 63, .08);
   --ui-canvas: #f4f7fa;
   --ui-border: #e3e9ef;
-  --ui-radius: 24px;
+  /* iOS-inspired radius scale: compact, control, surface, fully rounded. */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 999px;
+  --radius-control: var(--radius-md);
+  --radius-card: var(--radius-lg);
+  --radius-dialog: var(--radius-lg);
+  --radius-avatar: var(--radius-full);
+  --ui-radius: var(--radius-lg);
   --ui-shadow: 0 18px 48px rgba(27, 45, 63, .075);
   --ds-brand: #1688f2;
   --ds-brand-strong: #0875db;
@@ -23,13 +32,19 @@
   --ds-violet: #7669f7;
   --ds-positive: #18a667;
   --ds-focus: rgba(22, 136, 242, .28);
-  --ds-panel: rgba(255, 255, 255, .96);
+  --ds-panel: rgba(255, 255, 255, .86);
   --ds-panel-soft: #f8fafc;
   --ds-border: rgba(24, 45, 67, .10);
-  --ds-radius-xs: 10px;
-  --ds-radius-sm: 14px;
-  --ds-radius-md: 18px;
-  --ds-radius-lg: 24px;
+  --ds-radius-xs: var(--radius-sm);
+  --ds-radius-sm: var(--radius-md);
+  --ds-radius-md: var(--radius-lg);
+  --ds-radius-lg: var(--radius-lg);
+  --ios-glass-panel: rgba(255, 255, 255, .72);
+  --ios-glass-panel-strong: rgba(255, 255, 255, .86);
+  --ios-glass-control: rgba(255, 255, 255, .62);
+  --ios-glass-edge: rgba(255, 255, 255, .58);
+  --ios-glass-blur: 24px;
+  --ios-glass-shadow: 0 18px 52px rgba(27, 45, 63, .10), inset 0 1px 0 rgba(255, 255, 255, .58);
   --ds-shadow-sm: 0 7px 24px rgba(26, 43, 61, .055);
   --ds-shadow-md: 0 20px 58px rgba(26, 43, 61, .09);
   --ds-ease: cubic-bezier(.2, .8, .2, 1);
@@ -53,9 +68,14 @@ body.dark {
   --ds-cyan: #5bd9e8;
   --ds-violet: #9289ff;
   --ds-focus: rgba(74, 168, 255, .32);
-  --ds-panel: rgba(17, 22, 27, .96);
+  --ds-panel: rgba(17, 22, 27, .86);
   --ds-panel-soft: #0d1217;
   --ds-border: rgba(225, 238, 249, .12);
+  --ios-glass-panel: rgba(17, 22, 27, .72);
+  --ios-glass-panel-strong: rgba(17, 22, 27, .88);
+  --ios-glass-control: rgba(31, 39, 47, .70);
+  --ios-glass-edge: rgba(255, 255, 255, .14);
+  --ios-glass-shadow: 0 22px 62px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .10);
   --ds-shadow-sm: 0 9px 28px rgba(0, 0, 0, .25);
   --ds-shadow-md: 0 24px 68px rgba(0, 0, 0, .4);
 }

@@ -9,5 +9,8 @@
     "@supabase/supabase-js": "2.115.0",
     "esbuild": "^0.28.1",
     "linkedom": "^0.18.13"
+  },
+  "dependencies": {
+    "katex": "0.16.22"
   }
 }

@@ -1535,6 +1535,11 @@ body.has-wallpaper .blog-pagination{background:color-mix(in srgb,var(--surface) 
 /* Unified image, GIF and video surfaces. */
 .article-text img,.article-text video{display:block;max-width:100%;height:auto;margin:24px auto;border-radius:12px}
 .article-text video{width:min(100%,760px);max-height:min(72vh,680px);background:#090b10}
+.article-text .math-inline{display:inline-flex;max-width:100%;vertical-align:-.12em;line-height:1.2;white-space:nowrap}
+.article-text .math-display{display:block;max-width:100%;margin:1.25em 0;padding:.2em 0;text-align:center;overflow-x:auto;overflow-y:hidden;line-height:1.35;-webkit-overflow-scrolling:touch}
+.article-text .math-display>.katex{display:inline-block;min-width:max-content}
+.article-text :is(.math-inline,.math-display) math{font-size:1.08em}
+.article-text .math-fallback{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text)}
 .thread-image-preview img,.thread-image-preview video{width:74px;height:54px;object-fit:cover;border-radius:8px;background:#090b10}
 .message-media-preview-visual{width:52px;height:42px;overflow:hidden;border-radius:8px;background:#090b10}
 .message-media-preview-visual img,.message-media-preview-visual video{display:block;width:100%;height:100%;object-fit:cover}

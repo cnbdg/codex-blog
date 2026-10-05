@@ -1,0 +1,353 @@
+/*
+ * CNBDG iOS glass finish
+ * Final cascade layer for radius consistency and restrained translucent depth.
+ * Keep the numeric radius vocabulary limited to 10 / 16 / 24 / fully rounded.
+ */
+
+:root {
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 999px;
+}
+
+/* Major surfaces share one silhouette. Glass is applied only to outer layers. */
+.page-title,
+.social-hero,
+.forum-hero,
+.inner-title,
+.side-card,
+.post-list,
+.thread-list,
+.standalone-page-header,
+.standalone-list,
+.messages-shell,
+.profile-page-guest,
+.profile-page-user,
+.about-box,
+.apply-card,
+.project-grid article,
+.friend-grid > a,
+.admin-page .admin-header,
+.admin-page .admin-command-center,
+.admin-page .admin-panel,
+.admin-page .admin-gate,
+.moderation-panel,
+.reader-document,
+.reader-state,
+.reader-guide,
+dialog {
+  border-radius: var(--radius-lg) !important;
+}
+
+.side-card,
+.post-list,
+.thread-list,
+.standalone-page-header,
+.standalone-list,
+.messages-shell,
+.profile-page-guest,
+.profile-page-user,
+.about-box,
+.apply-card,
+.project-grid article,
+.friend-grid > a,
+.admin-page .admin-command-center,
+.admin-page .admin-panel,
+.admin-page .admin-gate,
+.moderation-panel {
+  border-color: var(--ds-border) !important;
+  background-color: var(--ios-glass-panel) !important;
+  box-shadow: var(--ios-glass-shadow);
+  -webkit-backdrop-filter: blur(var(--ios-glass-blur)) saturate(165%);
+  backdrop-filter: blur(var(--ios-glass-blur)) saturate(165%);
+}
+
+/* Connected feeds use one rounded frame; rows stay quiet and transparent. */
+.post-list,
+.thread-list,
+.standalone-list {
+  overflow: clip !important;
+}
+
+.post-list > .post-item,
+.thread-list > .thread-card,
+.standalone-list > .notification-item {
+  border-radius: 0 !important;
+  background-color: transparent;
+}
+
+/* Controls use the middle radius. Shape does not encode priority. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+textarea,
+select,
+.search-box,
+.primary-btn,
+.secondary-btn,
+.danger-button,
+.follow-button,
+.chat-button,
+.text-button,
+.dialog-actions button,
+.form-foot button,
+.admin-page button,
+.message-composer textarea,
+.message-inbox-tabs button,
+.reader-guide-actions button,
+.reader-bottom-actions button,
+.reader-bottom-actions a,
+.reader-document .thread-engagement button,
+.reader-document .reply-tools button,
+.reader-mobile-actions button,
+#searchResults .search-result,
+.wallpaper-item,
+.group-friend-item {
+  border-radius: var(--radius-md) !important;
+}
+
+/* Small objects are compact, but still soft enough to belong to the system. */
+.project-icon,
+.thread-image-preview,
+.message-image-preview,
+.message-media-preview-visual,
+.reply-target,
+.reply-context,
+.comment-login-tip,
+.case-review-summary,
+.moderation-guideline,
+.reader-document pre,
+.reader-document blockquote,
+.reader-skip,
+kbd,
+.tooltip {
+  border-radius: var(--radius-sm) !important;
+}
+
+/* Pills and true circles are the only fully rounded controls. */
+.avatar,
+.social-avatar,
+.forum-avatar,
+.profile-page-avatar,
+.profile-page-guest-avatar,
+.dm-peer-avatar,
+.group-avatar,
+.status-dot,
+.online-dot,
+.user-role,
+.user-title,
+.governance-badge,
+.profile-page-admin,
+.notification-badge,
+.unread-badge,
+.thread-flag,
+.thread-type,
+.post-item .type,
+.post-bottom .tags span,
+.personality-tags span,
+.friendship-points span,
+.tag-cloud button,
+.feed-head button,
+.forum-sort-tabs button,
+#messageLatestBtn,
+#toTop,
+#mobileComposeFab,
+.dialog-title > button,
+.article-close,
+.profile-dialog-close,
+.dm-close,
+.message-back,
+.messages-inbox-head > button,
+.message-friend-profile,
+.message-composer .dm-composer-foot button,
+.reader-tools-heading button {
+  border-radius: var(--radius-full) !important;
+}
+
+/* Media follows the control radius; its parent clips the moving pixels. */
+.article-text img,
+.article-text video,
+.reply-content img,
+.reply-content video,
+.message-media img,
+.message-media video,
+.thread-media img,
+.thread-media video,
+.reader-document .article-text img,
+.reader-document .article-text video {
+  border-radius: var(--radius-md) !important;
+}
+
+/* Desktop chrome is anchored to the screen; only interactive children float. */
+@media (min-width: 1024px) {
+  .topbar nav a,
+  .actions button,
+  .logo,
+  .desktop-context-search {
+    border-radius: var(--radius-md) !important;
+  }
+
+  .desktop-context-card,
+  .profile-page-side-card {
+    border-radius: var(--radius-lg) !important;
+  }
+}
+
+/* Mobile chrome behaves like an iOS dock and bottom sheet. */
+@media (max-width: 1023px) {
+  :root {
+    --mobile-dock: 62px;
+    --mobile-dock-reserve: calc(var(--mobile-dock) + max(20px, env(safe-area-inset-bottom)));
+  }
+
+  #mobileDock {
+    right: 14px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 14px;
+    width: auto;
+    max-width: 380px;
+    height: var(--mobile-dock);
+    margin-inline: auto;
+    padding: 5px 6px;
+    border-radius: 22px !important;
+    background: color-mix(in srgb, var(--ios-glass-panel-strong) 78%, transparent) !important;
+    border-color: var(--ios-glass-edge) !important;
+    box-shadow: 0 12px 34px rgba(12, 26, 40, .16), inset 0 1px 0 var(--ios-glass-edge) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(165%);
+    backdrop-filter: blur(22px) saturate(165%);
+  }
+
+  #mobileDock::after {
+    inset: 1px;
+    border: 0;
+    box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .24);
+  }
+
+  #mobileDock .liquid-glass-indicator {
+    top: 6px;
+    height: 50px;
+    border-radius: 16px;
+    box-shadow: 0 5px 16px color-mix(in srgb, var(--blue) 12%, transparent), inset 0 1px 0 rgba(255, 255, 255, .82);
+  }
+
+  #mobileDock button {
+    min-height: 50px;
+    height: 50px !important;
+    gap: 0;
+    border-radius: var(--radius-md) !important;
+  }
+
+  #mobileDock button span {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px !important;
+  }
+
+  #mobileDock button span .ui-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  #mobileDock button small {
+    max-height: 12px;
+    font-size: 8px;
+    line-height: 11px;
+  }
+
+  #mobileDock button.active span {
+    transform: translate3d(0, 0, 0) scale(1.06);
+  }
+
+  #mobileDock.is-minimized {
+    opacity: .94;
+    transform: translate3d(0, 5px, 0) scale(.96, .92);
+  }
+
+  #mobileDock.is-minimized button span,
+  #mobileDock.is-minimized button.active span {
+    transform: translate3d(0, 0, 0) scale(1.04);
+  }
+
+  .page,
+  .forum-page,
+  .admin-page,
+  footer {
+    padding-bottom: var(--mobile-dock-reserve);
+  }
+
+  .topbar nav a {
+    border-radius: var(--radius-md) !important;
+  }
+
+  dialog,
+  body.reader-page #readerToolsDialog {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+  }
+
+  .reader-mobile-actions {
+    border-radius: var(--radius-lg) !important;
+    background: color-mix(in srgb, var(--ios-glass-panel-strong) 90%, transparent) !important;
+    border-color: var(--ios-glass-edge) !important;
+    -webkit-backdrop-filter: blur(26px) saturate(180%);
+    backdrop-filter: blur(26px) saturate(180%);
+  }
+}
+
+@media (max-width: 360px) {
+  #mobileDock {
+    right: 10px;
+    left: 10px;
+  }
+}
+
+/* Immediate physical feedback without introducing long, decorative motion. */
+@media (hover: hover) and (pointer: fine) {
+  .primary-btn:hover,
+  .secondary-btn:hover,
+  .follow-button:hover,
+  .chat-button:hover {
+    border-color: color-mix(in srgb, var(--blue) 28%, var(--ds-border));
+  }
+}
+
+:is(.primary-btn, .secondary-btn, .danger-button, .follow-button, .chat-button, #mobileDock button):active {
+  transform: scale(.98);
+  transition-duration: 100ms;
+}
+
+/* Accessibility fallbacks keep hierarchy and focus when glass or motion is reduced. */
+@media (prefers-reduced-transparency: reduce) {
+  .side-card,
+  .post-list,
+  .thread-list,
+  .standalone-list,
+  .messages-shell,
+  .profile-page-guest,
+  .profile-page-user,
+  .admin-page .admin-panel,
+  dialog,
+  #mobileDock,
+  .reader-mobile-actions {
+    background: var(--surface) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .side-card,
+  .post-list,
+  .thread-list,
+  .standalone-list,
+  .messages-shell,
+  dialog,
+  #mobileDock {
+    border-color: currentColor !important;
+    background: var(--surface) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.primary-btn, .secondary-btn, .danger-button, .follow-button, .chat-button, #mobileDock button):active {
+    transform: none;
+  }
+}

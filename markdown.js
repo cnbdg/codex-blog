@@ -69,12 +69,60 @@
     return template.innerHTML;
   }
 
-  function inline(source) {
+  function renderMath(tex, displayMode) {
+    // Older editor content escaped underscores for Markdown and wrote percent
+    // signs literally. Once the expression is isolated, normalize both to TeX.
+    const source = String(tex || "").trim()
+      .replace(/\\_(?=[A-Za-z0-9{])/g, "_")
+      .replace(/(^|[^\\])%/g, "$1\\%");
+    if (!source) return "";
+    if (!window.katex?.renderToString) {
+      const tag = displayMode ? "div" : "span";
+      return `<${tag} class="math-${displayMode ? "display" : "inline"} math-fallback">${escapeHtml(source)}</${tag}>`;
+    }
+    const math = window.katex.renderToString(source, {
+      displayMode,
+      output: "mathml",
+      throwOnError: false,
+      strict: "ignore",
+      trust: false,
+      maxSize: 20,
+      maxExpand: 1000
+    });
+    const tag = displayMode ? "div" : "span";
+    return `<${tag} class="math-${displayMode ? "display" : "inline"}" role="math">${math}</${tag}>`;
+  }
+
+  function stashMath(tokens, tex, displayMode = false) {
+    const index = tokens.push(renderMath(tex, displayMode)) - 1;
+    return `BLOGMATHTOKEN${index}END`;
+  }
+
+  function restoreMath(html, tokens) {
+    return String(html || "").replace(/BLOGMATHTOKEN(\d+)END/g, (_, index) => tokens[Number(index)] || "");
+  }
+
+  function looksLikeLegacyMath(value) {
+    const text = String(value || "").trim();
+    return Boolean(text) && (
+      /\\[A-Za-z]+/.test(text) ||
+      /(?:^|[^<>])(?:=|≤|≥|≈|≠|→|⇒)(?:[^<>]|$)/.test(text) ||
+      /^[A-Za-z](?:_[A-Za-z0-9{}]+)?$/.test(text)
+    );
+  }
+
+  function inline(source, mathTokens = []) {
     const tokens = [];
     let text = String(source || "").replace(/`([^`\n]+)`/g, (_, code) => {
       tokens.push(`<code>${escapeHtml(code)}</code>`);
       return `\u0000${tokens.length - 1}\u0000`;
     });
+    // Standard TeX delimiters plus the legacy parenthesized notation already
+    // used by older posts in the editor (for example: (v=\\frac{s}{t})).
+    text = text
+      .replace(/\\\((.+?)\\\)/g, (_, tex) => stashMath(mathTokens, tex))
+      .replace(/(^|[^\\$])\$([^$\n]+?)\$/g, (_, prefix, tex) => `${prefix}${stashMath(mathTokens, tex)}`)
+      .replace(/\(([^()\n]+)\)/g, (match, tex) => looksLikeLegacyMath(tex) ? stashMath(mathTokens, tex) : match);
     text = escapeHtml(text)
       .replace(/@\[(?:视频|video)\]\((\S+?)(?:\s+["'].*?["'])?\)/gi, (_, url) => {
         const src = safeMediaUrl(url);
@@ -99,7 +147,7 @@
     return text.replace(/\u0000(\d+)\u0000/g, (_, index) => tokens[Number(index)]);
   }
 
-  function renderBlocks(markdown) {
+  function renderBlocks(markdown, mathTokens = []) {
     const lines = String(markdown || "").replace(/\r\n?/g, "\n").split("\n");
     const output = [];
     let index = 0;
@@ -122,10 +170,31 @@
         continue;
       }
 
+      const displayStart = line.match(/^\s*(\$\$|\\\[)\s*(.*?)\s*$/) ||
+        (/^\s*\[\s*$/.test(line) ? [line, "[", ""] : null);
+      if (displayStart) {
+        const opener = displayStart[1];
+        const closer = opener === "$$" ? "$$" : opener === "\\[" ? "\\]" : "]";
+        const formula = [];
+        let first = displayStart[2];
+        if (first && first.endsWith(closer)) {
+          first = first.slice(0, -closer.length).trim();
+          if (first) formula.push(first);
+          index++;
+        } else {
+          if (first) formula.push(first);
+          index++;
+          while (index < lines.length && lines[index].trim() !== closer) formula.push(lines[index++]);
+          if (index < lines.length) index++;
+        }
+        output.push(stashMath(mathTokens, formula.join("\n"), true));
+        continue;
+      }
+
       const heading = line.match(/^(#{1,6})\s+(.+)$/);
       if (heading) {
         const level = heading[1].length;
-        output.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+        output.push(`<h${level}>${inline(heading[2], mathTokens)}</h${level}>`);
         index++;
         continue;
       }
@@ -141,7 +210,7 @@
         while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
           quote.push(lines[index++].replace(/^\s*>\s?/, ""));
         }
-        output.push(`<blockquote>${renderBlocks(quote.join("\n"))}</blockquote>`);
+        output.push(`<blockquote>${renderBlocks(quote.join("\n"), mathTokens)}</blockquote>`);
         continue;
       }
 
@@ -153,7 +222,7 @@
         while (index < lines.length) {
           const match = lines[index].match(/^\s*(?:([-+*])|(\d+)\.)\s+(.+)$/);
           if (!match || Boolean(match[2]) !== ordered) break;
-          items.push(`<li>${inline(match[3])}</li>`);
+          items.push(`<li>${inline(match[3], mathTokens)}</li>`);
           index++;
         }
         output.push(`<${tag}>${items.join("")}</${tag}>`);
@@ -166,7 +235,7 @@
         index += 2;
         const rows = [];
         while (index < lines.length && /\|/.test(lines[index]) && lines[index].trim()) rows.push(split(lines[index++]));
-        output.push(`<table><thead><tr>${headers.map(cell => `<th>${inline(cell)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map((_, cell) => `<td>${inline(row[cell] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+        output.push(`<table><thead><tr>${headers.map(cell => `<th>${inline(cell, mathTokens)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map((_, cell) => `<td>${inline(row[cell] || "", mathTokens)}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
         continue;
       }
 
@@ -177,7 +246,7 @@
         paragraph.push(lines[index].trim());
         index++;
       }
-      output.push(`<p>${inline(paragraph.join("\n"))}</p>`);
+      output.push(`<p>${inline(paragraph.join("\n"), mathTokens)}</p>`);
     }
     return output.join("");
   }
@@ -185,8 +254,10 @@
   function render(source) {
     const value = String(source || "").trim();
     if (!value) return "";
+    const mathTokens = [];
     const legacyHtml = /<(?:p|h[1-6]|div|pre|blockquote|ul|ol|table)\b/i.test(value);
-    return sanitize(legacyHtml ? value : renderBlocks(value));
+    const html = legacyHtml ? value : renderBlocks(value, mathTokens);
+    return restoreMath(sanitize(html), mathTokens);
   }
 
   window.blogMarkdown = { render, sanitize, escapeHtml };

@@ -151,8 +151,11 @@
 
     const dockRect = dock.getBoundingClientRect();
     const buttonRect = button.getBoundingClientRect();
-    const x = Math.round((buttonRect.left - dockRect.left + 2) * 100) / 100;
-    const width = Math.max(44, Math.round((buttonRect.width - 4) * 100) / 100);
+    // Keep the touch target generous while letting the visible glass selection
+    // stay compact. Filling the whole grid column made the active tab look like
+    // a second, oversized dock on narrow iPhones.
+    const width = Math.max(44, Math.min(48, Math.round((buttonRect.width - 8) * 100) / 100));
+    const x = Math.round((buttonRect.left - dockRect.left + ((buttonRect.width - width) / 2)) * 100) / 100;
     // Capture the visible indicator before changing its layout destination.
     const presentation = getComputedStyle(indicator).transform;
     const previousX = dockState.x;
